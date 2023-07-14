@@ -1,12 +1,24 @@
 # Custom Components
-Custom components which hasn't made it to the source (yet)
+My collection of components for ESPHome
+
+To use these components, use the [external components](https://esphome.io/components/external_components.html).
+
+Example:
+```yaml
+external_components:
+  - source:
+      type: git
+      url: https://github.com/slimcdk/custom_components
+    components: [ keypad ]
+```
+
 
 
 ### Disclaimer
 None of these components are required to be documented in any way.
 
 
-### The list
+### Other components
 - [https://github.com/slimcdk/esphome](https://github.com/slimcdk/esphome)
   - [as560x](https://github.com/slimcdk/esphome/tree/as560x-support/esphome/components/as560x)
   - [usb_pd_sink](https://github.com/slimcdk/esphome/tree/usb-pd-support/esphome/components/usb_pd_sink)
