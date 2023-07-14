@@ -14,14 +14,8 @@ void TMC2209::dump_config() {
   LOG_STEPPER(this);
 }
 
-void IRAM_ATTR TMCDiagStore::gpio_intr(TMCDiagStore *arg) { arg->triggered = arg->pin_.digital_read(); }
-
 void TMC2209::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209...");
-
-  if (this->diag_pin_ != nullptr) {
-    this->diag_.setup(this->diag_pin_);
-  }
 
   // this->write_str("Hello from UART");
 
@@ -37,12 +31,6 @@ void TMC2209::setup() {
 }
 
 void TMC2209::loop() {
-  const bool diag_active = this->diag_.active();
-  if (diag_active) {
-    ESP_LOGI(TAG, "Diag state %i", diag_active);
-    this->diag_.reset();
-  }
-
   bool at_target = this->has_reached_target();
   if (this->enable_pin_ != nullptr) {
     bool sleep_rising_edge = !enable_pin_state_ & !at_target;
