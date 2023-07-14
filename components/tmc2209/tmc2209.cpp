@@ -14,13 +14,35 @@ void TMC2209::dump_config() {
   LOG_STEPPER(this);
 }
 
+void IRAM_ATTR TMCDiagStore::gpio_intr(TMCDiagStore *arg) { arg->triggered = arg->pin_.digital_read(); }
+
 void TMC2209::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209...");
 
-  this->write_str("Hello from UART");
+  if (this->diag_pin_ != nullptr) {
+    this->diag_.setup(this->diag_pin_);
+  }
+
+  // this->write_str("Hello from UART");
+
+  // uint8_t address = TMC2209_IOIN;
+  // this->read_byte(&address);
+
+  // std::vector<uint32_t> IOIN;
+  // int available_data = this->available();
+  // if (available_data >= 13) {
+  //   IOIN.resize(available_data);
+  //   this->read_array(IOIN.data(), available_data);
+  // }
 }
 
 void TMC2209::loop() {
+  const bool diag_active = this->diag_.active();
+  if (diag_active) {
+    ESP_LOGI(TAG, "Diag state %i", diag_active);
+    this->diag_.reset();
+  }
+
   bool at_target = this->has_reached_target();
   if (this->enable_pin_ != nullptr) {
     bool sleep_rising_edge = !enable_pin_state_ & !at_target;

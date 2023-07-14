@@ -19,6 +19,7 @@ TMC2209SetupAction = tmc_ns.class_("TMC2209SetupAction", automation.Action)
 CONF_MICROSTEPS = "microsteps"
 CONF_TCOOL_THRESHOLD = "tcool_threshold"
 CONF_STALL_THRESHOLD = "stall_threshold"
+CONF_DIAG_PIN = "diag_pin"
 
 CONFIG_SCHEMA = (
     stepper.STEPPER_SCHEMA.extend(
@@ -27,6 +28,7 @@ CONFIG_SCHEMA = (
             cv.Required(CONF_STEP_PIN): pins.gpio_output_pin_schema,
             cv.Required(CONF_DIR_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_ENABLE_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
         },
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -81,5 +83,9 @@ async def to_code(config):
     cg.add(var.set_direction_pin(dir_pin))
 
     if CONF_ENABLE_PIN in config:
-        sleep_pin = await cg.gpio_pin_expression(config[CONF_ENABLE_PIN])
-        cg.add(var.set_enable_pin(sleep_pin))
+        enable_pin = await cg.gpio_pin_expression(config[CONF_ENABLE_PIN])
+        cg.add(var.set_enable_pin(enable_pin))
+
+    if CONF_DIAG_PIN in config:
+        diag_pin = await cg.gpio_pin_expression(config[CONF_DIAG_PIN])
+        cg.add(var.set_diag_pin(diag_pin))
