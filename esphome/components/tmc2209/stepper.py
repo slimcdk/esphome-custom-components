@@ -1,10 +1,9 @@
-from esphome import automation, pins
+from esphome import pins
 from esphome.components import stepper
 from esphome.components import uart
 import esphome.config_validation as cv
 import esphome.codegen as cg
 from esphome.const import (
-    CONF_CURRENT,
     CONF_DIR_PIN,
     CONF_ID,
     CONF_ENABLE_PIN,
@@ -14,7 +13,6 @@ from esphome.const import (
 
 tmc_ns = cg.esphome_ns.namespace("tmc")
 TMC2209 = tmc_ns.class_("TMC2209", stepper.Stepper, cg.Component)
-TMC2209SetupAction = tmc_ns.class_("TMC2209SetupAction", automation.Action)
 
 CONF_MICROSTEPS = "microsteps"
 CONF_TCOOL_THRESHOLD = "tcool_threshold"
@@ -36,40 +34,6 @@ CONFIG_SCHEMA = (
 )
 
 
-@automation.register_action(
-    "tmc2209.setup",
-    TMC2209SetupAction,
-    cv.Schema(
-        {
-            cv.GenerateID(): cv.use_id(TMC2209),
-            cv.Optional(CONF_MICROSTEPS): cv.templatable(
-                cv.one_of(256, 128, 64, 32, 16, 8, 4, 2, 0)
-            ),
-            cv.Optional(CONF_TCOOL_THRESHOLD): cv.templatable(cv.int_),
-            cv.Optional(CONF_STALL_THRESHOLD): cv.templatable(cv.int_),
-            cv.Optional(CONF_CURRENT): cv.templatable(cv.current),
-        }
-    ),
-)
-async def tmc2209_setup_to_code(config, action_id, template_arg, args):
-    var = cg.new_Pvariable(action_id, template_arg)
-    await cg.register_parented(var, config[CONF_ID])
-    if CONF_MICROSTEPS in config:
-        template_ = await cg.templatable(config[CONF_MICROSTEPS], args, int)
-        cg.add(var.set_microsteps(template_))
-    if CONF_TCOOL_THRESHOLD in config:
-        template_ = await cg.templatable(config[CONF_TCOOL_THRESHOLD], args, int)
-        cg.add(var.set_tcool_threshold(template_))
-    if CONF_STALL_THRESHOLD in config:
-        template_ = await cg.templatable(config[CONF_STALL_THRESHOLD], args, int)
-        cg.add(var.set_stall_threshold(template_))
-    if CONF_CURRENT in config:
-        template_ = await cg.templatable(config[CONF_CURRENT], args, float)
-        cg.add(var.set_current(template_))
-
-    await var
-
-
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
@@ -89,3 +53,7 @@ async def to_code(config):
     if CONF_DIAG_PIN in config:
         diag_pin = await cg.gpio_pin_expression(config[CONF_DIAG_PIN])
         cg.add(var.set_diag_pin(diag_pin))
+
+    cg.add_library(
+        "https://github.com/slimcdk/TMC-API", "3.5.1"
+    )  # fork of https://github.com/trinamic/TMC-API with platformio library indexing

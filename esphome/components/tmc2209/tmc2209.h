@@ -4,10 +4,16 @@
 #include "esphome/components/stepper/stepper.h"
 #include "esphome/components/uart/uart.h"
 
-#include "register_map.h"
+extern "C" {
+#include <ic/TMC2209/TMC2209.h>
+}
 
 namespace esphome {
 namespace tmc {
+
+class TMC2209;
+
+static TMC2209 *comp = nullptr;
 
 class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevice {
  public:
@@ -32,6 +38,17 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
 
   bool enable_pin_state_;
   HighFrequencyLoopRequester high_freq_;
+
+  uint32_t last_run_ = 0;
+  bool direction = false;
+
+  // TMC API stuff
+  uint8_t channel_ = 0;
+  uint8_t slaveAddress_ = 0x0;
+  TMC2209TypeDef driver_def;
+  TMC2209TypeDef *driver = &driver_def;
+  ConfigurationTypeDef driver_config_def;
+  ConfigurationTypeDef *driver_config = &driver_config_def;
 };
 
 }  // namespace tmc
