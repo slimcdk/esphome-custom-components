@@ -1,9 +1,12 @@
-from esphome import pins
+from esphome import automation, pins
 from esphome.components import stepper
 from esphome.components import uart
+from esphome.components.stepper import validate_speed
 import esphome.config_validation as cv
 import esphome.codegen as cg
 from esphome.const import (
+    CONF_DIRECTION,
+    CONF_CURRENT,
     CONF_DIR_PIN,
     CONF_ID,
     CONF_ENABLE_PIN,
@@ -13,7 +16,9 @@ from esphome.const import (
 
 tmc_ns = cg.esphome_ns.namespace("tmc")
 TMC2209 = tmc_ns.class_("TMC2209", stepper.Stepper, cg.Component)
+TMC2209SetupAction = tmc_ns.class_("TMC2209SetupAction", automation.Action)
 
+CONF_VELOCITY = "velocity"
 CONF_MICROSTEPS = "microsteps"
 CONF_TCOOL_THRESHOLD = "tcool_threshold"
 CONF_STALL_THRESHOLD = "stall_threshold"
@@ -57,3 +62,28 @@ async def to_code(config):
     cg.add_library(
         "https://github.com/slimcdk/TMC-API", "3.5.1"
     )  # fork of https://github.com/trinamic/TMC-API with platformio library indexing
+
+
+@automation.register_action(
+    "tmc2209.setup",
+    TMC2209SetupAction,
+    cv.Schema(
+        {
+            cv.GenerateID(): cv.use_id(TMC2209),
+            cv.Optional(CONF_DIRECTION): cv.templatable(cv.boolean),
+            cv.Optional(CONF_VELOCITY): cv.templatable(cv.int_),
+        }
+    ),
+)
+def tmc2209_setup_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
+    if CONF_DIRECTION in config:
+        template_ = yield cg.templatable(config[CONF_DIRECTION], args, bool)
+        cg.add(var.set_direction(template_))
+
+    if CONF_VELOCITY in config:
+        template_ = yield cg.templatable(config[CONF_VELOCITY], args, int)
+        cg.add(var.set_velocity(template_))
+
+    yield var

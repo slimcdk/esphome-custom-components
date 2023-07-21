@@ -38,13 +38,9 @@ void TMC2209::setup() {
 
   if (this->enable_pin_ != nullptr) {
     this->enable_pin_->setup();
-    this->enable_pin_->digital_write(false);
-    this->enable_pin_state_ = false;
+    this->enable_pin_->digital_write(true);
+    this->enable_pin_state_ = true;
   }
-  this->step_pin_->setup();
-  this->step_pin_->digital_write(false);
-  this->dir_pin_->setup();
-  this->dir_pin_->digital_write(false);
 
   tmc_fillCRC8Table((uint8_t) 0b100000111, true, 0);
   tmc2209_init(this->driver, this->channel_, this->slaveAddress_, this->driver_config,
@@ -56,7 +52,7 @@ void TMC2209::setup() {
   // Set toff
   TMC2209_FIELD_WRITE(this->driver, TMC2209_CHOPCONF, TMC2209_TOFF_MASK, TMC2209_TOFF_SHIFT, 5);
   // Set microstepping
-  TMC2209_FIELD_WRITE(this->driver, TMC2209_CHOPCONF, TMC2209_MRES_MASK, TMC2209_MRES_SHIFT, 0);
+  TMC2209_FIELD_WRITE(this->driver, TMC2209_CHOPCONF, TMC2209_MRES_MASK, TMC2209_MRES_SHIFT, 2);
   // Set blank time
   TMC2209_FIELD_WRITE(this->driver, TMC2209_CHOPCONF, TMC2209_TBL_MASK, TMC2209_TBL_SHIFT, 0);
   // Set hold current
@@ -66,15 +62,30 @@ void TMC2209::setup() {
   // Set hold current decay delay
   TMC2209_FIELD_WRITE(this->driver, TMC2209_IHOLD_IRUN, TMC2209_IHOLDDELAY_MASK, TMC2209_IHOLDDELAY_SHIFT, 15);
   // Set StealthChop
-  TMC2209_FIELD_WRITE(this->driver, TMC2209_PWMCONF, TMC2209_PWM_AUTOSCALE_MASK, TMC2209_PWM_AUTOSCALE_SHIFT, 1);
-  TMC2209_FIELD_WRITE(this->driver, TMC2209_PWMCONF, TMC2209_PWM_GRAD_MASK, TMC2209_PWM_GRAD_SHIFT, 1);
+  TMC2209_FIELD_WRITE(this->driver, TMC2209_PWMCONF, TMC2209_PWM_AUTOSCALE_MASK, TMC2209_PWM_AUTOSCALE_SHIFT, 0);
+  TMC2209_FIELD_WRITE(this->driver, TMC2209_PWMCONF, TMC2209_PWM_GRAD_MASK, TMC2209_PWM_GRAD_SHIFT, 0);
 
+  if (this->enable_pin_ != nullptr) {
+    this->enable_pin_->digital_write(false);
+    this->enable_pin_state_ = false;
+  }
+
+  this->step_pin_->setup();
+  this->step_pin_->digital_write(false);
+  this->dir_pin_->setup();
+  this->dir_pin_->digital_write(false);
+
+  if (this->enable_pin_ != nullptr) {
+    this->enable_pin_->digital_write(true);
+    this->enable_pin_state_ = true;
+  }
   ESP_LOGCONFIG(TAG, "Setup done.");
 }
 
 void TMC2209::loop() {
   tmc2209_periodicJob(this->driver, 0);  // update the registers
 
+  /*
   if (this->last_run_ + 5000 < millis()) {
     this->last_run_ = millis();
 
@@ -89,34 +100,38 @@ void TMC2209::loop() {
     //     TMC2209_FIELD_READ(this->driver, TMC2209_GCONF, TMC2209_PDN_DISABLE_MASK, TMC2209_PDN_DISABLE_SHIFT);
     // ESP_LOGI(TAG, "gconf_status: %d", gconf_status);
 
-    int32_t driver_version_status =
-        TMC2209_FIELD_READ(this->driver, TMC2209_IOIN, TMC2209_VERSION_MASK, TMC2209_VERSION_SHIFT);
-    ESP_LOGI(TAG, "driver_version_status: %d", driver_version_status);
+    // int32_t driver_version_status =
+    //     TMC2209_FIELD_READ(this->driver, TMC2209_IOIN, TMC2209_VERSION_MASK, TMC2209_VERSION_SHIFT);
+    // ESP_LOGI(TAG, "driver_version_status: 0x%02X", driver_version_status);
   }
+  */
 
-  bool at_target = this->has_reached_target();
-  if (this->enable_pin_ != nullptr) {
-    bool sleep_rising_edge = !enable_pin_state_ & !at_target;
-    this->enable_pin_->digital_write(!at_target);
-    this->enable_pin_state_ = !at_target;
-    if (sleep_rising_edge) {
-      delayMicroseconds(1000);
+  /*
+    bool at_target = this->has_reached_target();
+    if (this->enable_pin_ != nullptr) {
+      bool sleep_rising_edge = !enable_pin_state_ & !at_target;
+      this->enable_pin_->digital_write(!at_target);
+      this->enable_pin_state_ = !at_target;
+      if (sleep_rising_edge) {
+        delayMicroseconds(1000);
+      }
     }
-  }
-  if (at_target) {
-    this->high_freq_.stop();
-  } else {
-    this->high_freq_.start();
-  }
 
-  int32_t dir = this->should_step_();
-  if (dir == 0)
-    return;
+    if (at_target) {
+      this->high_freq_.stop();
+    } else {
+      this->high_freq_.start();
+    }
 
-  this->dir_pin_->digital_write(dir == 1);
-  this->step_pin_->digital_write(true);
-  delayMicroseconds(5);
-  this->step_pin_->digital_write(false);
+    int32_t dir = this->should_step_();
+    if (dir == 0)
+      return;
+
+    this->dir_pin_->digital_write(dir == 1);
+    this->step_pin_->digital_write(true);
+    delayMicroseconds(5);
+    this->step_pin_->digital_write(false);
+    */
 }
 
 }  // namespace tmc

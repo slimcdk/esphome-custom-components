@@ -31,6 +31,8 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   void loop() override;
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
 
+  TMC2209TypeDef *get_driver() { return this->driver; };
+
  protected:
   GPIOPin *step_pin_;
   GPIOPin *dir_pin_;
@@ -49,6 +51,27 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   TMC2209TypeDef *driver = &driver_def;
   ConfigurationTypeDef driver_config_def;
   ConfigurationTypeDef *driver_config = &driver_config_def;
+};
+
+template<typename... Ts> class TMC2209SetupAction : public Action<Ts...>, public Parented<TMC2209> {
+ public:
+  TEMPLATABLE_VALUE(bool, direction)
+  TEMPLATABLE_VALUE(int, velocity)
+
+  void play(Ts... x) override {
+    TMC2209TypeDef *driver = this->parent_->get_driver();
+
+    if (this->direction_.has_value()) {
+      ESP_LOGW("tmc2209", "direction %d", this->direction_.value(x...));
+      TMC2209_FIELD_WRITE(driver, TMC2209_GCONF, TMC2209_SHAFT_MASK, TMC2209_SHAFT_SHIFT, this->direction_.value(x...));
+    }
+
+    if (this->velocity_.has_value()) {
+      ESP_LOGW("tmc2209", "velocity %d", this->velocity_.value(x...));
+      TMC2209_FIELD_WRITE(driver, TMC2209_VACTUAL, TMC2209_VACTUAL_MASK, TMC2209_VACTUAL_SHIFT,
+                          this->velocity_.value(x...));
+    }
+  }
 };
 
 }  // namespace tmc
