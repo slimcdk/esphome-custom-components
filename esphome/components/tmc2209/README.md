@@ -1,3 +1,5 @@
+
+```yaml
 external_components:
   - source: github://slimcdk/esphome-custom-components@master
     components: [ tmc2209, gpio ]
@@ -41,3 +43,4 @@ stepper:
     max_speed: 1000 steps/s
     acceleration: 500 steps/s^2
     deceleration: 500 steps/s^2
+```
