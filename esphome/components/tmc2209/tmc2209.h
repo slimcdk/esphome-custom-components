@@ -3,7 +3,6 @@
 #include "esphome/core/component.h"
 #include "esphome/components/stepper/stepper.h"
 #include "esphome/components/uart/uart.h"
-#include "esphome/components/text_sensor/text_sensor.h"
 
 extern "C" {
 #include <ic/TMC2209/TMC2209.h>
@@ -14,44 +13,35 @@ extern "C" {
 namespace esphome {
 namespace tmc {
 
-// static TMC2209 *comp = nullptr;
-
-class TMC2209 : public stepper::Stepper, public PollingComponent, public uart::UARTDevice {
+class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevice {
  public:
-  TMC2209() = default;
-  TMC2209(const TMC2209 &) = delete;
-  TMC2209 &operator=(const TMC2209 &) = delete;
-  ~TMC2209();
+  TMC2209(uint8_t address, InternalGPIOPin *index_pin, InternalGPIOPin *diag_pin)
+      : address_(address), index_pin_(index_pin), diag_pin_(diag_pin) {}
 
   void set_enable_pin(GPIOPin *pin) { this->enable_pin_ = pin; }
-  void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; }
-  void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; }
-  void set_version_text_sensor(text_sensor::TextSensor *version_text_sensor) {
-    this->version_text_sensor_ = version_text_sensor;
-  }
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void dump_config() override;
   void setup() override;
   void loop() override;
-  void update() override;
 
-  TMC2209TypeDef *get_driver() { return &this->driver; };
+  int32_t get_version();
+
+  uint8_t get_address() { return this->address_; };
+  TMC2209TypeDef *get_driver() { return &this->driver_; };
 
  protected:
-  GPIOPin *enable_pin_;
-  bool enable_pin_state_;
-
-  InternalGPIOPin *diag_pin_;
-  InternalGPIOPin *index_pin_;
-
-  text_sensor::TextSensor *version_text_sensor_{nullptr};
-
   // TMC API stuff
   uint8_t channel_ = 0;
-  uint8_t address_ = 0x0;
-  TMC2209TypeDef driver;
-  ConfigurationTypeDef config;
+  TMC2209TypeDef driver_;
+  ConfigurationTypeDef config_;
+  uint8_t address_;
+
+  bool enable_pin_state_;
+
+  GPIOPin *enable_pin_;
+  InternalGPIOPin *index_pin_;
+  InternalGPIOPin *diag_pin_;
 };
 
 static TMC2209 *components[MAX_ALLOWED_COMPONENTS];

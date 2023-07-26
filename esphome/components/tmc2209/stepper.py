@@ -1,27 +1,25 @@
 from esphome import automation, pins
-from esphome.components import stepper, uart, binary_sensor, text_sensor
+from esphome.components import stepper, uart
 from esphome.components.stepper import validate_speed
 import esphome.config_validation as cv
 import esphome.codegen as cg
 from esphome.const import (
-    CONF_CHANNEL,
     CONF_ADDRESS,
     CONF_ID,
     CONF_ENABLE_PIN,
 )
 
-AUTO_LOAD = ["text_sensor"]
-
+MULTI_CONF = False
 
 tmc_ns = cg.esphome_ns.namespace("tmc")
 TMC2209 = tmc_ns.class_("TMC2209", stepper.Stepper, cg.Component)
+
 TMC2209ConfigureAction = tmc_ns.class_("TMC2209ConfigureAction", automation.Action)
 
 CONF_DIAG_PIN = "diag_pin"
 CONF_INDEX_PIN = "index_pin"
-CONF_DIAG = "diagnostics"
-CONF_INDEX_SENSOR = "index_sensor"
-CONF_VERSION_SENSOR = "version_sensor"
+# CONF_INDEX_SENSOR = "index_sensor"
+# CONF_VERSION_SENSOR = "version_sensor"
 
 CONF_VELOCITY = "velocity"
 CONF_MICROSTEPS = "microsteps"
@@ -51,29 +49,26 @@ CONF_COOLCONF_SEMIN1 = "coolstep_semin1"
 CONF_COOLCONF_SEMIN0 = "coolstep_semin0"
 
 
-CONF_VERSION_TEXT_SENSOR = "version_text_sensor"
-
-
 CONFIG_SCHEMA = (
     stepper.STEPPER_SCHEMA.extend(
         {
             cv.Required(CONF_ID): cv.declare_id(TMC2209),
-            cv.Optional(CONF_CHANNEL, default=0): cv.positive_int,
-            cv.Optional(CONF_ADDRESS, default=0): cv.hex_uint8_t,
+            cv.Optional(CONF_ADDRESS, default=0): cv.uint8_t,
             cv.Optional(CONF_ENABLE_PIN): pins.gpio_output_pin_schema,
             cv.Required(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
             cv.Required(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
-            cv.Optional(CONF_VERSION_TEXT_SENSOR): text_sensor.text_sensor_schema(),
         },
     )
     .extend(cv.COMPONENT_SCHEMA)
     .extend(uart.UART_DEVICE_SCHEMA)
-    .extend(cv.polling_component_schema("60s"))
 )
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    index_pin = await cg.gpio_pin_expression(config[CONF_INDEX_PIN])
+    diag_pin = await cg.gpio_pin_expression(config[CONF_DIAG_PIN])
+
+    var = cg.new_Pvariable(config[CONF_ID], config[CONF_ADDRESS], index_pin, diag_pin)
     await cg.register_component(var, config)
     await stepper.register_stepper(var, config)
     await uart.register_uart_device(var, config)
@@ -81,23 +76,6 @@ async def to_code(config):
     if CONF_ENABLE_PIN in config:
         enable_pin = await cg.gpio_pin_expression(config[CONF_ENABLE_PIN])
         cg.add(var.set_enable_pin(enable_pin))
-
-    if CONF_INDEX_PIN in config:
-        index_pin = await cg.gpio_pin_expression(config[CONF_INDEX_PIN])
-        cg.add(var.set_index_pin(index_pin))
-
-    if CONF_DIAG_PIN in config:
-        diag_pin = await cg.gpio_pin_expression(config[CONF_DIAG_PIN])
-        cg.add(var.set_diag_pin(diag_pin))
-
-    if CONF_VERSION_TEXT_SENSOR in config:
-        version_text_sensor_var = await text_sensor.new_text_sensor(
-            config[CONF_VERSION_TEXT_SENSOR]
-        )
-        # await text_sensor.register_text_sensor(
-        #     version_text_sensor_var, config[CONF_VERSION_TEXT_SENSOR]
-        # )
-        cg.add(var.set_version_text_sensor(version_text_sensor_var))
 
     cg.add_library(
         "https://github.com/slimcdk/TMC-API", "3.5.1"
