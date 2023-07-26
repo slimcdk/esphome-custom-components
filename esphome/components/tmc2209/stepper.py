@@ -1,6 +1,7 @@
 from esphome import automation, pins
 from esphome.components import stepper, uart
-from esphome.components.stepper import validate_speed
+
+# from esphome.components.stepper import validate_speed
 import esphome.config_validation as cv
 import esphome.codegen as cg
 from esphome.const import (
@@ -8,6 +9,8 @@ from esphome.const import (
     CONF_ID,
     CONF_ENABLE_PIN,
 )
+
+CODEOWNERS = ["@slimcdk"]
 
 MULTI_CONF = False
 
@@ -20,6 +23,8 @@ CONF_DIAG_PIN = "diag_pin"
 CONF_INDEX_PIN = "index_pin"
 # CONF_INDEX_SENSOR = "index_sensor"
 # CONF_VERSION_SENSOR = "version_sensor"
+
+CONF_STOP_ON_SIGNAL = "stop_on_signal"
 
 CONF_VELOCITY = "velocity"
 CONF_MICROSTEPS = "microsteps"
@@ -57,6 +62,7 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_ENABLE_PIN): pins.gpio_output_pin_schema,
             cv.Required(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
             cv.Required(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
+            cv.Optional(CONF_STOP_ON_SIGNAL): cv.boolean,
         },
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -76,6 +82,10 @@ async def to_code(config):
     if CONF_ENABLE_PIN in config:
         enable_pin = await cg.gpio_pin_expression(config[CONF_ENABLE_PIN])
         cg.add(var.set_enable_pin(enable_pin))
+
+    if CONF_STOP_ON_SIGNAL in config:
+        stop_on_signal = await config[CONF_STOP_ON_SIGNAL]
+        cg.add(var.set_stop_on_signal(stop_on_signal))
 
     cg.add_library(
         "https://github.com/slimcdk/TMC-API", "3.5.1"
@@ -173,6 +183,6 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
 
     if CONF_SGTHRS in config:
         template_ = yield cg.templatable(config[CONF_SGTHRS], args, int)
-        cg.add(var.set_stall_threshold(template_))
+        cg.add(var.set_sg_stall_threshold(template_))
 
     yield var
