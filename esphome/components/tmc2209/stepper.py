@@ -24,12 +24,12 @@ CONF_INDEX_PIN = "index_pin"
 # CONF_INDEX_SENSOR = "index_sensor"
 # CONF_VERSION_SENSOR = "version_sensor"
 
-CONF_STOP_ON_SIGNAL = "stop_on_signal"
+CONF_STOP_ON_FAULT = "stop_on_fault"
 
 CONF_VELOCITY = "velocity"
 CONF_MICROSTEPS = "microsteps"
 CONF_TCOOLTHRS = "tcool_threshold"
-CONF_SGTHRS = "stall_threshold"
+CONF_SGTHRS = "sg_threshold"
 CONF_INVERSE_DIRECTION = "inverse_direction"
 CONF_RUN_CURRENT = "run_current"
 CONF_HOLD_CURRENT = "hold_current"
@@ -62,7 +62,7 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_ENABLE_PIN): pins.gpio_output_pin_schema,
             cv.Required(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
             cv.Required(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
-            cv.Optional(CONF_STOP_ON_SIGNAL): cv.boolean,
+            cv.Optional(CONF_STOP_ON_FAULT): cv.boolean,
         },
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -83,9 +83,9 @@ async def to_code(config):
         enable_pin = await cg.gpio_pin_expression(config[CONF_ENABLE_PIN])
         cg.add(var.set_enable_pin(enable_pin))
 
-    if CONF_STOP_ON_SIGNAL in config:
-        stop_on_signal = await config[CONF_STOP_ON_SIGNAL]
-        cg.add(var.set_stop_on_signal(stop_on_signal))
+    if CONF_STOP_ON_FAULT in config:
+        stop_on_fault = await config[CONF_STOP_ON_FAULT]
+        cg.add(var.set_stop_on_fault(stop_on_fault))
 
     cg.add_library(
         "https://github.com/slimcdk/TMC-API", "3.5.1"

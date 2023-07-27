@@ -1,6 +1,8 @@
 #pragma once
 
 #include "esphome/core/component.h"
+#include "esphome/core/helpers.h"
+
 #include "esphome/components/stepper/stepper.h"
 #include "esphome/components/uart/uart.h"
 
@@ -21,8 +23,9 @@ static uint8_t tmc2209_global_channel_index = 0;
 struct TMC2209IndexStore {
   ISRInternalGPIOPin index_pin;
 
-  volatile int32_t counter{0};
-  int32_t target{0};
+  volatile int32_t current_{0};
+  int32_t target_{0};
+  volatile bool target_reached_{true};
 
   static void gpio_intr(TMC2209IndexStore *arg);
 };
@@ -53,7 +56,10 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   void stop_motion();
 
   /* Setters */
+  void stop_on_fault(bool stop) { this->stop_on_fault_ = stop; };
+
   void set_enable_pin(GPIOPin *pin) { this->enable_pin_ = pin; }
+
   void set_inverse_direction(bool inverse);
   void set_velocity(int32_t velocity);
   void set_microsteps(uint8_t ms);
@@ -61,19 +67,35 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   void set_hold_current(int32_t current);
   void set_hold_current_delay(int32_t current);
   void set_tcool_threshold(int32_t threshold);
-  void set_sg_stall_threshold(int32_t threshold);
+  void set_sg_threshold(uint8_t threshold);
+  void set_blank_time(uint8_t select);
+  void pdn_disable(bool disable);
+  void use_mres_register(bool use);
 
   /* Getters */
   uint8_t get_address() { return this->address_; };
-  bool get_ioin_enn();
-  bool get_ioin_ms1();
-  bool get_ioin_ms2();
-  bool get_ioin_diag();
-  bool get_ioin_pdn_uart();
-  bool get_ioin_step();
-  bool get_ioin_spread_en();
-  bool get_ioin_dir();
+  bool get_ioin_enn_state();
+  bool get_ioin_ms1_state();
+  bool get_ioin_ms2_state();
+  bool get_ioin_diag_state();
+  bool get_ioin_pdn_uart_state();
+  bool get_ioin_step_state();
+  bool get_ioin_spread_en_state();
+  bool get_ioin_dir_state();
+  bool has_inverse_direction();
   int32_t get_version();
+  bool has_reset_since_last_gstat_read();
+  bool undervoltage_detection();  // TODO: read continuously and set flag
+  uint8_t get_transmission_counter();
+  uint16_t get_sg_result();
+  uint16_t get_ms_counter();
+  int16_t get_ms_counter_a();
+  int16_t get_ms_counter_b();
+
+  uint8_t get_microsteps();
+
+  bool has_driver_error();
+  int32_t get_driver_status();
 
   TMC2209TypeDef *get_driver() { return &this->driver_; };
 
@@ -86,6 +108,7 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   /* */
 
   bool enable_pin_state_;
+  bool stop_on_fault_;
 
   GPIOPin *enable_pin_;
   InternalGPIOPin *index_pin_;
@@ -132,7 +155,7 @@ template<typename... Ts> class TMC2209ConfigureAction : public Action<Ts...>, pu
       this->parent_->set_tcool_threshold(this->tcool_threshold_.value(x...));
 
     if (this->sg_stall_threshold_.has_value())
-      this->parent_->set_sg_stall_threshold(this->sg_stall_threshold_.value(x...));
+      this->parent_->set_sg_threshold(this->sg_stall_threshold_.value(x...));
   }
 };
 
