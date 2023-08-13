@@ -7,8 +7,7 @@ namespace tmc {
 
 static const char *TAG = "tmc2209.stepper";
 
-// TMC-API hardware wrappers
-extern "C" {
+extern "C" {  // TMC-API hardware wrappers
 void tmc2209_readWriteArray(uint8_t channel, uint8_t *data, size_t writeLength, size_t readLength) {
   TMC2209 *comp = components[channel];
 
@@ -28,9 +27,9 @@ uint8_t tmc2209_CRC8(uint8_t *data, size_t length) { return tmc_CRC8(data, lengt
 
 void IRAM_ATTR HOT TMC2209IndexStore::gpio_intr(TMC2209IndexStore *arg) {
   if ((arg->target_ - arg->current_) > 0)
-    arg->current_++;
+    arg->current_ = arg->current_ + 1;
   else
-    arg->current_--;
+    arg->current_ = arg->current_ - 1;
 
   if (arg->current_ == arg->target_) {
     arg->target_reached_ = true;
@@ -44,7 +43,9 @@ void TMC2209::dump_config() {
   LOG_PIN("  Diag Pin: ", this->diag_pin_);
   LOG_PIN("  Index Pin: ", this->index_pin_);
 
-  ESP_LOGCONFIG(TAG, "  Detected Version: 0x%02X", get_version());
+  ESP_LOGCONFIG(TAG, "  Detected Version: 0x%02X", this->get_version());
+  ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps());
+  ESP_LOGCONFIG(TAG, "  Driver Status: %d", this->get_driver_status());
 
   LOG_STEPPER(this);
 }
@@ -66,9 +67,12 @@ void TMC2209::setup() {
   tmc2209_init(&this->driver_, this->channel_, this->address_, &this->config_, &tmc2209_defaultRegisterResetState[0]);
   tmc2209_reset(&this->driver_);
 
-  this->pdn_disable(true);
-  this->use_mres_register(true);  // Use MRES register
+  this->enable();
+  this->pdn_disable(true);        // Prioritize UART communication by disabling configuration pin.
+  this->use_mres_register(true);  // Use MSTEP register to set microstep resolution
   this->set_blank_time(0);
+
+  this->set_microsteps(8);
 
   /*
   // Set toff
@@ -107,121 +111,18 @@ void TMC2209::loop() {
   }
   this->current_position = this->index_store_.current_;
 
+  if (this->is_enabled_) {
+    ESP_LOGD(TAG, "%d", this->get_sg_result());
+  }
+
+  if (this->diag_store_.triggered) {
+    uint32_t drv_status = this->get_driver_status();
+    this->on_motor_stall_callback_.call();
+  }
+
   tmc2209_periodicJob(&this->driver_, 0);  // update the registers
 }
 
-// Enable/disable driver
-void TMC2209::enable(bool enable) {
-  if (this->enable_pin_ != nullptr) {
-    this->enable_pin_->digital_write(enable);
-    this->enable_pin_state_ = enable;
-  }
-}
-
-void TMC2209::enable() { this->enable(true); }
-void TMC2209::disable() { this->enable(false); }
-
-void TMC2209::pdn_disable(bool disable) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_GCONF, TMC2209_PDN_DISABLE_MASK, TMC2209_PDN_DISABLE_SHIFT, disable);
-}
-
-void TMC2209::use_mres_register(bool use) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_GCONF, TMC2209_MSTEP_REG_SELECT_MASK, TMC2209_MSTEP_REG_SELECT_SHIFT,
-                      use);
-}
-
-bool TMC2209::get_ioin_enn_state() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_IOIN, TMC2209_ENN_MASK, TMC2209_ENN_SHIFT);
-}
-bool TMC2209::get_ioin_ms1_state() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_IOIN, TMC2209_MS1_MASK, TMC2209_MS2_SHIFT);
-}
-bool TMC2209::get_ioin_ms2_state() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_IOIN, TMC2209_MS2_MASK, TMC2209_MS2_SHIFT);
-}
-bool TMC2209::get_ioin_diag_state() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_IOIN, TMC2209_DIAG_MASK, TMC2209_DIAG_SHIFT);
-}
-bool TMC2209::get_ioin_pdn_uart_state() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_IOIN, TMC2209_PDN_UART_MASK, TMC2209_PDN_UART_SHIFT);
-}
-bool TMC2209::get_ioin_step_state() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_IOIN, TMC2209_STEP_MASK, TMC2209_STEP_SHIFT);
-}
-bool TMC2209::get_ioin_spread_en_state() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_IOIN, TMC2209_SEL_A_MASK, TMC2209_SEL_A_SHIFT);
-}
-bool TMC2209::get_ioin_dir_state() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_IOIN, TMC2209_DIR_MASK, TMC2209_DIR_SHIFT);
-}
-bool TMC2209::has_inverse_direction() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_GCONF, TMC2209_SHAFT_MASK, TMC2209_SHAFT_SHIFT);
-}
-
-bool TMC2209::has_reset_since_last_gstat_read() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_GSTAT, TMC2209_RESET_MASK, TMC2209_RESET_SHIFT);
-}
-bool TMC2209::has_driver_error() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_GSTAT, TMC2209_DRV_ERR_MASK, TMC2209_DRV_ERR_SHIFT);
-}
-int32_t TMC2209::get_driver_status() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_DRVSTATUS, 0, 0);
-}  // TODO: Read table in docs
-
-bool TMC2209::undervoltage_detection() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_GSTAT, TMC2209_UV_CP_MASK, TMC2209_UV_CP_SHIFT);
-}
-
-int32_t TMC2209::get_version() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_IOIN, TMC2209_VERSION_MASK, TMC2209_VERSION_SHIFT);
-}
-uint8_t TMC2209::get_transmission_counter() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_IFCNT, TMC2209_IFCNT_MASK, TMC2209_IFCNT_SHIFT);
-}
-uint16_t TMC2209::get_ms_counter() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_MSCNT, 0, 0);  // TODO
-};
-int16_t TMC2209::get_ms_counter_a() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_MSCURACT, TMC2209_CUR_A_MASK, TMC2209_CUR_A_SHIFT);  // TODO
-};
-int16_t TMC2209::get_ms_counter_b() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_MSCURACT, TMC2209_CUR_B_MASK, TMC2209_CUR_B_SHIFT);  // TODO
-};
-
-uint16_t TMC2209::get_sg_result() { return TMC2209_FIELD_READ(&this->driver_, TMC2209_SG_RESULT, 0, 0); }
-
-uint8_t TMC2209::get_microsteps() {
-  return TMC2209_FIELD_READ(&this->driver_, TMC2209_CHOPCONF, TMC2209_MRES_MASK, TMC2209_MRES_SHIFT);
-}
-
-void TMC2209::set_velocity(int32_t velocity) {
-  this->enable((bool) velocity);
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_VACTUAL, TMC2209_VACTUAL_MASK, TMC2209_VACTUAL_SHIFT, velocity);
-}
-void TMC2209::set_inverse_direction(bool inverse_direction) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_GCONF, TMC2209_SHAFT_MASK, TMC2209_SHAFT_SHIFT, inverse_direction);
-}
-void TMC2209::set_microsteps(uint8_t ms) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_CHOPCONF, TMC2209_MRES_MASK, TMC2209_MRES_SHIFT, ms);
-}
-void TMC2209::set_run_current(int32_t current) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_IHOLD_IRUN, TMC2209_IRUN_MASK, TMC2209_IRUN_SHIFT, current);
-}
-void TMC2209::set_hold_current(int32_t current) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_IHOLD_IRUN, TMC2209_IHOLD_MASK, TMC2209_IHOLD_SHIFT, current);
-}
-void TMC2209::set_hold_current_delay(int32_t delay) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_IHOLD_IRUN, TMC2209_IHOLDDELAY_MASK, TMC2209_IHOLDDELAY_SHIFT, delay);
-}
-void TMC2209::set_tcool_threshold(int32_t threshold) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_TCOOLTHRS, TMC2209_TCOOLTHRS, TMC2209_TCOOLTHRS, threshold);
-}
-void TMC2209::set_sg_threshold(uint8_t threshold) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_SGTHRS, 0, 0, threshold);  // TODO: figure out mask and shift
-}
-void TMC2209::set_blank_time(uint8_t select) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_CHOPCONF, TMC2209_TBL_MASK, TMC2209_TBL_SHIFT, select);
-}
 void TMC2209::stop_motion() { this->set_velocity(0); }
 
 void TMC2209::set_target(int32_t steps) {
@@ -236,6 +137,11 @@ void TMC2209::set_target(int32_t steps) {
   this->index_store_.target_reached_ = false;
   const int32_t velocity = this->max_speed_ * (relative_position < 0 ? 1 : -1);
   this->set_velocity(velocity * 100);
+}
+
+void TMC2209::report_position(int32_t steps) {
+  this->index_store_.current_ = steps;
+  this->current_position = steps;
 }
 
 }  // namespace tmc

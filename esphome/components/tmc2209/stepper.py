@@ -4,27 +4,21 @@ from esphome.components import stepper, uart
 # from esphome.components.stepper import validate_speed
 import esphome.config_validation as cv
 import esphome.codegen as cg
-from esphome.const import (
-    CONF_ADDRESS,
-    CONF_ID,
-    CONF_ENABLE_PIN,
-)
+from esphome.const import CONF_ADDRESS, CONF_ID, CONF_ENABLE_PIN, CONF_TRIGGER_ID
 
 CODEOWNERS = ["@slimcdk"]
 
 MULTI_CONF = False
 
 tmc_ns = cg.esphome_ns.namespace("tmc")
-TMC2209 = tmc_ns.class_("TMC2209", stepper.Stepper, cg.Component)
+TMC2209 = tmc_ns.class_("TMC2209", stepper.Stepper, cg.Component, uart.UARTDevice)
 
 TMC2209ConfigureAction = tmc_ns.class_("TMC2209ConfigureAction", automation.Action)
+TMC2209MotorStallTrigger = tmc_ns.class_("TMC2209MotorStallTrigger", automation.Trigger)
+
 
 CONF_DIAG_PIN = "diag_pin"
 CONF_INDEX_PIN = "index_pin"
-# CONF_INDEX_SENSOR = "index_sensor"
-# CONF_VERSION_SENSOR = "version_sensor"
-
-CONF_STOP_ON_FAULT = "stop_on_fault"
 
 CONF_VELOCITY = "velocity"
 CONF_MICROSTEPS = "microsteps"
@@ -54,6 +48,9 @@ CONF_COOLCONF_SEMIN1 = "coolstep_semin1"
 CONF_COOLCONF_SEMIN0 = "coolstep_semin0"
 
 
+CONF_ON_MOTOR_STALL = "on_motor_stall"
+
+
 CONFIG_SCHEMA = (
     stepper.STEPPER_SCHEMA.extend(
         {
@@ -62,7 +59,13 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_ENABLE_PIN): pins.gpio_output_pin_schema,
             cv.Required(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
             cv.Required(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
-            cv.Optional(CONF_STOP_ON_FAULT): cv.boolean,
+            cv.Optional(CONF_ON_MOTOR_STALL): automation.validate_automation(
+                {
+                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
+                        TMC2209MotorStallTrigger
+                    ),
+                }
+            ),
         },
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -83,13 +86,7 @@ async def to_code(config):
         enable_pin = await cg.gpio_pin_expression(config[CONF_ENABLE_PIN])
         cg.add(var.set_enable_pin(enable_pin))
 
-    if CONF_STOP_ON_FAULT in config:
-        stop_on_fault = await config[CONF_STOP_ON_FAULT]
-        cg.add(var.set_stop_on_fault(stop_on_fault))
-
-    cg.add_library(
-        "https://github.com/slimcdk/TMC-API", "3.5.1"
-    )  # fork of https://github.com/trinamic/TMC-API with platformio library indexing
+    cg.add_library("https://github.com/slimcdk/TMC-API", "3.5.1")
 
 
 @automation.register_action(
@@ -125,7 +122,7 @@ async def to_code(config):
                 cv.int_range(min=0, max=2**20, max_included=False)
             ),
             cv.Optional(CONF_SGTHRS): cv.templatable(
-                cv.int_range(min=0, max=2**8, max_included=False)
+                cv.int_range(min=0, max=2**10, max_included=False)
             ),
             cv.Optional(CONF_TSTEP): cv.templatable(
                 cv.int_range(min=0, max=2**20, max_included=False)

@@ -10,12 +10,12 @@ extern "C" {
 #include <ic/TMC2209/TMC2209.h>
 }
 
-#define MAX_ALLOWED_COMPONENTS 3
-
 namespace esphome {
 namespace tmc {
 
-class TMC2209;
+#define MAX_ALLOWED_COMPONENTS 3
+
+class TMC2209;  // Forward declare
 
 static TMC2209 *components[MAX_ALLOWED_COMPONENTS];
 static uint8_t tmc2209_global_channel_index = 0;
@@ -49,6 +49,7 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   void setup() override;
   void loop() override;
   void set_target(int32_t steps) override;
+  void report_position(int32_t steps) override;
 
   void enable(bool enable);
   void enable();
@@ -59,6 +60,26 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   void stop_on_fault(bool stop) { this->stop_on_fault_ = stop; };
 
   void set_enable_pin(GPIOPin *pin) { this->enable_pin_ = pin; }
+
+  /** CHOPCONF **/
+
+  /** COOLSTEP **/
+
+  /** DRV_STATUS **/
+
+  /** GCONF **/
+
+  /** GSTAT **/
+
+  /** IFCNT **/
+
+  /** IOIN **/
+
+  /** OTP **/
+
+  /** STALLGUARD **/
+
+  /** MISC **/
 
   void set_inverse_direction(bool inverse);
   void set_velocity(int32_t velocity);
@@ -83,19 +104,23 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   bool get_ioin_spread_en_state();
   bool get_ioin_dir_state();
   bool has_inverse_direction();
-  int32_t get_version();
+  int8_t get_version();
   bool has_reset_since_last_gstat_read();
   bool undervoltage_detection();  // TODO: read continuously and set flag
   uint8_t get_transmission_counter();
   uint16_t get_sg_result();
   uint16_t get_ms_counter();
-  int16_t get_ms_counter_a();
-  int16_t get_ms_counter_b();
+  int16_t get_ms_current_a();
+  int16_t get_ms_current_b();
 
   uint8_t get_microsteps();
 
   bool has_driver_error();
   int32_t get_driver_status();
+
+  void add_on_motor_stall_callback(std::function<void()> callback) {
+    this->on_motor_stall_callback_.add(std::move(callback));
+  }
 
   TMC2209TypeDef *get_driver() { return &this->driver_; };
 
@@ -107,15 +132,27 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   uint8_t address_;
   /* */
 
-  bool enable_pin_state_;
-  bool stop_on_fault_;
-
   GPIOPin *enable_pin_;
   InternalGPIOPin *index_pin_;
   InternalGPIOPin *diag_pin_;
 
   TMC2209IndexStore index_store_{};
   TMC2209DiagStore diag_store_{};
+
+  CallbackManager<void()> on_motor_stall_callback_;
+
+  bool is_enabled_{false};
+  bool enable_pin_state_;
+  bool stop_on_fault_;
+
+  uint32_t sgthrs_;
+};
+
+class TMC2209MotorStallTrigger : public Trigger<> {
+ public:
+  explicit TMC2209MotorStallTrigger(TMC2209 *parent) {
+    parent->add_on_motor_stall_callback([this]() { this->trigger(); });
+  }
 };
 
 template<typename... Ts> class TMC2209ConfigureAction : public Action<Ts...>, public Parented<TMC2209> {
@@ -137,7 +174,7 @@ template<typename... Ts> class TMC2209ConfigureAction : public Action<Ts...>, pu
       this->parent_->set_inverse_direction(this->inverse_direction_.value(x...));
 
     if (this->microsteps_.has_value())
-      this->parent_->set_velocity(this->microsteps_.value(x...));
+      this->parent_->set_microsteps(this->microsteps_.value(x...));
 
     if (this->velocity_.has_value())
       this->parent_->set_velocity(this->velocity_.value(x...));
