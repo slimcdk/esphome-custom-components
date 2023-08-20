@@ -1,5 +1,8 @@
+## Datasheet https://www.trinamic.com/fileadmin/assets/Products/ICs_Documents/TMC2209_Datasheet_V103.pdf
+
 from esphome import automation, pins
 from esphome.components import stepper, uart
+from esphome.automation import maybe_simple_id
 
 # from esphome.components.stepper import validate_speed
 import esphome.config_validation as cv
@@ -13,8 +16,10 @@ MULTI_CONF = False
 tmc_ns = cg.esphome_ns.namespace("tmc")
 TMC2209 = tmc_ns.class_("TMC2209", stepper.Stepper, cg.Component, uart.UARTDevice)
 
-TMC2209ConfigureAction = tmc_ns.class_("TMC2209ConfigureAction", automation.Action)
 TMC2209MotorStallTrigger = tmc_ns.class_("TMC2209MotorStallTrigger", automation.Trigger)
+
+TMC2209ConfigureAction = tmc_ns.class_("TMC2209ConfigureAction", automation.Action)
+TMC2209StopAction = tmc_ns.class_("TMC2209StopAction", automation.Action)
 
 
 CONF_DIAG_PIN = "diag_pin"
@@ -31,6 +36,8 @@ CONF_HOLD_CURRENT_DELAY = "hold_current_delay"
 CONF_POWER_DOWN_DELAY = "power_down_delay"
 CONF_TSTEP = "tstep"
 CONF_TPWMTHRS = "tpwmthrs"
+CONF_RSENSE = "rsense"
+
 
 CONF_COOLCONF_SEIMIN = "coolstep_seimin"
 CONF_COOLCONF_SEDN1 = "coolstep_sedn1"
@@ -56,9 +63,10 @@ CONFIG_SCHEMA = (
         {
             cv.Required(CONF_ID): cv.declare_id(TMC2209),
             cv.Optional(CONF_ADDRESS, default=0): cv.uint8_t,
-            cv.Optional(CONF_ENABLE_PIN): pins.gpio_output_pin_schema,
             cv.Required(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
             cv.Required(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
+            cv.Optional(CONF_ENABLE_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_RSENSE): cv.resistance,
             cv.Optional(CONF_ON_MOTOR_STALL): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
@@ -84,7 +92,7 @@ async def to_code(config):
 
     if CONF_ENABLE_PIN in config:
         enable_pin = await cg.gpio_pin_expression(config[CONF_ENABLE_PIN])
-        cg.add(var.set_enable_pin(enable_pin))
+        cg.add(var.enable_pin(enable_pin))
 
     cg.add_library("https://github.com/slimcdk/TMC-API", "3.5.1")
 
@@ -122,7 +130,7 @@ async def to_code(config):
                 cv.int_range(min=0, max=2**20, max_included=False)
             ),
             cv.Optional(CONF_SGTHRS): cv.templatable(
-                cv.int_range(min=0, max=2**10, max_included=False)
+                cv.int_range(min=0, max=2**8, max_included=True)
             ),
             cv.Optional(CONF_TSTEP): cv.templatable(
                 cv.int_range(min=0, max=2**20, max_included=False)
@@ -180,6 +188,16 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
 
     if CONF_SGTHRS in config:
         template_ = yield cg.templatable(config[CONF_SGTHRS], args, int)
-        cg.add(var.set_sg_stall_threshold(template_))
+        cg.add(var.set_stallguard_threshold(template_))
 
     yield var
+
+
+@automation.register_action(
+    "tmc2209.stop",
+    TMC2209StopAction,
+    maybe_simple_id({cv.Required(CONF_ID): cv.use_id(TMC2209)}),
+)
+def tmc2209_stop_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])

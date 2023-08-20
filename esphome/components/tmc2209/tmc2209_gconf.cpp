@@ -7,20 +7,38 @@ namespace tmc {
 static const char *TAG = "tmc2209.stepper";
 
 void TMC2209::pdn_disable(bool disable) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_GCONF, TMC2209_PDN_DISABLE_MASK, TMC2209_PDN_DISABLE_SHIFT, disable);
+  TMC2209_FIELD_UPDATE(&this->driver_, TMC2209_GCONF, TMC2209_PDN_DISABLE_MASK, TMC2209_PDN_DISABLE_SHIFT, disable);
+}
+
+bool TMC2209::pdn_disable() {
+  return TMC2209_FIELD_READ(&this->driver_, TMC2209_GCONF, TMC2209_PDN_DISABLE_MASK, TMC2209_PDN_DISABLE_SHIFT);
 }
 
 void TMC2209::use_mres_register(bool use) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_GCONF, TMC2209_MSTEP_REG_SELECT_MASK, TMC2209_MSTEP_REG_SELECT_SHIFT,
-                      use);
+  TMC2209_FIELD_UPDATE(&this->driver_, TMC2209_GCONF, TMC2209_MSTEP_REG_SELECT_MASK, TMC2209_MSTEP_REG_SELECT_SHIFT,
+                       use);
 }
 
-bool TMC2209::has_inverse_direction() {
+bool TMC2209::use_mres_register() {
+  return TMC2209_FIELD_READ(&this->driver_, TMC2209_GCONF, TMC2209_MSTEP_REG_SELECT_MASK,
+                            TMC2209_MSTEP_REG_SELECT_SHIFT);
+}
+
+bool TMC2209::inverse_direction() {
   return TMC2209_FIELD_READ(&this->driver_, TMC2209_GCONF, TMC2209_SHAFT_MASK, TMC2209_SHAFT_SHIFT);
 }
 
-void TMC2209::set_inverse_direction(bool inverse_direction) {
-  TMC2209_FIELD_WRITE(&this->driver_, TMC2209_GCONF, TMC2209_SHAFT_MASK, TMC2209_SHAFT_SHIFT, inverse_direction);
+void TMC2209::inverse_direction(bool inverse_direction) {
+  TMC2209_FIELD_UPDATE(&this->driver_, TMC2209_GCONF, TMC2209_SHAFT_MASK, TMC2209_SHAFT_SHIFT, inverse_direction);
+}
+
+void TMC2209::index_step(bool enable) {
+  TMC2209_FIELD_UPDATE(&this->driver_, TMC2209_GCONF, TMC2209_INDEX_STEP_MASK, TMC2209_INDEX_STEP_SHIFT,
+                       (uint8_t) enable);
+}
+
+bool TMC2209::index_step() {
+  return (bool) TMC2209_FIELD_READ(&this->driver_, TMC2209_GCONF, TMC2209_INDEX_STEP_MASK, TMC2209_INDEX_STEP_SHIFT);
 }
 
 }  // namespace tmc
