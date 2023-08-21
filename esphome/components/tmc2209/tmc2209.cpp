@@ -45,8 +45,30 @@ void TMC2209::dump_config() {
 
   ESP_LOGCONFIG(TAG, "  Detected Version: 0x%02X", this->read_chip_version());
   ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->microsteps());
-  ESP_LOGCONFIG(TAG, "  Driver Status: %d", this->read_driver_status());
-  ESP_LOGCONFIG(TAG, "  Index Output: %d", this->index_step());
+
+  ESP_LOGCONFIG(TAG, "OTP0 Defaults:");
+  ESP_LOGCONFIG(TAG, "  TBL:");
+  ESP_LOGCONFIG(TAG, "  Internal RSense:");
+  ESP_LOGCONFIG(TAG, "  OTTRIM:");
+  ESP_LOGCONFIG(TAG, "  FCLKTRIM:");
+
+  ESP_LOGCONFIG(TAG, "OTP1 Defaults:");
+  ESP_LOGCONFIG(TAG, "  TPWMTHRS:");
+  ESP_LOGCONFIG(TAG, "  CHOPCONF7..5:");
+  ESP_LOGCONFIG(TAG, "  CHOPCONF4:");
+  ESP_LOGCONFIG(TAG, "  CHOPCONF3..0:");
+  ESP_LOGCONFIG(TAG, "  PWM_AUTOGRAD:");
+  ESP_LOGCONFIG(TAG, "  PWM_GRAD:");
+
+  ESP_LOGCONFIG(TAG, "OTP2 Defaults:");
+  ESP_LOGCONFIG(TAG, "  Spreadcycle:");
+  ESP_LOGCONFIG(TAG, "  IHOLD:");
+  ESP_LOGCONFIG(TAG, "  IHOLDDELAY:");
+  ESP_LOGCONFIG(TAG, "  PWM_FREQ:");
+  ESP_LOGCONFIG(TAG, "  PWM_REG:");
+  ESP_LOGCONFIG(TAG, "  PWM_OFS:");
+  ESP_LOGCONFIG(TAG, "  CHOPCONF8:");
+
   LOG_STEPPER(this);
 }
 
@@ -77,14 +99,15 @@ void TMC2209::setup() {
 
   this->enable();
 
-  this->pdn_disable(true);        // Prioritize UART communication by disabling configuration pin.
-  this->use_mres_register(true);  // Use MSTEP register to set microstep resolution
+  this->write_pdn_disable(true);        // Prioritize UART communication by disabling configuration pin.
+  this->write_use_mres_register(true);  // Use MSTEP register to set microstep resolution
   this->blank_time(0);
-  this->index_step(true);
+  this->write_index_step(true);
   this->microsteps(1);
 
   this->update_driver_status();  // fetch DRV_STATUS registers
   this->update_ioin();           // fetch IOIN registers
+  this->update_otpread();        // fetch OTP Read registers
 
   /*
   // Set toff
@@ -116,8 +139,10 @@ void TMC2209::setup() {
 }
 
 void TMC2209::loop() {
-  this->update_driver_status();  // fetch DRV_STATUS registers
-  this->update_ioin();           // fetch IOIN registers
+  this->update_driver_status();            // fetch DRV_STATUS registers
+  this->update_ioin();                     // fetch IOIN registers
+  this->update_otpread();                  // fetch OTP Read registers
+  tmc2209_periodicJob(&this->driver_, 0);  // update the registers
 
   // ESP_LOGD(TAG, "fclktrim=%d ottrim=%d", this->fclktrim(), this->ottrim());
 
@@ -151,7 +176,6 @@ void TMC2209::loop() {
   */
 
   // ESP_LOGD(TAG, "%d", this->current_position);
-  tmc2209_periodicJob(&this->driver_, 0);  // update the registers
 }
 
 void TMC2209::stop() { this->velocity(0); }

@@ -72,22 +72,72 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   uint8_t microsteps();
   void blank_time(uint8_t select);
 
-  /** COOLSTEP **/
+  /** COOLCONF **/
   void tcool_threshold(int32_t threshold);
 
   /** GCONF **/
-  void inverse_direction(bool inverse);
-  bool inverse_direction();
-  void pdn_disable(bool disable);
-  bool pdn_disable();
-  void use_mres_register(bool use);
-  bool use_mres_register();
-  void index_step(bool enable);
-  bool index_step();
+  uint16_t read_gconf();
+  void write_gconf(uint16_t setting);
+  void read_gconf_update();
+  void write_gconf_update();
+  void write_iscale_analog(bool use_vref);
+  bool read_iscale_analog();
+  void write_internal_rsense(bool use_internal);
+  bool read_internal_rsense();
+  void write_en_spreadcycle(bool enable);
+  bool read_en_spreadcycle();
+  bool read_inverse_direction();
+  void write_inverse_direction(bool inverse_direction);
+  bool read_index_otpw();
+  void write_index_otpw(bool use_for_otpw);
+  void write_index_step(bool enable);
+  bool read_read_index_step();
+  void write_pdn_disable(bool disable);
+  bool read_pdn_disable();
+  void write_use_mres_register(bool use);
+  bool read_use_mres_register();
+  void write_multistep_filt(bool enable);
+  bool read_multistep_filt();
+  void write_test_mode(bool enable);
+  bool read_test_mode();
+  void set_iscale_analog(bool use_vref);
+  void set_internal_rsense(bool use_internal);
+  void set_en_spreadcycle(bool enable);
+  void set_inverse_direction(bool inverse_direction);
+  void set_index_otpw(bool use_for_otpw);
+  void set_index_step(bool enable);
+  void set_use_mres_register(bool use);
+  void set_multistep_filt(bool enable);
+  void set_pdn_disable(bool disable);
+  void set_test_mode(bool enable);
+  bool get_inverse_direction();
+  bool get_internal_rsense();
+  bool get_en_spreadcycle();
+  bool get_index_otpw();
+  bool get_read_index_step();
+  bool get_pdn_disable();
+  bool get_use_mres_register();
+  bool get_multistep_filt();
+  bool get_iscale_analog();
+  bool get_test_mode();
 
   /** GSTAT **/
-  bool has_reset_since_last_gstat_read();
-  bool undervoltage_detection();  // TODO: read continuously and set flag
+  uint16_t read_gstat();
+  void write_gstat(uint16_t setting);
+  void read_gstat_update();
+  void write_gstat_update();
+  bool read_gstat_reset();
+  void write_gstat_reset(bool clear);
+  bool read_gstat_drv_err();
+  void write_gstat_drv_err(bool clear);
+  bool read_gstat_uv_cp();
+  void write_gstat_uv_cp(bool clear);
+  bool get_gstat_reset();
+  void set_gstat_reset(bool clear);
+  bool get_gstat_drv_err();
+  void set_gstat_drv_err(bool clear);
+  bool get_gstat_uv_cp();
+  void set_gstat_uv_cp(bool clear);
 
   /** DRV_STATUS **/
   bool has_driver_error();
@@ -108,6 +158,21 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   bool get_drv_status_s2vsb();
   bool get_drv_status_s2ga();
   bool get_drv_status_s2gb();
+  bool read_drv_status_stst();
+  bool read_drv_status_stealth();
+  uint8_t read_drv_status_cs_actual();
+  bool read_drv_status_otpw();
+  bool read_drv_status_ot();
+  bool read_drv_status_t120();
+  bool read_drv_status_t143();
+  bool read_drv_status_t150();
+  bool read_drv_status_t157();
+  bool read_drv_status_ola();
+  bool read_drv_status_olb();
+  bool read_drv_status_s2vsa();
+  bool read_drv_status_s2vsb();
+  bool read_drv_status_s2ga();
+  bool read_drv_status_s2gb();
 
   /** IFCNT **/
   uint8_t read_transmission_counter();
@@ -127,6 +192,9 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   int8_t read_chip_version();
 
   /** OTP **/
+  uint32_t read_otpread();
+  void update_otpread();
+  bool get_optread_en_spreadcycle();
 
   /** FACTORY CONF **/
   void fclktrim(uint8_t fclktrim);
@@ -139,14 +207,14 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   uint16_t stallguard_result();
   float calc_motor_load(uint16_t sg_result);
 
-  /** MISC **/
+  /** DRV_CTRL **/
   uint16_t internal_step_counter();  // Difference since last poll. Wrap around at 1023
   int16_t current_a();
   int16_t current_b();
   void velocity(int32_t velocity);
-  void run_current(int32_t current);
-  void hold_current(int32_t current);
-  void hold_current_delay(int32_t current);
+  void ihold_irun_ihold(int32_t current);
+  void ihold_irun_irun(int32_t current);
+  void ihold_irun_ihold_delay(int32_t current);
 
   TMC2209TypeDef *get_driver() { return &this->driver_; };
   uint8_t address() { return this->address_; };
@@ -183,6 +251,17 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   uint32_t ioin_;
   time_t ioin_last_read_;
 
+  uint32_t otpread_;
+  time_t otpread_last_read_;
+
+  uint16_t gconf_;
+  time_t gconf_last_read_;
+  time_t gconf_last_write_;
+
+  uint8_t gstat_;
+  time_t gstat_last_read_;
+  time_t gstat_last_write_;
+
   uint32_t sg_thrs_;
 };
 
@@ -209,7 +288,7 @@ template<typename... Ts> class TMC2209ConfigureAction : public Action<Ts...>, pu
 
     // set inverse direction
     if (this->inverse_direction_.has_value())
-      this->parent_->inverse_direction(this->inverse_direction_.value(x...));
+      this->parent_->write_inverse_direction(this->inverse_direction_.value(x...));
 
     if (this->microsteps_.has_value())
       this->parent_->microsteps(this->microsteps_.value(x...));
@@ -218,13 +297,13 @@ template<typename... Ts> class TMC2209ConfigureAction : public Action<Ts...>, pu
       this->parent_->velocity(this->velocity_.value(x...));
 
     if (this->run_current_.has_value())
-      this->parent_->run_current(this->run_current_.value(x...));
+      this->parent_->ihold_irun_irun(this->run_current_.value(x...));
 
     if (this->hold_current_.has_value())
-      this->parent_->hold_current(this->hold_current_.value(x...));
+      this->parent_->ihold_irun_ihold(this->hold_current_.value(x...));
 
     if (this->hold_current_delay_.has_value())
-      this->parent_->hold_current_delay(this->hold_current_delay_.value(x...));
+      this->parent_->ihold_irun_ihold_delay(this->hold_current_delay_.value(x...));
 
     if (this->tcool_threshold_.has_value())
       this->parent_->tcool_threshold(this->tcool_threshold_.value(x...));

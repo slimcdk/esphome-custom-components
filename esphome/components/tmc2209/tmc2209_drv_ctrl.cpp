@@ -32,15 +32,15 @@ void TMC2209::velocity(int32_t velocity) {
   TMC2209_FIELD_WRITE(&this->driver_, TMC2209_VACTUAL, TMC2209_VACTUAL_MASK, TMC2209_VACTUAL_SHIFT, velocity);
 }
 
-void TMC2209::run_current(int32_t current) {
+void TMC2209::ihold_irun_ihold(int32_t current) {
   TMC2209_FIELD_UPDATE(&this->driver_, TMC2209_IHOLD_IRUN, TMC2209_IRUN_MASK, TMC2209_IRUN_SHIFT, current);
 }
 
-void TMC2209::hold_current(int32_t current) {
+void TMC2209::ihold_irun_irun(int32_t current) {
   TMC2209_FIELD_UPDATE(&this->driver_, TMC2209_IHOLD_IRUN, TMC2209_IHOLD_MASK, TMC2209_IHOLD_SHIFT, current);
 }
 
-void TMC2209::hold_current_delay(int32_t delay) {
+void TMC2209::ihold_irun_ihold_delay(int32_t delay) {
   TMC2209_FIELD_UPDATE(&this->driver_, TMC2209_IHOLD_IRUN, TMC2209_IHOLDDELAY_MASK, TMC2209_IHOLDDELAY_SHIFT, delay);
 }
 
