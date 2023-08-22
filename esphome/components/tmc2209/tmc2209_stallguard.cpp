@@ -16,7 +16,7 @@ uint16_t TMC2209::stallguard_result() {
   return (uint16_t) tmc2209_readInt(&this->driver_, TMC2209_SG_RESULT);
 }
 
-float TMC2209::calc_motor_load(uint16_t sg_result) {
+float TMC2209::calculate_motor_load(uint16_t sg_result) {
   return (510.0 - (float) sg_result) / ((float) this->sg_thrs_ * 2.0);
 }
 

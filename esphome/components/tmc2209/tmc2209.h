@@ -13,6 +13,7 @@ extern "C" {
 namespace esphome {
 namespace tmc {
 
+#define TMC2209_DEFAULT_CHIP_VERSION 0x21
 #define MAX_ALLOWED_COMPONENTS 3
 
 class TMC2209;  // Forward declare
@@ -34,19 +35,8 @@ struct TMC2209DiagStore {
   ISRInternalGPIOPin diag_pin;
   volatile bool triggered;
   void set_flag(bool high);
-
   static void gpio_intr(TMC2209DiagStore *arg);
 };
-
-typedef struct {
-  bool stst;
-  bool stealth;
-  uint8_t cs_actual;
-  bool otpw, ot, t120, t143, t150, t157;
-  bool ola, olb;
-  bool s2vsa, s2vsb;
-  bool s2ga, s2gb;
-} driver_status_t;
 
 class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevice {
  public:
@@ -68,133 +58,84 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   void stop();
 
   /** CHOPCONF **/
-  void microsteps(uint8_t ms);
-  uint8_t microsteps();
   void blank_time(uint8_t select);
 
   /** COOLCONF **/
   void tcool_threshold(int32_t threshold);
 
   /** GCONF **/
-  uint16_t read_gconf();
-  void write_gconf(uint16_t setting);
-  void read_gconf_update();
-  void write_gconf_update();
-  void write_iscale_analog(bool use_vref);
-  bool read_iscale_analog();
-  void write_internal_rsense(bool use_internal);
-  bool read_internal_rsense();
-  void write_en_spreadcycle(bool enable);
-  bool read_en_spreadcycle();
-  bool read_inverse_direction();
-  void write_inverse_direction(bool inverse_direction);
-  bool read_index_otpw();
-  void write_index_otpw(bool use_for_otpw);
-  void write_index_step(bool enable);
-  bool read_read_index_step();
-  void write_pdn_disable(bool disable);
-  bool read_pdn_disable();
-  void write_use_mres_register(bool use);
-  bool read_use_mres_register();
-  void write_multistep_filt(bool enable);
-  bool read_multistep_filt();
-  void write_test_mode(bool enable);
-  bool read_test_mode();
-  void set_iscale_analog(bool use_vref);
-  void set_internal_rsense(bool use_internal);
-  void set_en_spreadcycle(bool enable);
-  void set_inverse_direction(bool inverse_direction);
-  void set_index_otpw(bool use_for_otpw);
-  void set_index_step(bool enable);
-  void set_use_mres_register(bool use);
-  void set_multistep_filt(bool enable);
-  void set_pdn_disable(bool disable);
-  void set_test_mode(bool enable);
-  bool get_inverse_direction();
-  bool get_internal_rsense();
-  bool get_en_spreadcycle();
-  bool get_index_otpw();
-  bool get_read_index_step();
-  bool get_pdn_disable();
-  bool get_use_mres_register();
-  bool get_multistep_filt();
-  bool get_iscale_analog();
-  bool get_test_mode();
+  uint16_t gconf();
+  void gconf(uint16_t setting);
+  void gconf_iscale_analog(bool use_vref);
+  bool gconf_iscale_analog();
+  void gconf_internal_rsense(bool use_internal);
+  bool gconf_internal_rsense();
+  void gconf_en_spreadcycle(bool enable);
+  bool gconf_en_spreadcycle();
+  bool gconf_inverse_direction();
+  void gconf_inverse_direction(bool inverse_direction);
+  bool gconf_index_otpw();
+  void gconf_index_otpw(bool use_otpw);
+  void gconf_index_step(bool enable);
+  bool gconf_index_step();
+  void gconf_pdn_disable(bool disable);
+  bool gconf_pdn_disable();
+  void gconf_mstep_reg_select(bool use);
+  bool gconf_mstep_reg_select();
+  void gconf_microsteps(uint8_t ms);
+  uint8_t gconf_microsteps();
+  void gconf_multistep_filt(bool enable);
+  bool gconf_multistep_filt();
+  void gconf_test_mode(bool enable);
+  bool gconf_test_mode();
 
   /** GSTAT **/
-  uint16_t read_gstat();
-  void write_gstat(uint16_t setting);
-  void read_gstat_update();
-  void write_gstat_update();
-  bool read_gstat_reset();
-  void write_gstat_reset(bool clear);
-  bool read_gstat_drv_err();
-  void write_gstat_drv_err(bool clear);
-  bool read_gstat_uv_cp();
-  void write_gstat_uv_cp(bool clear);
-  bool get_gstat_reset();
-  void set_gstat_reset(bool clear);
-  bool get_gstat_drv_err();
-  void set_gstat_drv_err(bool clear);
-  bool get_gstat_uv_cp();
-  void set_gstat_uv_cp(bool clear);
+  uint16_t gstat();
+  void gstat(uint16_t setting);
+  bool gstat_reset();
+  void gstat_reset(bool clear);
+  bool gstat_drv_err();
+  void gstat_drv_err(bool clear);
+  bool gstat_uv_cp();
+  void gstat_uv_cp(bool clear);
 
   /** DRV_STATUS **/
   bool has_driver_error();
-  uint32_t read_driver_status();
-  void update_driver_status();
-  bool get_drv_status_stst();
-  bool get_drv_status_stealth();
-  uint8_t get_drv_status_cs_actual();
-  bool get_drv_status_otpw();
-  bool get_drv_status_ot();
-  bool get_drv_status_t120();
-  bool get_drv_status_t143();
-  bool get_drv_status_t150();
-  bool get_drv_status_t157();
-  bool get_drv_status_ola();
-  bool get_drv_status_olb();
-  bool get_drv_status_s2vsa();
-  bool get_drv_status_s2vsb();
-  bool get_drv_status_s2ga();
-  bool get_drv_status_s2gb();
-  bool read_drv_status_stst();
-  bool read_drv_status_stealth();
-  uint8_t read_drv_status_cs_actual();
-  bool read_drv_status_otpw();
-  bool read_drv_status_ot();
-  bool read_drv_status_t120();
-  bool read_drv_status_t143();
-  bool read_drv_status_t150();
-  bool read_drv_status_t157();
-  bool read_drv_status_ola();
-  bool read_drv_status_olb();
-  bool read_drv_status_s2vsa();
-  bool read_drv_status_s2vsb();
-  bool read_drv_status_s2ga();
-  bool read_drv_status_s2gb();
+  uint32_t driver_status();
+  bool drv_status_stst();
+  bool drv_status_stealth();
+  uint8_t drv_status_cs_actual();
+  bool drv_status_otpw();
+  bool drv_status_ot();
+  bool drv_status_t120();
+  bool drv_status_t143();
+  bool drv_status_t150();
+  bool drv_status_t157();
+  bool drv_status_ola();
+  bool drv_status_olb();
+  bool drv_status_s2vsa();
+  bool drv_status_s2vsb();
+  bool drv_status_s2ga();
+  bool drv_status_s2gb();
 
   /** IFCNT **/
-  uint8_t read_transmission_counter();
+  uint8_t transmission_counter();
 
   /** IOIN **/
-  uint32_t read_ioin();
-  void update_ioin();
-  bool get_ioin_enn();
-  bool get_ioin_ms1();
-  bool get_ioin_ms2();
-  bool get_ioin_diag();
-  bool get_ioin_pdn_uart();
-  bool get_ioin_step();
-  bool get_ioin_spread_en();
-  bool get_ioin_dir();
-  int8_t get_chip_version();
-  int8_t read_chip_version();
+  uint32_t ioin();
+  bool ioin_enn();
+  bool ioin_ms1();
+  bool ioin_ms2();
+  bool ioin_diag();
+  bool ioin_pdn_uart();
+  bool ioin_step();
+  bool ioin_spread_en();
+  bool ioin_dir();
+  int8_t ioin_chip_version();
 
   /** OTP **/
-  uint32_t read_otpread();
-  void update_otpread();
-  bool get_optread_en_spreadcycle();
+  uint32_t otpread();
+  bool optread_en_spreadcycle();
 
   /** FACTORY CONF **/
   void fclktrim(uint8_t fclktrim);
@@ -205,7 +146,7 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   /** STALLGUARD **/
   void stallguard_threshold(uint8_t threshold);
   uint16_t stallguard_result();
-  float calc_motor_load(uint16_t sg_result);
+  float calculate_motor_load(uint16_t sg_result);
 
   /** DRV_CTRL **/
   uint16_t internal_step_counter();  // Difference since last poll. Wrap around at 1023
@@ -243,25 +184,9 @@ class TMC2209 : public stepper::Stepper, public Component, public uart::UARTDevi
   bool is_enabled_{false};
   bool enable_pin_state_;
   bool stop_on_fault_;
-  uint16_t last_mscnt_{0};
 
-  uint32_t drv_status_;
-  time_t drv_status_last_read_;
-
-  uint32_t ioin_;
-  time_t ioin_last_read_;
-
-  uint32_t otpread_;
-  time_t otpread_last_read_;
-
-  uint16_t gconf_;
-  time_t gconf_last_read_;
-  time_t gconf_last_write_;
-
-  uint8_t gstat_;
-  time_t gstat_last_read_;
-  time_t gstat_last_write_;
-
+  uint32_t prev_time_;
+  uint32_t prev_position_{0};
   uint32_t sg_thrs_;
 };
 
@@ -288,10 +213,10 @@ template<typename... Ts> class TMC2209ConfigureAction : public Action<Ts...>, pu
 
     // set inverse direction
     if (this->inverse_direction_.has_value())
-      this->parent_->write_inverse_direction(this->inverse_direction_.value(x...));
+      this->parent_->gconf_inverse_direction(this->inverse_direction_.value(x...));
 
     if (this->microsteps_.has_value())
-      this->parent_->microsteps(this->microsteps_.value(x...));
+      this->parent_->gconf_microsteps(this->microsteps_.value(x...));
 
     if (this->velocity_.has_value())
       this->parent_->velocity(this->velocity_.value(x...));

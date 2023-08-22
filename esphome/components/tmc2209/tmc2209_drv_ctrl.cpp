@@ -13,6 +13,7 @@ void TMC2209::enable(bool enable) {
     this->enable_pin_->digital_write(enable);
     this->enable_pin_state_ = enable;
   }
+  // this->velocity(0);
 }
 
 void TMC2209::disable() { this->enable(false); }

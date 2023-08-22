@@ -7,8 +7,8 @@ namespace tmc {
 
 static const char *TAG = "tmc2209.stepper";
 
-extern "C" {  // TMC-API hardware wrappers
-void tmc2209_readWriteArray(uint8_t channel, uint8_t *data, size_t writeLength, size_t readLength) {
+// TMC-API hardware wrappers
+extern "C" void tmc2209_readWriteArray(uint8_t channel, uint8_t *data, size_t writeLength, size_t readLength) {
   TMC2209 *comp = components[channel];
 
   comp->write_array(data, writeLength);
@@ -22,19 +22,20 @@ void tmc2209_readWriteArray(uint8_t channel, uint8_t *data, size_t writeLength, 
   }
 }
 
-uint8_t tmc2209_CRC8(uint8_t *data, size_t length) { return tmc_CRC8(data, length, 0); }
-}
+extern "C" uint8_t tmc2209_CRC8(uint8_t *data, size_t length) { return tmc_CRC8(data, length, 0); }
 
 void IRAM_ATTR HOT TMC2209IndexStore::gpio_intr(TMC2209IndexStore *arg) {
-  if ((arg->target_ - arg->current_) > 0)
+  if ((arg->target_ - arg->current_) > 0) {
     arg->current_ = arg->current_ + 1;
-  else
+  } else {
     arg->current_ = arg->current_ - 1;
+  }
 
   if (arg->current_ == arg->target_) {
     arg->target_reached_ = true;
   }
 };
+
 void IRAM_ATTR HOT TMC2209DiagStore::gpio_intr(TMC2209DiagStore *arg) {}
 
 void TMC2209::dump_config() {
@@ -43,8 +44,8 @@ void TMC2209::dump_config() {
   LOG_PIN("  Diag Pin: ", this->diag_pin_);
   LOG_PIN("  Index Pin: ", this->index_pin_);
 
-  ESP_LOGCONFIG(TAG, "  Detected Version: 0x%02X", this->read_chip_version());
-  ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->microsteps());
+  ESP_LOGCONFIG(TAG, "  Detected Version: 0x%02X", this->ioin_chip_version());
+  ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->gconf_microsteps());
 
   ESP_LOGCONFIG(TAG, "OTP0 Defaults:");
   ESP_LOGCONFIG(TAG, "  TBL:");
@@ -87,27 +88,24 @@ void TMC2209::setup() {
   // Initialize TMC driver instance
   tmc_fillCRC8Table((uint8_t) 0b100000111, true, 0);
   tmc2209_init(&this->driver_, this->channel_, this->address_, &this->config_, &tmc2209_defaultRegisterResetState[0]);
+  tmc2209_reset(&this->driver_);
+  tmc2209_periodicJob(&this->driver_, 0);
 
-  bool reset_done = false;
-  uint8_t reset_try_count = 10;
-
-  do {
-    reset_done = tmc2209_reset(&this->driver_);
-  } while (!reset_done && --reset_try_count > 0);
-  if (!reset_done)
-    this->mark_failed();
+  if (this->ioin_chip_version() != TMC2209_DEFAULT_CHIP_VERSION)
+    ESP_LOGW(TAG, "Non-default TMC2209 version detected %X. Expected %X", this->ioin_chip_version(),
+             TMC2209_DEFAULT_CHIP_VERSION);
 
   this->enable();
 
-  this->write_pdn_disable(true);        // Prioritize UART communication by disabling configuration pin.
-  this->write_use_mres_register(true);  // Use MSTEP register to set microstep resolution
+  this->gconf_pdn_disable(1);       // Prioritize UART communication by disabling configuration pin.
+  this->gconf_mstep_reg_select(1);  // Use MSTEP register to set microstep resolution
   this->blank_time(0);
-  this->write_index_step(true);
-  this->microsteps(1);
+  this->gconf_index_otpw(0);
+  this->gconf_index_step(1);
+  this->gconf_microsteps(5);
 
-  this->update_driver_status();  // fetch DRV_STATUS registers
-  this->update_ioin();           // fetch IOIN registers
-  this->update_otpread();        // fetch OTP Read registers
+  tmc2209_periodicJob(&this->driver_, 0);
+  this->disable();
 
   /*
   // Set toff
@@ -128,71 +126,54 @@ void TMC2209::setup() {
   this->diag_store_.diag_pin = this->diag_pin_->to_isr();
   this->diag_pin_->attach_interrupt(TMC2209DiagStore::gpio_intr, &this->diag_store_, gpio::INTERRUPT_ANY_EDGE);
 
-  this->disable();
-
   this->index_store_.current_ = this->current_position;
   this->index_store_.target_ = this->target_position;
   this->index_store_.target_reached_ = this->has_reached_target();
-  this->last_mscnt_ = this->internal_step_counter();
 
   ESP_LOGCONFIG(TAG, "Setup done.");
 }
 
 void TMC2209::loop() {
-  this->update_driver_status();            // fetch DRV_STATUS registers
-  this->update_ioin();                     // fetch IOIN registers
-  this->update_otpread();                  // fetch OTP Read registers
-  tmc2209_periodicJob(&this->driver_, 0);  // update the registers
+  if (this->index_store_.target_reached_) {
+    this->stop();
+    this->index_store_.target_reached_ = true;
+    this->index_store_.current_ = this->target_position;
+    this->index_store_.target_ = this->target_position;
+  }
+  this->current_position = this->index_store_.current_;
 
-  // ESP_LOGD(TAG, "fclktrim=%d ottrim=%d", this->fclktrim(), this->ottrim());
-
-  // if (this->index_store_.target_reached_) {
-  //   this->velocity(0);
-  //   this->index_store_.target_reached_ = true;
-  //   this->index_store_.current_ = this->target_position;
-  //   this->index_store_.target_ = this->target_position;
+  // if (this->diag_store_.triggered) {
+  //   this->update_driver_status();
+  //   this->on_motor_stall_callback_.call();
   // }
-  // this->current_position = this->index_store_.current_;
 
-  /*if (this->is_enabled_) {
-    const uint16_t sg_res = this->stallguard_result();
-    const float load = this->calc_motor_load(sg_res);
-    // ESP_LOGD(TAG, "%d\t%d\t=\t%.2f", sg_res, this->sg_thrs_, load * 100.0);
-    if (load >= 1.0) {
-      this->stop();
-    }
-  }
-
-  if (this->diag_store_.triggered) {
-    uint32_t drv_status = this->get_driver_status();
-    this->on_motor_stall_callback_.call();
-  }
-
-  const uint16_t current_mscnt = this->internal_step_counter();
-  const int32_t mscnt_diff = this->last_mscnt_ - current_mscnt;
-  this->last_mscnt_ = current_mscnt;
-
-  this->current_position += mscnt_diff;
+  /*
+  const uint32_t current_time_ = millis();
+  const uint32_t loop_diff_ = current_time_ - this->prev_time_;
+  const int32_t position_diff_ = this->prev_position_ - this->current_position;
+  this->prev_time_ = current_time_;
+  this->prev_position_ = this->current_position;
+  ESP_LOGD(TAG, "%.2f", ((float32_t) position_diff_ / (float32_t) loop_diff_));
   */
 
-  // ESP_LOGD(TAG, "%d", this->current_position);
+  tmc2209_periodicJob(&this->driver_, 0);  // update the registers
 }
 
 void TMC2209::stop() { this->velocity(0); }
 
 void TMC2209::set_target(int32_t steps) {
-  // if (this->current_position == steps)
-  //   return;
+  if (this->current_position == steps)
+    return;
 
-  // this->target_position = steps;
-  // this->index_store_.target_ = this->target_position;
+  this->target_position = steps;
+  this->index_store_.target_ = this->target_position;
 
-  // const int32_t relative_position = (this->target_position - this->current_position);
+  const int32_t relative_position = (this->target_position - this->current_position);
 
-  // this->index_store_.target_reached_ = false;
-  // const int32_t velocity = this->max_speed_ * (relative_position < 0 ? 1 : -1);
+  this->index_store_.target_reached_ = false;
+  const int32_t velocity = this->max_speed_ * (relative_position < 0 ? 1 : -1);
 
-  // this->velocity(velocity);
+  this->velocity(velocity);
 }
 
 void TMC2209::report_position(int32_t steps) {
