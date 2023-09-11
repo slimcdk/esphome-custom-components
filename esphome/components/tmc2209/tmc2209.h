@@ -114,6 +114,9 @@ class TMC2209 : public uart::UARTDevice {
   void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; }
   void set_address(uint8_t address) { this->address_ = address; }
 
+  void enable(bool enable = true);
+  void disable();
+
   TMC2209TypeDef *get_driver() { return &this->driver_; };
   uint8_t get_address() { return this->address_; };
 
@@ -123,14 +126,17 @@ class TMC2209 : public uart::UARTDevice {
   ConfigurationTypeDef config_;
   uint8_t address_;
 
-  void tmc2209_setup();
-  void tmc2209_post_setup();
-  void tmc2209_loop();
+  bool is_enabled_{false};
+  bool enable_pin_state_;
 
   GPIOPin *enable_pin_;
   InternalGPIOPin *index_pin_;
   InternalGPIOPin *diag_pin_;
   TMC2209DiagStore diag_store_{};
+
+  void tmc2209_setup();
+  void tmc2209_post_setup();
+  void tmc2209_loop();
 };
 
 }  // namespace tmc

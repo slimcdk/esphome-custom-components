@@ -26,6 +26,10 @@ void TMC2209::tmc2209_setup() {
 
   this->gconf_pdn_disable(1);  // Prioritize UART communication by disabling configuration pin.
 
+  this->enable_pin_->setup();
+  this->enable_pin_->digital_write(true);
+  this->enable_pin_state_ = true;
+
   // Inttrupt handling for diag events
   this->diag_pin_->setup();
   this->diag_store_.diag_pin = this->diag_pin_->to_isr();

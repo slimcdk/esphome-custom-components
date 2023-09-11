@@ -35,10 +35,6 @@ void TMC2209Stepper::dump_config() {
 void TMC2209Stepper::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209...");
 
-  this->enable_pin_->setup();
-  this->enable_pin_->digital_write(true);
-  this->enable_pin_state_ = true;
-
   // Inttrupt handling for index events
   this->index_pin_->setup();
   this->index_store_.index_pin = this->index_pin_->to_isr();

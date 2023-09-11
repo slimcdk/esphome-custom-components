@@ -2,7 +2,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import sensor, voltage_sampler
 from esphome.const import CONF_ID, CONF_NUMBER
-from ..stepper.stepper import tmc_ns, TMC2209
+from ..stepper import tmc_ns, TMC2209
 
 
 DEPENDENCIES = ["stepper.tmc2209"]

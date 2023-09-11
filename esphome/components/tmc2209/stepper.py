@@ -1,5 +1,3 @@
-## Datasheet https://www.trinamic.com/fileadmin/assets/Products/ICs_Documents/TMC2209_Datasheet_V103.pdf
-
 from esphome import automation, pins
 from esphome.components import stepper
 
@@ -11,7 +9,7 @@ from esphome.const import (
     CONF_TRIGGER_ID
 )
 
-from .. import (
+from . import (
     tmc_ns,
     TMC2209,
     TMC2209_SCHEMA,
