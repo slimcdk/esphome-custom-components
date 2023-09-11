@@ -2,10 +2,9 @@
 
 from esphome import automation, pins
 from esphome.components import uart
-from esphome.automation import maybe_simple_id
 import esphome.config_validation as cv
 import esphome.codegen as cg
-from esphome.const import CONF_ADDRESS, CONF_ID, CONF_ENABLE_PIN, CONF_TRIGGER_ID
+from esphome.const import CONF_ADDRESS, CONF_ID, CONF_ENABLE_PIN
 from esphome.core import CORE, coroutine_with_priority
 
 CODEOWNERS = ["@slimcdk"]
@@ -46,6 +45,9 @@ CONF_COOLCONF_SEMIN1 = "coolstep_semin1"
 CONF_COOLCONF_SEMIN0 = "coolstep_semin0"
 
 CONF_ON_MOTOR_STALL = "on_motor_stall"
+
+CONF_STALLGUARD_RESULT = "stallguard_result"
+
 
 tmc_ns = cg.esphome_ns.namespace("tmc")
 TMC2209 = tmc_ns.class_("TMC2209", uart.UARTDevice)

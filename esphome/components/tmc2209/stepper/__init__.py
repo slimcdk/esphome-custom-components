@@ -23,6 +23,8 @@ from .. import (
 
 CODEOWNERS = ["@slimcdk"]
 
+AUTO_LOAD = ["tmc2209"]
+
 TMC2209Stepper = tmc_ns.class_("TMC2209Stepper", cg.Component, stepper.Stepper, TMC2209)
 
 TMC2209StepperMotorStallTrigger = tmc_ns.class_("TMC2209StepperMotorStallTrigger", automation.Trigger)
@@ -57,8 +59,6 @@ async def to_code(config):
         cg.add(var.set_index_pin(await cg.gpio_pin_expression(config[CONF_INDEX_PIN])))
 
 
-TMC2209_DEVICE_SCHEMA = cv.Schema(
-    {
-        cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209Stepper),
-    }
-)
+TMC2209_STEPPER_SCHEMA = cv.Schema({
+    cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209Stepper),
+})

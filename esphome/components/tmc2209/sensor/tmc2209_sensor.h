@@ -9,7 +9,7 @@
 namespace esphome {
 namespace tmc {
 
-class TMC2209Sensor : public PollingComponent, public sensor::Sensor {
+class TMC2209Sensor : public TMC2209, public PollingComponent, public sensor::Sensor {
  public:
   TMC2209Sensor() = default;
 
@@ -18,8 +18,10 @@ class TMC2209Sensor : public PollingComponent, public sensor::Sensor {
   void setup() override;
   void update() override;
 
+  void set_stallguard_result_sensor(sensor::Sensor *sg_result_sensor_) { sg_result_sensor_ = sg_result_sensor_; }
+
  protected:
-  TMC2209 *tmc2209;
+  sensor::Sensor *sg_result_sensor_{nullptr};
 };
 
 }  // namespace tmc
