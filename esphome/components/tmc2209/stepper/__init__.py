@@ -9,7 +9,7 @@ from esphome.const import (
     CONF_TRIGGER_ID
 )
 
-from . import (
+from .. import (
     tmc_ns,
     TMC2209,
     TMC2209_SCHEMA,
