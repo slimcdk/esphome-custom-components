@@ -1,11 +1,11 @@
 
 #include "esphome/core/log.h"
-#include "tmc2209.h"
+#include "tmc2209_api.h"
 
 namespace esphome {
 namespace tmc {
 
-static const char *TAG = "tmc2209.component";
+static const char *TAG = "tmc2209.api";
 
 // Global list of components for TMC-API to access the UART
 TMC2209::TMC2209() {
@@ -14,10 +14,14 @@ TMC2209::TMC2209() {
 }
 
 void TMC2209::tmc2209_setup() {
-  // Initialize TMC driver instance
+  tmc2209_setCallback(&this->driver_, [](TMC2209TypeDef *driver_, ConfigState state) {
+    ESP_LOGD(TAG, "from lambda callback"); /*this->cfg_state_ = state;*/
+  });
+
   tmc_fillCRC8Table((uint8_t) 0b100000111, true, 0);
   tmc2209_init(&this->driver_, this->channel_, this->address_, &this->config_, &tmc2209_defaultRegisterResetState[0]);
   tmc2209_reset(&this->driver_);
+
   tmc2209_periodicJob(&this->driver_, 0);
 
   const auto ic_version = this->ioin_chip_version();
@@ -25,6 +29,7 @@ void TMC2209::tmc2209_setup() {
     ESP_LOGW(TAG, "Non-default TMC2209 version detected %X. Expected %X", ic_version, TMC2209_DEFAULT_CHIP_VERSION);
 
   this->gconf_pdn_disable(1);  // Prioritize UART communication by disabling configuration pin.
+  tmc2209_periodicJob(&this->driver_, 0);
 
   this->enable_pin_->setup();
   this->enable_pin_->digital_write(true);
@@ -34,8 +39,6 @@ void TMC2209::tmc2209_setup() {
   this->diag_pin_->setup();
   this->diag_store_.diag_pin = this->diag_pin_->to_isr();
   this->diag_pin_->attach_interrupt(TMC2209DiagStore::gpio_intr, &this->diag_store_, gpio::INTERRUPT_ANY_EDGE);
-
-  this->tmc2209_post_setup();
 }
 
 void TMC2209::tmc2209_post_setup() { tmc2209_periodicJob(&this->driver_, 0); }
@@ -48,7 +51,6 @@ void TMC2209::tmc2209_loop() { tmc2209_periodicJob(&this->driver_, 0); }
 
 extern "C" void tmc2209_readWriteArray(uint8_t channel, uint8_t *data, size_t writeLength, size_t readLength) {
   TMC2209 *comp = components[channel];
-
   comp->write_array(data, writeLength);
 
   // chop off transmitted bytes from the buffer and flush due to one-wire uart filling up rx when transmitting

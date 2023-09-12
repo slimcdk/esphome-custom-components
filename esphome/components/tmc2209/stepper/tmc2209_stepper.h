@@ -4,7 +4,7 @@
 #include "esphome/core/component.h"
 
 #include "esphome/components/stepper/stepper.h"
-#include "esphome/components/tmc2209/tmc2209.h"
+#include "esphome/components/tmc2209/tmc2209_api.h"
 
 namespace esphome {
 namespace tmc {
@@ -44,7 +44,7 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public TMC2209
 
   CallbackManager<void()> on_motor_stall_callback_;
 
-  bool stop_on_fault_;
+  InternalGPIOPin *index_pin_;
 
   uint32_t prev_time_;
   uint32_t prev_position_{0};

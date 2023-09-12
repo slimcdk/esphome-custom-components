@@ -6,7 +6,8 @@ from esphome.const import CONF_ID
 from .. import (
     tmc_ns,
     TMC2209,
-    CONF_STALLGUARD_RESULT
+    CONF_STALLGUARD_RESULT,
+    CONF_TMC2209_ID
 )
 
 from ..stepper import (
@@ -32,9 +33,9 @@ CONFIG_SCHEMA = (
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    paren = await cg.get_variable(config[CONF_TMC2209_ID])
+    var = cg.new_Pvariable(config[CONF_ID], paren)
     await cg.register_component(var, config)
-    # await sensor.register_sensor(var, config)
 
     if CONF_STALLGUARD_RESULT in config:
         sens = await sensor.new_sensor(config[CONF_STALLGUARD_RESULT])

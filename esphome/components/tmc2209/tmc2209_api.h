@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "esphome/core/helpers.h"
 
 #include "esphome/components/uart/uart.h"
@@ -121,15 +123,16 @@ class TMC2209 : public uart::UARTDevice {
 
  protected:
   uint8_t channel_ = 0;
+  uint8_t address_;
   TMC2209TypeDef driver_;
   ConfigurationTypeDef config_;
-  uint8_t address_;
+  ConfigState cfg_state_;
 
   bool is_enabled_{false};
   bool enable_pin_state_;
+  bool ready_{false};
 
   GPIOPin *enable_pin_;
-  InternalGPIOPin *index_pin_;
   InternalGPIOPin *diag_pin_;
   TMC2209DiagStore diag_store_{};
 

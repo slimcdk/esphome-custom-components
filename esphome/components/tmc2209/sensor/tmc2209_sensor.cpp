@@ -16,7 +16,7 @@ void TMC2209Sensor::dump_config() {
 
 void TMC2209Sensor::setup() {}
 
-void TMC2209Sensor::update() { sg_result_sensor_->publish_state(0); }
+void TMC2209Sensor::update() { sg_result_sensor_->publish_state(this->parent_->stallguard_result()); }
 
 }  // namespace tmc
 }  // namespace esphome
