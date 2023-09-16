@@ -16,10 +16,13 @@ AUTO_LOAD = ["pulse_counter"]
 CONF_TMC2209_ID = "tmc2209_id"
 
 CONF_ENN_PIN = "enn_pin"
+CONF_STEP_PIN = "step_pin"
 CONF_DIAG_PIN = "diag_pin"
 CONF_INDEX_PIN = "index_pin"
 
 CONF_INVERSE_DIRECTION = "inverse_direction"
+
+CONF_VELOCITY = "velocity"
 
 CONF_VACTUAL = "vactual"
 CONF_MICROSTEPS = "microsteps"
@@ -52,10 +55,11 @@ CONF_COOLCONF_SEMIN0 = "coolstep_semin0"
 CONF_ON_FAULT_SIGNAL = "on_fault_signal"
 
 tmc_ns = cg.esphome_ns.namespace("tmc")
-TMC2209Stepper = tmc_ns.class_("TMC2209Stepper", cg.Component, stepper.Stepper,  uart.UARTDevice)
+TMC2209Stepper = tmc_ns.class_("TMC2209Stepper", cg.Component, stepper.Stepper, uart.UARTDevice)
 
 TMC2209StepperFaultSignalTrigger = tmc_ns.class_("TMC2209StepperFaultSignalTrigger", automation.Trigger)
 TMC2209StepperConfigureAction = tmc_ns.class_("TMC2209StepperConfigureAction", automation.Action)
+TMC2209StepperVelocityAction = tmc_ns.class_("TMC2209StepperVelocityAction", automation.Action)
 
 
 CONFIG_SCHEMA = (
@@ -64,6 +68,7 @@ CONFIG_SCHEMA = (
             cv.GenerateID(): cv.declare_id(TMC2209Stepper),
             cv.Optional(CONF_ADDRESS, default=0): cv.uint8_t,
             cv.Optional(CONF_ENN_PIN): pins.gpio_output_pin_schema,
+            cv.Required(CONF_STEP_PIN): pins.gpio_output_pin_schema,
             cv.Required(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
             cv.Required(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_RSENSE): cv.resistance,
@@ -84,7 +89,6 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await stepper.register_stepper(var, config)
-
     await uart.register_uart_device(var, config)
 
     if CONF_ADDRESS in config:
@@ -92,6 +96,9 @@ async def to_code(config):
 
     if CONF_ENN_PIN in config:
         cg.add(var.set_enn_pin(await cg.gpio_pin_expression(config[CONF_ENN_PIN])))
+
+    if CONF_STEP_PIN in config:
+        cg.add(var.set_step_pin(await cg.gpio_pin_expression(config[CONF_STEP_PIN])))
 
     if CONF_DIAG_PIN in config:
         cg.add(var.set_diag_pin(await cg.gpio_pin_expression(config[CONF_DIAG_PIN])))
@@ -112,7 +119,6 @@ TMC2209_STEPPER_SCHEMA = cv.Schema({
 })
 
 
-
 @automation.register_action(
     "tmc2209.configure",
     TMC2209StepperConfigureAction,
@@ -121,9 +127,6 @@ TMC2209_STEPPER_SCHEMA = cv.Schema({
             cv.GenerateID(): cv.use_id(TMC2209Stepper),
             # Velocity
             cv.Optional(CONF_INVERSE_DIRECTION): cv.templatable(cv.boolean),
-            cv.Optional(CONF_VACTUAL): cv.templatable(
-                cv.int_range(min=-8388608, max=8388608),
-            ),
             cv.Optional(CONF_HOLD_CURRENT): cv.templatable(
                 cv.int_range(min=0, max=2**5, max_included=False),
             ),
@@ -177,10 +180,6 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
         template_ = yield cg.templatable(config[CONF_INVERSE_DIRECTION], args, bool)
         cg.add(var.set_inverse_direction(template_))
 
-    if CONF_VACTUAL in config:
-        template_ = yield cg.templatable(config[CONF_VACTUAL], args, int)
-        cg.add(var.set_vactual(template_))
-
     if CONF_HOLD_CURRENT in config:
         template_ = yield cg.templatable(config[CONF_HOLD_CURRENT], args, int)  # float)
         cg.add(var.set_hold_current(template_))
@@ -206,6 +205,30 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
     if CONF_STALLGUARD_SGTHRS in config:
         template_ = yield cg.templatable(config[CONF_STALLGUARD_SGTHRS], args, int)
         cg.add(var.set_stallguard_sgthrs(template_))
+
+    yield var
+
+
+
+@automation.register_action(
+    "tmc2209.set_velocity",
+    TMC2209StepperVelocityAction,
+    cv.Schema(
+        {
+            cv.GenerateID(): cv.use_id(TMC2209Stepper),
+            cv.Required(CONF_VELOCITY): cv.templatable(
+                cv.int_range(min=-8388608, max=8388607),
+            ),
+
+        }
+    ),
+)
+def tmc2209_set_velocity_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
+
+    template_ = yield cg.templatable(config[CONF_VELOCITY], args, int)
+    cg.add(var.set_velocity(template_))
 
     yield var
 
