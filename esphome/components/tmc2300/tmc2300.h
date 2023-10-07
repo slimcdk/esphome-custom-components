@@ -20,6 +20,11 @@ class TMC2300Stepper;  // Forward declare
 static TMC2300Stepper *components[MAX_ALLOWED_COMPONENTS];
 static uint8_t tmc2300_stepper_global_index = 0;
 
+struct TMC2300StepperDiagStore {
+  bool fault_detected_{false};
+  static void gpio_isr(TMC2300StepperDiagStore *arg);
+};
+
 class TMC2300Stepper : public Component, public stepper::Stepper, public uart::UARTDevice {
  public:
   TMC2300Stepper();
@@ -107,7 +112,8 @@ class TMC2300Stepper : public Component, public stepper::Stepper, public uart::U
 
   uint8_t stallguard_sgthrs_;
   int32_t coolstep_tcoolthrs_;
-  bool fault_detected_{false};
+
+  TMC2300StepperDiagStore diag_store_{};
 };
 
 class TMC2300StepperFaultSignalTrigger : public Trigger<> {

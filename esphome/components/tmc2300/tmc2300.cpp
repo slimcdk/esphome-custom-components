@@ -24,7 +24,7 @@ void TMC2300Stepper::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2300...");
 
   this->diag_pin_->setup();
-  this->diag_pin_->attach_interrupt(TMC2300Stepper::diag_isr, this, gpio::INTERRUPT_RISING_EDGE);
+  this->diag_pin_->attach_interrupt(TMC2300StepperDiagStore::gpio_isr, &this->diag_store_, gpio::INTERRUPT_RISING_EDGE);
 
   // Fill default configuration for driver (TODO: retry call instead)
   if (!tmc2300_reset(&this->driver_)) {
@@ -33,8 +33,15 @@ void TMC2300Stepper::setup() {
   }
 
   // Write all configurations
+  time_t deadline = millis() + 2500;
   while (this->driver_.config->state != CONFIG_READY) {
     this->update_registers_();
+
+    if (millis() > deadline) {
+      this->mark_failed();
+      ESP_LOGE(TAG, "Unable to communicate with driver");
+      return;
+    }
   }
 
   this->gconf_pdn_disable(true);       // Prioritize UART communication by disabling configuration pin.
@@ -50,11 +57,11 @@ void TMC2300Stepper::dump_config() {
   LOG_STEPPER(this);
 }
 
-void IRAM_ATTR HOT TMC2300Stepper::diag_isr(TMC2300Stepper *stepper_) { stepper_->fault_detected_ = true; };
+void IRAM_ATTR HOT TMC2300StepperDiagStore::gpio_isr(TMC2300StepperDiagStore *arg) { arg->fault_detected_ = true; };
 
 void TMC2300Stepper::loop() {
-  if (this->fault_detected_) {
-    this->fault_detected_ = false;
+  if (this->diag_store_.fault_detected_) {
+    this->diag_store_.fault_detected_ = false;
     this->on_fault_signal_callback_.call();
   }
   this->update_registers_();
