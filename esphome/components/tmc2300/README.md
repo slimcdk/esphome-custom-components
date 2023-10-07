@@ -1,6 +1,6 @@
 
 
-```
+```yaml
 external_components:
   - source: github://slimcdk/esphome-custom-components@master
     components: [ tmc2300 ]
