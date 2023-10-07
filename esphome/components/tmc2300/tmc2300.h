@@ -93,7 +93,7 @@ class TMC2300Stepper : public Component, public stepper::Stepper, public uart::U
   uint8_t chopconf_mres();
   void chopconf_blank_time(uint8_t select);
 
- protected:
+  //  protected:
   // TMC-API handlers
   uint8_t index_{0};  // used for tmcapi channel index and esphome global component index
   TMC2300TypeDef driver_;
