@@ -33,7 +33,7 @@ esphome:
   on_boot:
     - lambda: |
         id(tmc2300_stepper).set_microsteps(256);
-        id(tmc2300_stepper).stallguard_sgthrs(400);
+        id(tmc2300_stepper).stallguard_sgthrs(120);
 
 stepper:
   - platform: tmc2300

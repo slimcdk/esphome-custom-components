@@ -32,15 +32,11 @@ void TMC2300Stepper::setup() {
     return;
   }
 
-  // Write all configurations
-  time_t deadline = millis() + 2500;
-  while (this->driver_.config->state != CONFIG_READY) {
+  // Write all configurations TODO: change condition to be config state
+  for (uint8_t i = 0; i < 255; i++) {
     this->update_registers_();
-
-    if (millis() > deadline) {
-      this->mark_failed();
-      ESP_LOGE(TAG, "Unable to communicate with driver");
-      return;
+    if (this->driver_.config->state == CONFIG_READY) {
+      break;
     }
   }
 
