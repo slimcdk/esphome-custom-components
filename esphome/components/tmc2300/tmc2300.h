@@ -20,9 +20,22 @@ class TMC2300Stepper;  // Forward declare
 static TMC2300Stepper *components[MAX_ALLOWED_COMPONENTS];
 static uint8_t tmc2300_stepper_global_index = 0;
 
-struct TMC2300StepperDiagStore {
-  bool fault_detected_{false};
-  static void gpio_isr(TMC2300StepperDiagStore *arg);
+enum Direction : int8_t {
+  CLOCKWISE = -1,     // Moving one direction
+  NONE = 0,           // Not moving
+  ANTICLOCKWISE = 1,  // Moving the other direction
+};
+
+struct TMC2300ISRStore {
+  int32_t *current_position_ptr{nullptr};
+  int32_t *target_position_ptr{nullptr};
+  Direction *direction_ptr{nullptr};
+  bool *fault_detected_ptr{nullptr};
+  bool *enn_pin_state_ptr{nullptr};
+
+  ISRInternalGPIOPin enn_pin_;
+  static void pulse_isr(TMC2300ISRStore *arg);
+  static void fault_isr(TMC2300ISRStore *arg);
 };
 
 class TMC2300Stepper : public Component, public stepper::Stepper, public uart::UARTDevice {
@@ -33,8 +46,16 @@ class TMC2300Stepper : public Component, public stepper::Stepper, public uart::U
   void dump_config() override;
   void setup() override;
   void loop() override;
+  void set_target(int32_t target) override;
 
+  void set_enn_pin(InternalGPIOPin *pin) { this->enn_pin_ = pin; }
   void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; }
+  void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; }
+
+  void enable(bool enable = true);
+  void disable() { this->enable(false); };
+  bool enabled() { return this->enn_pin_state_; }
+  void stop();
 
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
@@ -103,17 +124,26 @@ class TMC2300Stepper : public Component, public stepper::Stepper, public uart::U
   uint8_t index_{0};  // used for tmcapi channel index and esphome global component index
   TMC2300TypeDef driver_;
   ConfigurationTypeDef config_;
-
   void update_registers_();
-  static void IRAM_ATTR HOT diag_isr(TMC2300Stepper *stepper_);
+  bool reset_();
+  bool restore_();
 
+  uint32_t coolstep_tcoolthrs_{0};
+  uint8_t stallguard_sgthrs_{0};
+
+  InternalGPIOPin *index_pin_;
   InternalGPIOPin *diag_pin_;
+  InternalGPIOPin *enn_pin_;
+  bool enn_pin_state_{false};
+
+  TMC2300ISRStore isr_store_{};
+  // ControlMode control_mode_{ControlMode::NONE};
+  Direction direction_{Direction::NONE};
+
+  HighFrequencyLoopRequester high_freq_;
+
+  bool fault_detected_{false};
   CallbackManager<void()> on_fault_signal_callback_;
-
-  uint8_t stallguard_sgthrs_;
-  int32_t coolstep_tcoolthrs_;
-
-  TMC2300StepperDiagStore diag_store_{};
 };
 
 class TMC2300StepperFaultSignalTrigger : public Trigger<> {

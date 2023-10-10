@@ -10,6 +10,20 @@ namespace tmc {
 
 static const char *TAG = "tmc2300.stepper";
 
+void IRAM_ATTR HOT TMC2300ISRStore::pulse_isr(TMC2300ISRStore *arg) {
+  // TODO check if pointers are set
+
+  (*(arg->current_position_ptr)) += *(arg->direction_ptr);
+  if (*(arg->current_position_ptr) == *(arg->target_position_ptr)) {
+    arg->enn_pin_.digital_write(false);
+    *(arg->enn_pin_state_ptr) = false;
+    *(arg->direction_ptr) = Direction::NONE;
+    *(arg->target_position_ptr) = *(arg->current_position_ptr);
+  }
+}
+
+void IRAM_ATTR HOT TMC2300ISRStore::fault_isr(TMC2300ISRStore *arg) { (*(arg->fault_detected_ptr)) = true; }
+
 // Global list of driver to work around TMC channel index
 TMC2300Stepper::TMC2300Stepper() {
   this->index_ = tmc2300_stepper_global_index++;
@@ -23,8 +37,22 @@ TMC2300Stepper::TMC2300Stepper() {
 void TMC2300Stepper::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2300...");
 
+  this->enn_pin_->setup();
+  this->enn_pin_->digital_write(this->enn_pin_state_);
+
+  this->index_pin_->setup();
+  this->index_pin_->attach_interrupt(TMC2300ISRStore::pulse_isr, &this->isr_store_, gpio::INTERRUPT_FALLING_EDGE);
+
   this->diag_pin_->setup();
-  this->diag_pin_->attach_interrupt(TMC2300StepperDiagStore::gpio_isr, &this->diag_store_, gpio::INTERRUPT_RISING_EDGE);
+  this->diag_pin_->attach_interrupt(TMC2300ISRStore::fault_isr, &this->isr_store_, gpio::INTERRUPT_RISING_EDGE);
+
+  // Pulse tracker setup
+  this->isr_store_.enn_pin_ = this->enn_pin_->to_isr();
+  this->isr_store_.target_position_ptr = &this->target_position;
+  this->isr_store_.current_position_ptr = &this->current_position;
+  this->isr_store_.direction_ptr = &this->direction_;
+  this->isr_store_.enn_pin_state_ptr = &this->enn_pin_state_;
+  this->isr_store_.fault_detected_ptr = &this->fault_detected_;
 
   // Fill default configuration for driver (TODO: retry call instead)
   if (!tmc2300_reset(&this->driver_)) {
@@ -32,12 +60,14 @@ void TMC2300Stepper::setup() {
     return;
   }
 
-  // Write all configurations TODO: change condition to be config state
-  for (uint8_t i = 0; i < 255; i++) {
-    this->update_registers_();
-    if (this->driver_.config->state == CONFIG_READY) {
-      break;
-    }
+  for (uint8_t i = 0; i < 255 && this->driver_.config->state != CONFIG_READY; i++) {
+    this->update_registers_();  // Write initial configuration
+  }
+
+  if (this->driver_.config->state != CONFIG_READY) {
+    ESP_LOGE(TAG, "Failed to communicate with the driver");
+    this->mark_failed();
+    return;
   }
 
   this->gconf_pdn_disable(true);       // Prioritize UART communication by disabling configuration pin.
@@ -48,21 +78,57 @@ void TMC2300Stepper::setup() {
 
 void TMC2300Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2300 Stepper:");
+  LOG_PIN("  Enn Pin: ", this->enn_pin_);
   LOG_PIN("  Diag Pin: ", this->diag_pin_);
+  LOG_PIN("  Index Pin: ", this->index_pin_);
   ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", this->ioin_version());
   LOG_STEPPER(this);
 }
 
-void IRAM_ATTR HOT TMC2300StepperDiagStore::gpio_isr(TMC2300StepperDiagStore *arg) { arg->fault_detected_ = true; };
-
 void TMC2300Stepper::loop() {
-  if (this->diag_store_.fault_detected_) {
-    this->diag_store_.fault_detected_ = false;
-    this->on_fault_signal_callback_.call();
-  }
   this->update_registers_();
+
+  if (this->fault_detected_) {
+    this->fault_detected_ = false;
+    this->on_fault_signal_callback_.call();
+    // this->stop();
+  }
+
+  if (this->has_reached_target()) {
+    this->stop();
+    return;
+  }
+
+  this->calculate_speed_(micros());
+  this->vactual(this->current_speed_ * this->direction_);
 }
 
+void TMC2300Stepper::set_target(int32_t target) {
+  Stepper::set_target(target);
+
+  const int32_t steps_to_target = (this->target_position - this->current_position);
+  if (steps_to_target == 0) {
+    return;
+  }
+
+  this->direction_ = (Direction) (steps_to_target / abs(steps_to_target));  // yield 1 or -1
+  this->enable(true);
+}
+
+void TMC2300Stepper::stop() {
+  this->direction_ = Direction::NONE;
+  this->target_position = this->current_position;
+  this->vactual(0);
+  this->enable(false);
+}
+
+void TMC2300Stepper::enable(bool enable) {
+  this->enn_pin_->digital_write(enable);
+  this->enn_pin_state_ = enable;
+}
+
+bool TMC2300Stepper::reset_() { return tmc2300_reset(&this->driver_); }
+bool TMC2300Stepper::restore_() { return tmc2300_restore(&this->driver_); }
 void TMC2300Stepper::update_registers_() { return tmc2300_periodicJob(&this->driver_, 0); }
 
 uint16_t TMC2300Stepper::get_microsteps() {

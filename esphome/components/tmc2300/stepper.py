@@ -11,7 +11,9 @@ DEPENDENCIES = ["uart"]
 
 CONF_TMC2300_ID = "tmc2300_id"
 
+CONF_ENN_PIN = "enn_pin"
 CONF_DIAG_PIN = "diag_pin"
+CONF_INDEX_PIN = "index_pin"
 
 CONF_INVERSE_DIRECTION = "inverse_direction"
 CONF_MICROSTEPS = "microsteps"
@@ -38,7 +40,10 @@ CONFIG_SCHEMA = (
     stepper.STEPPER_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(TMC2300Stepper),
+            cv.Required(CONF_ENN_PIN): pins.gpio_output_pin_schema,
             cv.Required(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
+            cv.Required(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
+            cv.Optional(CONF_RSENSE): cv.resistance,
             cv.Optional(CONF_ON_FAULT_SIGNAL): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
@@ -52,13 +57,16 @@ CONFIG_SCHEMA = (
     .extend(uart.UART_DEVICE_SCHEMA)
 )
 
+
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     await stepper.register_stepper(var, config)
     await uart.register_uart_device(var, config)
 
+    cg.add(var.set_enn_pin(await cg.gpio_pin_expression(config[CONF_ENN_PIN])))
     cg.add(var.set_diag_pin(await cg.gpio_pin_expression(config[CONF_DIAG_PIN])))
+    cg.add(var.set_index_pin(await cg.gpio_pin_expression(config[CONF_INDEX_PIN])))
 
     for conf in config.get(CONF_ON_FAULT_SIGNAL, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)

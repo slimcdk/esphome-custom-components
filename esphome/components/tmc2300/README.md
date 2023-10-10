@@ -3,7 +3,7 @@
 ```yaml
 external_components:
   - source: github://slimcdk/esphome-custom-components@master
-    components: [ tmc2300 ]
+    components: [ stepper, tmc2300 ]
 
 
 logger: ...
@@ -29,18 +29,24 @@ uart:
 
 
 esphome:
-  name: tmc2300-driver
+  ...
   on_boot:
     - lambda: |
         id(tmc2300_stepper).set_microsteps(256);
         id(tmc2300_stepper).stallguard_sgthrs(120);
 
+
 stepper:
   - platform: tmc2300
     id: tmc2300_stepper
-    diag_pin: 9
+    enn_pin:
+      number: ...
+      inverted: true
+    diag_pin: ...
+    index_pin: ...
+    max_speed: 100000 steps/s
+    acceleration: 150000 steps/s^2
+    deceleration: 150000 steps/s^2
     on_fault_signal:
       - logger.log: "Motor stalled!"
-    max_speed: 250 # required, but not used
-
 ```
