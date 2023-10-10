@@ -1,6 +1,5 @@
 from esphome import automation, pins
-from esphome.components import uart, stepper
-
+from esphome.components import uart, stepper, esp32
 
 from esphome.core import CORE, coroutine_with_priority
 import esphome.config_validation as cv
@@ -10,15 +9,19 @@ from esphome.const import CONF_TRIGGER_ID, CONF_ADDRESS, CONF_ID
 
 CODEOWNERS = ["@slimcdk"]
 
-AUTO_LOAD = ["pulse_counter"]
 
+DEPENDENCIES = ["uart"]
 
 CONF_TMC2209_ID = "tmc2209_id"
 
 CONF_ENN_PIN = "enn_pin"
-CONF_STEP_PIN = "step_pin"
 CONF_DIAG_PIN = "diag_pin"
 CONF_INDEX_PIN = "index_pin"
+CONF_DIR_PIN = "dir_pin"
+CONF_STEP_PIN = "step_pin"
+CONF_STEP_FEEDBACK_PIN = "step_feedback_pin"
+
+
 
 CONF_INVERSE_DIRECTION = "inverse_direction"
 
@@ -66,11 +69,10 @@ CONFIG_SCHEMA = (
     stepper.STEPPER_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(TMC2209Stepper),
-            cv.Optional(CONF_ADDRESS, default=0): cv.uint8_t,
-            cv.Optional(CONF_ENN_PIN): pins.gpio_output_pin_schema,
-            cv.Required(CONF_STEP_PIN): pins.gpio_output_pin_schema,
+            cv.Required(CONF_ENN_PIN): pins.gpio_output_pin_schema,
             cv.Required(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
             cv.Required(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
+            cv.Optional(CONF_ADDRESS, default=0): cv.uint8_t,
             cv.Optional(CONF_RSENSE): cv.resistance,
             cv.Optional(CONF_ON_FAULT_SIGNAL): automation.validate_automation(
                 {
@@ -91,26 +93,17 @@ async def to_code(config):
     await stepper.register_stepper(var, config)
     await uart.register_uart_device(var, config)
 
-    if CONF_ADDRESS in config:
-        cg.add(var.set_address(config[CONF_ADDRESS]))
+    cg.add(var.set_enn_pin(await cg.gpio_pin_expression(config[CONF_ENN_PIN])))
+    cg.add(var.set_diag_pin(await cg.gpio_pin_expression(config[CONF_DIAG_PIN])))
+    cg.add(var.set_index_pin(await cg.gpio_pin_expression(config[CONF_INDEX_PIN])))
 
-    if CONF_ENN_PIN in config:
-        cg.add(var.set_enn_pin(await cg.gpio_pin_expression(config[CONF_ENN_PIN])))
-
-    if CONF_STEP_PIN in config:
-        cg.add(var.set_step_pin(await cg.gpio_pin_expression(config[CONF_STEP_PIN])))
-
-    if CONF_DIAG_PIN in config:
-        cg.add(var.set_diag_pin(await cg.gpio_pin_expression(config[CONF_DIAG_PIN])))
-
-    if CONF_INDEX_PIN in config:
-        cg.add(var.set_index_pin(await cg.gpio_pin_expression(config[CONF_INDEX_PIN])))
+    cg.add(var.set_address(config[CONF_ADDRESS]))
 
     for conf in config.get(CONF_ON_FAULT_SIGNAL, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
 
-    cg.add_library("https://github.com/slimcdk/TMC-API", "3.5.1")
+    cg.add_library("https://github.com/slimcdk/TMC-API", "3.5.2")
 
 
 

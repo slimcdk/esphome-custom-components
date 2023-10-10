@@ -1,5 +1,14 @@
 #pragma once
 
+// #include <driver/periph_ctrl.h>
+// #include <driver/mcpwm.h>
+// #include <driver/pcnt.h>
+// #include <driver/gpio.h>
+// #include <soc/mcpwm_reg.h>
+// #include <soc/mcpwm_struct.h>
+// #include <soc/periph_defs.h>
+// #include <esp_intr_alloc.h>
+
 #include "esphome/core/helpers.h"
 #include "esphome/core/component.h"
 
@@ -14,15 +23,31 @@ namespace esphome {
 namespace tmc {
 
 #define MAX_ALLOWED_COMPONENTS 3
-#define TMC2209_DEFAULT_CHIP_VERSION 0x21
 
 class TMC2209Stepper;  // Forward declare
 
 static TMC2209Stepper *components[MAX_ALLOWED_COMPONENTS];
-static uint8_t tmc2209_stepper_global_channel_index = 0;
+static uint8_t tmc2209_stepper_global_index = 0;
 
-enum class SteppingMode { NONE, PULSES, UART };
-enum class Direction { BACKWARD = -1, NONE = 0, FORWARD = 1 };
+// enum class ControlMode { NONE = 0, STEPPING, UART, UART_STEPPING };
+
+enum Direction : int8_t {
+  CLOCKWISE = -1,     // Moving one direction
+  NONE = 0,           // Not moving
+  ANTICLOCKWISE = 1,  // Moving the other direction
+};
+
+struct TMC2209ISRStore {
+  int32_t *current_position_ptr{nullptr};
+  int32_t *target_position_ptr{nullptr};
+  Direction *direction_ptr{nullptr};
+  bool *fault_detected_ptr{nullptr};
+  bool *enn_pin_state_ptr{nullptr};
+
+  ISRInternalGPIOPin enn_pin_;
+  static void pulse_isr(TMC2209ISRStore *arg);
+  static void fault_isr(TMC2209ISRStore *arg);
+};
 
 class TMC2209Stepper : public Component, public stepper::Stepper, public uart::UARTDevice {
  public:
@@ -33,10 +58,9 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public uart::U
   void setup() override;
   void loop() override;
 
-  void set_enn_pin(GPIOPin *pin) { this->enn_pin_ = pin; }
+  void set_enn_pin(InternalGPIOPin *pin) { this->enn_pin_ = pin; }
   void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; }
   void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; }
-  void set_step_pin(InternalGPIOPin *pin) { this->step_pin_ = pin; }
 
   void set_address(uint8_t address) { this->address_ = address; }
   uint8_t get_address() { return this->address_; };
@@ -46,9 +70,7 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public uart::U
   bool enabled() { return this->enn_pin_state_; }
   void stop();
 
-  void set_target(int32_t steps) override;
-  void set_velocity(int32_t velocity);
-  // int32_t get_velocity();
+  void set_target(int32_t target) override;
 
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
@@ -140,37 +162,31 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public uart::U
   void ihold_irun_ihold_delay(int32_t current);
 
  protected:
-  uint8_t channel_ = 0;
-  uint8_t address_;
+  // TMC-API handlers
+  uint8_t index_{0};  // used for tmcapi channel index and esphome global component index
+  uint8_t address_{0x00};
   TMC2209TypeDef driver_;
   ConfigurationTypeDef config_;
-  ConfigState cfg_state_;
-
-  GPIOPin *enn_pin_;
-  GPIOPin *step_pin_;
-  InternalGPIOPin *index_pin_;
-  InternalGPIOPin *diag_pin_;
-
-  static void index_gpio_intr(TMC2209Stepper *driver_);
-  static void diag_gpio_intr(TMC2209Stepper *driver_);
-
-  bool enn_pin_state_;
-  volatile bool fault_detected_{false};
-  volatile bool passed_target_{false};
-
-  uint32_t coolstep_tcoolthrs_{0};
-  uint8_t stallguard_sgthrs_{0};
-
   void update_registers_();
   bool reset_();
   bool restore_();
 
-  SteppingMode stepping_mode_{SteppingMode::NONE};
-  // Direction direction_{Direction::NONE};
-  int8_t rotation_{0};
+  uint32_t coolstep_tcoolthrs_{0};
+  uint8_t stallguard_sgthrs_{0};
 
-  CallbackManager<void()> on_fault_signal_callback_;
+  InternalGPIOPin *index_pin_;
+  InternalGPIOPin *diag_pin_;
+  InternalGPIOPin *enn_pin_;
+  bool enn_pin_state_{false};
+
+  TMC2209ISRStore isr_store_{};
+  // ControlMode control_mode_{ControlMode::NONE};
+  Direction direction_{Direction::NONE};
+
   HighFrequencyLoopRequester high_freq_;
+
+  bool fault_detected_{false};
+  CallbackManager<void()> on_fault_signal_callback_;
 };
 
 class TMC2209StepperFaultSignalTrigger : public Trigger<> {
@@ -217,7 +233,9 @@ template<typename... Ts> class TMC2209StepperConfigureAction : public Action<Ts.
 template<typename... Ts> class TMC2209StepperVelocityAction : public Action<Ts...>, public Parented<TMC2209Stepper> {
  public:
   TEMPLATABLE_VALUE(int, velocity)
-  void play(Ts... x) override { this->parent_->set_velocity(this->velocity_.value(x...)); }
+  void play(Ts... x) override {
+    // this->parent_->set_velocity(this->velocity_.value(x...));
+  }
 };
 
 }  // namespace tmc

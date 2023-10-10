@@ -1,5 +1,5 @@
-
 #include "esphome/core/log.h"
+#include "esphome/core/helpers.h"
 
 #include "tmc2209.h"
 
@@ -8,68 +8,64 @@ namespace tmc {
 
 static const char *TAG = "tmc2209.stepper";
 
-void IRAM_ATTR HOT TMC2209Stepper::diag_gpio_intr(TMC2209Stepper *stepper_) { stepper_->fault_detected_ = true; };
+void IRAM_ATTR HOT TMC2209ISRStore::pulse_isr(TMC2209ISRStore *arg) {
+  // TODO check if pointers are set
 
-void IRAM_ATTR HOT TMC2209Stepper::index_gpio_intr(TMC2209Stepper *stepper_) {
-  if (stepper_->stepping_mode_ == SteppingMode::UART) {
-    stepper_->current_position += stepper_->rotation_;
-    stepper_->target_position += stepper_->rotation_;
-
-    // if (stepper_->current_position == stepper_->target_position) {
-    //   stepper_->passed_target_ = true;
-    // }
+  (*(arg->current_position_ptr)) += *(arg->direction_ptr);
+  if (*(arg->current_position_ptr) == *(arg->target_position_ptr)) {
+    arg->enn_pin_.digital_write(false);
+    *(arg->enn_pin_state_ptr) = false;
+    *(arg->direction_ptr) = Direction::NONE;
+    *(arg->target_position_ptr) = *(arg->current_position_ptr);
   }
-};
-
-// Global list of driver to work around TMC channel index
-TMC2209Stepper::TMC2209Stepper() {
-  this->channel_ = tmc2209_stepper_global_channel_index++;
-  components[this->channel_] = this;
 }
 
-void TMC2209Stepper::dump_config() {
-  ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
-  LOG_PIN("  Enn Pin: ", this->enn_pin_);
-  LOG_PIN("  Step Pin: ", this->step_pin_);
-  LOG_PIN("  Diag Pin: ", this->diag_pin_);
-  LOG_PIN("  Index Pin: ", this->index_pin_);
-  ESP_LOGCONFIG(TAG, "  Address: 0x%02X (Channel: %d)", this->get_address(), this->channel_);
+void IRAM_ATTR HOT TMC2209ISRStore::fault_isr(TMC2209ISRStore *arg) { (*(arg->fault_detected_ptr)) = true; }
 
-  const auto ic_version = this->ioin_chip_version();
-  if (ic_version == TMC2209_DEFAULT_CHIP_VERSION)
-    ESP_LOGCONFIG(TAG, "  Detected default version: 0x%02X", TMC2209_DEFAULT_CHIP_VERSION);
-  else
-    ESP_LOGCONFIG(TAG, "  Detected non-default: 0x%02X", ic_version);
+TMC2209Stepper::TMC2209Stepper() {
+  // Global list of driver to work around TMC channel index
+  this->index_ = tmc2209_stepper_global_index++;
+  components[this->index_] = this;
 
-  LOG_STEPPER(this);
+  // Initialize TMC-API object
+  tmc_fillCRC8Table((uint8_t) 0b100000111, true, 0);
+  tmc2209_init(&this->driver_, this->index_, this->address_, &this->config_, &tmc2209_defaultRegisterResetState[0]);
 }
 
 void TMC2209Stepper::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209...");
 
-  this->enn_pin_state_ = true;
-
   this->enn_pin_->setup();
   this->enn_pin_->digital_write(this->enn_pin_state_);
-  this->step_pin_->setup();
-  this->step_pin_->digital_write(false);
+
   this->index_pin_->setup();
-  this->index_pin_->attach_interrupt(TMC2209Stepper::index_gpio_intr, this, gpio::INTERRUPT_RISING_EDGE);
+  this->index_pin_->attach_interrupt(TMC2209ISRStore::pulse_isr, &this->isr_store_, gpio::INTERRUPT_FALLING_EDGE);
+
   this->diag_pin_->setup();
-  this->diag_pin_->attach_interrupt(TMC2209Stepper::diag_gpio_intr, this, gpio::INTERRUPT_RISING_EDGE);
+  this->diag_pin_->attach_interrupt(TMC2209ISRStore::fault_isr, &this->isr_store_, gpio::INTERRUPT_RISING_EDGE);
 
-  // Initialize TMC-API object
-  tmc_fillCRC8Table((uint8_t) 0b100000111, true, 0);
-  tmc2209_init(&this->driver_, this->channel_, this->address_, &this->config_, &tmc2209_defaultRegisterResetState[0]);
+  // Pulse tracker setup
+  this->isr_store_.enn_pin_ = this->enn_pin_->to_isr();
+  this->isr_store_.target_position_ptr = &this->target_position;
+  this->isr_store_.current_position_ptr = &this->current_position;
+  this->isr_store_.direction_ptr = &this->direction_;
+  this->isr_store_.enn_pin_state_ptr = &this->enn_pin_state_;
+  this->isr_store_.fault_detected_ptr = &this->fault_detected_;
 
-  // Fill default configuration for driver
+  // Fill default configuration for driver (TODO: retry call instead)
   if (!tmc2209_reset(&this->driver_)) {
-    this->mark_failed();  // TODO: retry call instead
+    this->mark_failed();
+    return;
   }
 
-  // Write configuration
-  while (this->driver_.config->state != CONFIG_READY) {
-    this->update_registers_();
+  for (uint8_t i = 0; i < 255 && this->driver_.config->state != CONFIG_READY; i++) {
+    this->update_registers_();  // Write initial configuration
+  }
+
+  if (this->driver_.config->state != CONFIG_READY) {
+    ESP_LOGE(TAG, "Failed to communicate with the driver");
+    this->mark_failed();
+    return;
   }
 
   // Configure the driver for UART control
@@ -82,61 +78,51 @@ void TMC2209Stepper::setup() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper setup done.");
 }
 
+void TMC2209Stepper::dump_config() {
+  ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
+  LOG_PIN("  Enn Pin: ", this->enn_pin_);
+  LOG_PIN("  Diag Pin: ", this->diag_pin_);
+  LOG_PIN("  Index Pin: ", this->index_pin_);
+
+  ESP_LOGCONFIG(TAG, "  Address: 0x%02X (TMCAPI Channel: %d)", this->get_address(), this->index_);
+  ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", this->ioin_chip_version());
+  LOG_STEPPER(this);
+}
+
 void TMC2209Stepper::loop() {
   this->update_registers_();
 
-  // ESP_LOGI(TAG, "dir=%d current=%ld target=%ld", this->rotation_, this->current_position, this->target_position);
-
-  this->enn_pin_->digital_write(this->enn_pin_state_);
-
-  if (this->stepping_mode_ == SteppingMode::PULSES) {
-    bool at_target = this->has_reached_target();
-    this->enn_pin_state_ = !at_target;
-    if (!enn_pin_state_ & !at_target) {
-      delay_microseconds_safe(1000);
-    }
-
-    if (this->should_step_() == 0)
-      return;
-
-    this->step_pin_->digital_write(true);
-    delayMicroseconds(5);
-    this->step_pin_->digital_write(false);
+  if (this->fault_detected_) {
+    this->fault_detected_ = false;
+    this->on_fault_signal_callback_.call();
+    // this->stop();
   }
+
+  if (this->has_reached_target()) {
+    this->stop();
+    return;
+  }
+
+  this->calculate_speed_(micros());
+  this->vactual(this->current_speed_ * this->direction_);
 }
 
-void TMC2209Stepper::set_target(int32_t steps) {
-  this->stepping_mode_ = SteppingMode::PULSES;
-  this->target_position = steps;
-  const int32_t steps_diff = steps - this->current_position;
+void TMC2209Stepper::set_target(int32_t target) {
+  Stepper::set_target(target);
 
-  this->rotation_ = (steps_diff == 0 ? 0 : steps_diff / abs(steps_diff));  // yield 0, 1 or -1
-  this->gconf_shaft(this->rotation_ <= 0);
+  const int32_t steps_to_target = (this->target_position - this->current_position);
+  if (steps_to_target == 0) {
+    return;
+  }
 
-  this->vactual(0);
-  this->enable(false);
+  this->direction_ = (Direction) (steps_to_target / abs(steps_to_target));  // yield 1 or -1
   this->enable(true);
 }
 
-void TMC2209Stepper::set_velocity(int32_t velocity) {
-  this->stepping_mode_ = SteppingMode::UART;
-
-  this->rotation_ = (velocity == 0 ? 0 : velocity / abs(velocity));  // yield 0, 1 or -1
-  this->gconf_shaft(this->rotation_ <= 0);
-
-  this->enable(false);
-  this->enable(velocity != 0);
-  this->vactual(velocity * this->rotation_);
-}
-
-bool TMC2209Stepper::reset_() { return tmc2209_reset(&this->driver_); }
-bool TMC2209Stepper::restore_() { return tmc2209_restore(&this->driver_); }
-void TMC2209Stepper::update_registers_() { return tmc2209_periodicJob(&this->driver_, 0); }
-
 void TMC2209Stepper::stop() {
-  this->vactual(0);
+  this->direction_ = Direction::NONE;
   this->target_position = this->current_position;
-  this->rotation_ = 0;
+  this->vactual(0);
   this->enable(false);
 }
 
@@ -144,6 +130,10 @@ void TMC2209Stepper::enable(bool enable) {
   this->enn_pin_->digital_write(enable);
   this->enn_pin_state_ = enable;
 }
+
+bool TMC2209Stepper::reset_() { return tmc2209_reset(&this->driver_); }
+bool TMC2209Stepper::restore_() { return tmc2209_restore(&this->driver_); }
+void TMC2209Stepper::update_registers_() { return tmc2209_periodicJob(&this->driver_, 0); }
 
 uint16_t TMC2209Stepper::get_microsteps() {
   const uint8_t index = this->chopconf_mres();
@@ -207,16 +197,18 @@ float TMC2209Stepper::stallguard_load() {
  * **/
 
 extern "C" {
-
 void tmc2209_readWriteArray(uint8_t channel, uint8_t *data, size_t writeLength, size_t readLength) {
   TMC2209Stepper *comp = components[channel];
-  comp->write_array(data, writeLength);
 
-  // chop off transmitted bytes from the buffer and flush due to one-wire uart filling up rx when transmitting
-  comp->read_array(data, writeLength);
-  comp->flush();
+  if (writeLength > 0) {
+    comp->write_array(data, writeLength);
 
-  if (readLength) {
+    // chop off transmitted data from the rx buffer and flush due to one-wire uart filling up rx when transmitting
+    comp->read_array(data, writeLength);
+    comp->flush();
+  }
+
+  if (readLength > 0) {
     comp->read_array(data, readLength);
   }
 }
@@ -233,9 +225,7 @@ int16_t TMC2209Stepper::current_a() {
 int16_t TMC2209Stepper::current_b() {
   return TMC2209_FIELD_READ(&this->driver_, TMC2209_MSCURACT, TMC2209_CUR_B_MASK, TMC2209_CUR_B_SHIFT);  // TODO
 };
-
 void TMC2209Stepper::vactual(int32_t velocity) {
-  ESP_LOGI(TAG, "velocity=%d", velocity);
   TMC2209_FIELD_WRITE(&this->driver_, TMC2209_VACTUAL, TMC2209_VACTUAL_MASK, TMC2209_VACTUAL_SHIFT, velocity);
 }
 
@@ -250,13 +240,11 @@ void TMC2209Stepper::ihold_irun_irun(int32_t current) {
 void TMC2209Stepper::ihold_irun_ihold_delay(int32_t delay) {
   TMC2209_FIELD_UPDATE(&this->driver_, TMC2209_IHOLD_IRUN, TMC2209_IHOLDDELAY_MASK, TMC2209_IHOLDDELAY_SHIFT, delay);
 }
-
 uint32_t TMC2209Stepper::otpread() { return tmc2209_readInt(&this->driver_, TMC2209_OTP_READ); }
 
 bool TMC2209Stepper::optread_en_spreadcycle() {
   return (bool) TMC2209_FIELD_READ(&this->driver_, TMC2209_OTP_READ, TMC2209_STST_MASK, TMC2209_STST_SHIFT);
 }
-
 void TMC2209Stepper::stallguard_sgthrs(uint8_t threshold) {
   tmc2209_writeInt(&this->driver_, TMC2209_SGTHRS, (int32_t) threshold);
   this->stallguard_sgthrs_ = threshold;
@@ -370,7 +358,6 @@ bool TMC2209Stepper::gconf_shaft() {
 }
 
 void TMC2209Stepper::gconf_shaft(bool inverse) {
-  ESP_LOGI(TAG, "gconf_shaft=%d rotation=%d", inverse, this->rotation_);
   TMC2209_FIELD_UPDATE(&this->driver_, TMC2209_GCONF, TMC2209_SHAFT_MASK, TMC2209_SHAFT_SHIFT, inverse);
 }
 
