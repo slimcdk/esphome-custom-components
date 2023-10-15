@@ -8,21 +8,32 @@ namespace tmc {
 
 static const char *TAG = "tmc2209.stepper";
 
+#if defined(USE_INDEX_PIN)
 void IRAM_ATTR HOT TMC2209ISRStore::pulse_isr(TMC2209ISRStore *arg) {
-  // TODO check if pointers are set
-
   (*(arg->current_position_ptr)) += *(arg->direction_ptr);
   if (*(arg->current_position_ptr) == *(arg->target_position_ptr)) {
-    arg->enn_pin_.digital_write(false);
-    *(arg->enn_pin_state_ptr) = false;
-    *(arg->direction_ptr) = Direction::NONE;
-    *(arg->target_position_ptr) = *(arg->current_position_ptr);
+    arg->stop();
   }
 }
+#endif
 
-void IRAM_ATTR HOT TMC2209ISRStore::fault_isr(TMC2209ISRStore *arg) { (*(arg->fault_detected_ptr)) = true; }
+#if defined(USE_DIAG_PIN)
+void IRAM_ATTR HOT TMC2209ISRStore::fault_isr(TMC2209ISRStore *arg) {
+  (*(arg->stall_detected_ptr)) = true;
+#if defined(FAULT_ISR_DISABLE_DRIVER)
+  arg->stop();
+#endif
+}
+#endif
 
-TMC2209Stepper::TMC2209Stepper() {
+void IRAM_ATTR HOT TMC2209ISRStore::stop() {
+  this->enn_pin_.digital_write(false);
+  *(this->driver_is_enabled_ptr) = false;
+  *(this->direction_ptr) = Direction::NONE;  // TODO: maybe remove
+  *(this->target_position_ptr) = *(this->current_position_ptr);
+}
+
+TMC2209Stepper::TMC2209Stepper(bool use_internal_rsense) : use_internal_rsense_(use_internal_rsense) {
   // Global list of driver to work around TMC channel index
   this->index_ = tmc2209_stepper_global_index++;
   components[this->index_] = this;
@@ -36,21 +47,12 @@ void TMC2209Stepper::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209...");
 
   this->enn_pin_->setup();
-  this->enn_pin_->digital_write(this->enn_pin_state_);
-
+#if defined(USE_INDEX_PIN)
   this->index_pin_->setup();
-  this->index_pin_->attach_interrupt(TMC2209ISRStore::pulse_isr, &this->isr_store_, gpio::INTERRUPT_FALLING_EDGE);
-
+#endif
+#if defined(USE_DIAG_PIN)
   this->diag_pin_->setup();
-  this->diag_pin_->attach_interrupt(TMC2209ISRStore::fault_isr, &this->isr_store_, gpio::INTERRUPT_RISING_EDGE);
-
-  // Pulse tracker setup
-  this->isr_store_.enn_pin_ = this->enn_pin_->to_isr();
-  this->isr_store_.target_position_ptr = &this->target_position;
-  this->isr_store_.current_position_ptr = &this->current_position;
-  this->isr_store_.direction_ptr = &this->direction_;
-  this->isr_store_.enn_pin_state_ptr = &this->enn_pin_state_;
-  this->isr_store_.fault_detected_ptr = &this->fault_detected_;
+#endif
 
   // Fill default configuration for driver (TODO: retry call instead)
   if (!tmc2209_reset(&this->driver_)) {
@@ -58,8 +60,9 @@ void TMC2209Stepper::setup() {
     return;
   }
 
+  // Write initial configuration
   for (uint8_t i = 0; i < 255 && this->driver_.config->state != CONFIG_READY; i++) {
-    this->update_registers_();  // Write initial configuration
+    this->update_registers_();
   }
 
   if (this->driver_.config->state != CONFIG_READY) {
@@ -70,10 +73,41 @@ void TMC2209Stepper::setup() {
 
   // Configure the driver for UART control
   this->gconf_pdn_disable(true);       // Prioritize UART communication by disabling configuration pin.
+  this->vactual(0);                    // Stop internal generator if last shutdown was ungraceful
   this->gconf_mstep_reg_select(true);  // Use MSTEP register to set microstep resolution
-  this->gconf_index_step(true);        // Configure stepping pulses on index pin
+  this->gconf_internal_rsense(this->use_internal_rsense_);
 
-  this->high_freq_.start();
+#if defined(USE_DIAG_PIN) || defined(USE_INDEX_PIN)
+  // Pulse tracker setup
+  this->isr_store_.enn_pin_ = this->enn_pin_->to_isr();
+  this->isr_store_.target_position_ptr = &this->target_position;
+  this->isr_store_.current_position_ptr = &this->current_position;
+  this->isr_store_.direction_ptr = &this->direction_;
+  this->isr_store_.driver_is_enabled_ptr = &this->driver_is_enabled_;
+  this->isr_store_.stall_detected_ptr = &this->stall_detected_;
+
+#if defined(USE_INDEX_PIN)
+  this->gconf_index_step(true);  // Configure stepping pulses on index pin
+  this->index_pin_->attach_interrupt(TMC2209ISRStore::pulse_isr, &this->isr_store_, gpio::INTERRUPT_RISING_EDGE);
+#endif
+
+#if defined(USE_DIAG_PIN)
+  this->diag_pin_->attach_interrupt(TMC2209ISRStore::fault_isr, &this->isr_store_, gpio::INTERRUPT_RISING_EDGE);
+#endif
+#endif
+
+  // #if !defined(USE_DIAG_PIN) || !defined(USE_INDEX_PIN)
+  this->set_interval(1, [this]() {
+#if !defined(USE_DIAG_PIN)
+    if (this->ioin_diag()) {
+      this->stall_detected_ = true;
+    }
+#endif
+#if !defined(USE_INDEX_PIN)
+    this->current_position += this->direction_ * this->internal_step_counter();
+#endif
+  });
+  // #endif
 
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper setup done.");
 }
@@ -81,42 +115,45 @@ void TMC2209Stepper::setup() {
 void TMC2209Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
   LOG_PIN("  Enn Pin: ", this->enn_pin_);
-  LOG_PIN("  Diag Pin: ", this->diag_pin_);
-  LOG_PIN("  Index Pin: ", this->index_pin_);
 
-  ESP_LOGCONFIG(TAG, "  Address: 0x%02X (TMCAPI Channel: %d)", this->get_address(), this->index_);
+#if defined(USE_INDEX_PIN)
+  LOG_PIN("  Index Pin: ", this->index_pin_);
+#else
+  ESP_LOGCONFIG(TAG, "  No index pin configured. Using serial for position");
+#endif
+
+#if defined(USE_DIAG_PIN)
+  LOG_PIN("  Diag Pin: ", this->diag_pin_);
+#else
+  ESP_LOGCONFIG(TAG, "  No diag pin configured. Using serial for fault trigger");
+#endif
+
+  ESP_LOGCONFIG(TAG, "  RSense: %.2f Ohm (%s)", this->resistance_,
+                this->use_internal_rsense_ ? "Internal" : "External");
+  ESP_LOGCONFIG(TAG, "  Address: 0x%02X (TMCAPI Channel: %d)", this->address_, this->index_);
   ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", this->ioin_chip_version());
   LOG_STEPPER(this);
 }
 
 void TMC2209Stepper::loop() {
-  this->update_registers_();
-
-  if (this->fault_detected_) {
-    this->fault_detected_ = false;
+  if (this->stall_detected_) {
+    this->stall_detected_ = false;
+#if defined(USE_DIAG_PIN) && defined(FAULT_ISR_DISABLE_DRIVER)
+    this->stop();  // Be sure to stop the motor
+#endif
     this->on_fault_signal_callback_.call();
-    // this->stop();
   }
 
-  if (this->has_reached_target()) {
-    this->stop();
-    return;
-  }
+  const bool has_reached_target_ = this->has_reached_target();
+  has_reached_target_ ? this->high_freq_.stop() : this->high_freq_.start();
+  this->enable(!has_reached_target_);
+
+  const int32_t to_target = (this->target_position - this->current_position);
+  this->direction_ = (Direction) (to_target != 0 ? to_target / abs(to_target) : NONE);  // yield 1, -1 or 0
 
   this->calculate_speed_(micros());
-  this->vactual(this->current_speed_ * this->direction_);
-}
-
-void TMC2209Stepper::set_target(int32_t target) {
-  Stepper::set_target(target);
-
-  const int32_t steps_to_target = (this->target_position - this->current_position);
-  if (steps_to_target == 0) {
-    return;
-  }
-
-  this->direction_ = (Direction) (steps_to_target / abs(steps_to_target));  // yield 1 or -1
-  this->enable(true);
+  this->vactual(this->direction_ * (int32_t) this->current_speed_);  // TODO: write only when values change
+  this->update_registers_();
 }
 
 void TMC2209Stepper::stop() {
@@ -127,74 +164,36 @@ void TMC2209Stepper::stop() {
 }
 
 void TMC2209Stepper::enable(bool enable) {
+  // if (this->driver_is_enabled_ != enable) {
+  this->driver_is_enabled_ = enable;
   this->enn_pin_->digital_write(enable);
-  this->enn_pin_state_ = enable;
+  // }
 }
 
-bool TMC2209Stepper::reset_() { return tmc2209_reset(&this->driver_); }
-bool TMC2209Stepper::restore_() { return tmc2209_restore(&this->driver_); }
-void TMC2209Stepper::update_registers_() { return tmc2209_periodicJob(&this->driver_, 0); }
-
 uint16_t TMC2209Stepper::get_microsteps() {
-  const uint8_t index = this->chopconf_mres();
-  switch (index) {
-    case 0:
-      return 256;
-    case 1:
-      return 128;
-    case 2:
-      return 64;
-    case 3:
-      return 32;
-    case 4:
-      return 16;
-    case 5:
-      return 8;
-    case 6:
-      return 4;
-    case 7:
-      return 2;
-    case 8:
-      return 1;
-    default:
-      return 0;
-  }
+  const uint8_t mres = this->chopconf_mres();
+  return 256 >> mres;
 }
 
 void TMC2209Stepper::set_microsteps(uint16_t ms) {
-  switch (ms) {
-    case 1:
-      return this->chopconf_mres(8);
-    case 2:
-      return this->chopconf_mres(7);
-    case 4:
-      return this->chopconf_mres(6);
-    case 8:
-      return this->chopconf_mres(5);
-    case 16:
-      return this->chopconf_mres(4);
-    case 32:
-      return this->chopconf_mres(3);
-    case 64:
-      return this->chopconf_mres(2);
-    case 128:
-      return this->chopconf_mres(1);
-    case 256:
-      return this->chopconf_mres(0);
-    default:
-      return this->chopconf_mres(0);
-  }
+  for (uint8_t mres = 8; mres > 0; mres--)
+    if ((256 >> mres) == ms)
+      return this->chopconf_mres(mres);
 }
 
-float TMC2209Stepper::stallguard_load() {
+float TMC2209Stepper::motor_load() {
   const uint16_t result = this->stallguard_sgresult();
   return (510.0 - (float) result) / (510.0 - (float) this->stallguard_sgthrs_ * 2.0);
 }
 
-/**
- * TMC API set-/getters
+/***
+ * TMC-API wrappers
  *
- * **/
+ **/
+
+bool TMC2209Stepper::reset_() { return tmc2209_reset(&this->driver_); }
+bool TMC2209Stepper::restore_() { return tmc2209_restore(&this->driver_); }
+void TMC2209Stepper::update_registers_() { return tmc2209_periodicJob(&this->driver_, 0); }
 
 extern "C" {
 void tmc2209_readWriteArray(uint8_t channel, uint8_t *data, size_t writeLength, size_t readLength) {

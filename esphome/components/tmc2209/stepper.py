@@ -17,11 +17,6 @@ CONF_TMC2209_ID = "tmc2209_id"
 CONF_ENN_PIN = "enn_pin"
 CONF_DIAG_PIN = "diag_pin"
 CONF_INDEX_PIN = "index_pin"
-CONF_DIR_PIN = "dir_pin"
-CONF_STEP_PIN = "step_pin"
-CONF_STEP_FEEDBACK_PIN = "step_feedback_pin"
-
-
 
 CONF_INVERSE_DIRECTION = "inverse_direction"
 
@@ -39,6 +34,8 @@ CONF_POWER_DOWN_DELAY = "power_down_delay"
 CONF_TSTEP = "tstep"
 CONF_TPWMTHRS = "tpwmthrs"
 CONF_RSENSE = "rsense"
+CONF_INTERNAL_RSENSE = "internal_rsense"
+CONF_FAULT_ISR_DISABLE_DRIVER = "fault_isr_disable_driver" # this disables the motor from the fault isr otherwise from main loop
 
 CONF_COOLCONF_SEIMIN = "coolstep_seimin"
 CONF_COOLCONF_SEDN1 = "coolstep_sedn1"
@@ -62,18 +59,27 @@ TMC2209Stepper = tmc_ns.class_("TMC2209Stepper", cg.Component, stepper.Stepper, 
 
 TMC2209StepperFaultSignalTrigger = tmc_ns.class_("TMC2209StepperFaultSignalTrigger", automation.Trigger)
 TMC2209StepperConfigureAction = tmc_ns.class_("TMC2209StepperConfigureAction", automation.Action)
-TMC2209StepperVelocityAction = tmc_ns.class_("TMC2209StepperVelocityAction", automation.Action)
 
 
-CONFIG_SCHEMA = (
+def _validate_diag_config(config):
+    if config[CONF_FAULT_ISR_DISABLE_DRIVER] and CONF_DIAG_PIN not in config:
+        raise cv.Invalid("Disabling driver from ISR is not possible without using diag pin")
+    return config
+
+def _validate_index_config(config):
+    return config
+
+CONFIG_SCHEMA = cv.All(
     stepper.STEPPER_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(TMC2209Stepper),
             cv.Required(CONF_ENN_PIN): pins.gpio_output_pin_schema,
-            cv.Required(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
-            cv.Required(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
-            cv.Optional(CONF_ADDRESS, default=0): cv.uint8_t,
-            cv.Optional(CONF_RSENSE): cv.resistance,
+            cv.Optional(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
+            cv.Optional(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
+            cv.Optional(CONF_ADDRESS, default=0x00): cv.uint8_t,
+            cv.Optional(CONF_RSENSE, default=0.11): cv.resistance,
+            cv.Optional(CONF_INTERNAL_RSENSE, default=True): cv.boolean,
+            cv.Optional(CONF_FAULT_ISR_DISABLE_DRIVER, default=False): cv.boolean,
             cv.Optional(CONF_ON_FAULT_SIGNAL): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
@@ -84,20 +90,32 @@ CONFIG_SCHEMA = (
         },
     )
     .extend(cv.COMPONENT_SCHEMA)
-    .extend(uart.UART_DEVICE_SCHEMA)
+    .extend(uart.UART_DEVICE_SCHEMA),
+    _validate_diag_config,
+    _validate_index_config
 )
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = cg.new_Pvariable(config[CONF_ID], config[CONF_INTERNAL_RSENSE])
     await cg.register_component(var, config)
     await stepper.register_stepper(var, config)
     await uart.register_uart_device(var, config)
 
-    cg.add(var.set_enn_pin(await cg.gpio_pin_expression(config[CONF_ENN_PIN])))
-    cg.add(var.set_diag_pin(await cg.gpio_pin_expression(config[CONF_DIAG_PIN])))
-    cg.add(var.set_index_pin(await cg.gpio_pin_expression(config[CONF_INDEX_PIN])))
-
     cg.add(var.set_address(config[CONF_ADDRESS]))
+    cg.add(var.set_rsense(config[CONF_RSENSE]))
+    cg.add(var.set_enn_pin(await cg.gpio_pin_expression(config[CONF_ENN_PIN])))
+
+    if CONF_INDEX_PIN in config:
+        cg.add(var.set_index_pin(await cg.gpio_pin_expression(config[CONF_INDEX_PIN])))
+        cg.add_define("USE_INDEX_PIN")
+
+    if CONF_DIAG_PIN in config:
+        cg.add(var.set_diag_pin(await cg.gpio_pin_expression(config[CONF_DIAG_PIN])))
+        cg.add_define("USE_DIAG_PIN")
+
+
+    if config[CONF_FAULT_ISR_DISABLE_DRIVER]:
+        cg.add_define("FAULT_ISR_DISABLE_DRIVER")
 
     for conf in config.get(CONF_ON_FAULT_SIGNAL, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
@@ -107,10 +125,9 @@ async def to_code(config):
 
 
 
-TMC2209_STEPPER_SCHEMA = cv.Schema({
-    cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209Stepper),
-})
-
+# TMC2209_STEPPER_SCHEMA = cv.Schema({
+#     cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209Stepper),
+# })
 
 @automation.register_action(
     "tmc2209.configure",
@@ -200,28 +217,3 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
         cg.add(var.set_stallguard_sgthrs(template_))
 
     yield var
-
-
-
-@automation.register_action(
-    "tmc2209.set_velocity",
-    TMC2209StepperVelocityAction,
-    cv.Schema(
-        {
-            cv.GenerateID(): cv.use_id(TMC2209Stepper),
-            cv.Required(CONF_VELOCITY): cv.templatable(
-                cv.int_range(min=-8388608, max=8388607),
-            ),
-
-        }
-    ),
-)
-def tmc2209_set_velocity_to_code(config, action_id, template_arg, args):
-    var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
-
-    template_ = yield cg.templatable(config[CONF_VELOCITY], args, int)
-    cg.add(var.set_velocity(template_))
-
-    yield var
-

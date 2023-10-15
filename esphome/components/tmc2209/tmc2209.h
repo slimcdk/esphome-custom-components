@@ -1,14 +1,5 @@
 #pragma once
 
-// #include <driver/periph_ctrl.h>
-// #include <driver/mcpwm.h>
-// #include <driver/pcnt.h>
-// #include <driver/gpio.h>
-// #include <soc/mcpwm_reg.h>
-// #include <soc/mcpwm_struct.h>
-// #include <soc/periph_defs.h>
-// #include <esp_intr_alloc.h>
-
 #include "esphome/core/helpers.h"
 #include "esphome/core/component.h"
 
@@ -29,8 +20,6 @@ class TMC2209Stepper;  // Forward declare
 static TMC2209Stepper *components[MAX_ALLOWED_COMPONENTS];
 static uint8_t tmc2209_stepper_global_index = 0;
 
-// enum class ControlMode { NONE = 0, STEPPING, UART, UART_STEPPING };
-
 enum Direction : int8_t {
   CLOCKWISE = -1,     // Moving one direction
   NONE = 0,           // Not moving
@@ -38,39 +27,40 @@ enum Direction : int8_t {
 };
 
 struct TMC2209ISRStore {
+  ISRInternalGPIOPin enn_pin_;
+
   int32_t *current_position_ptr{nullptr};
   int32_t *target_position_ptr{nullptr};
   Direction *direction_ptr{nullptr};
-  bool *fault_detected_ptr{nullptr};
-  bool *enn_pin_state_ptr{nullptr};
+  bool *stall_detected_ptr{nullptr};
+  bool *driver_is_enabled_ptr{nullptr};
 
-  ISRInternalGPIOPin enn_pin_;
+  void stop();
+
   static void pulse_isr(TMC2209ISRStore *arg);
   static void fault_isr(TMC2209ISRStore *arg);
 };
 
 class TMC2209Stepper : public Component, public stepper::Stepper, public uart::UARTDevice {
  public:
-  TMC2209Stepper();
+  TMC2209Stepper(bool use_internal_rsense);
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void dump_config() override;
   void setup() override;
   void loop() override;
+  // void set_target(int32_t target) override;
 
   void set_enn_pin(InternalGPIOPin *pin) { this->enn_pin_ = pin; }
   void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; }
   void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; }
-
+  void set_rsense(float resistance) { this->resistance_ = resistance; }
   void set_address(uint8_t address) { this->address_ = address; }
-  uint8_t get_address() { return this->address_; };
 
   void enable(bool enable = true);
   void disable() { this->enable(false); };
-  bool enabled() { return this->enn_pin_state_; }
+  bool enabled() { return this->driver_is_enabled_; }
   void stop();
-
-  void set_target(int32_t target) override;
 
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
@@ -152,7 +142,7 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public uart::U
   void stallguard_sgthrs(uint8_t threshold);
   uint8_t stallguard_sgthrs();
   uint16_t stallguard_sgresult();
-  float stallguard_load();
+  float motor_load();
   uint16_t internal_step_counter();  // Difference since last poll. Wrap around at 1023
   int16_t current_a();
   int16_t current_b();
@@ -171,22 +161,25 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public uart::U
   bool reset_();
   bool restore_();
 
+  bool use_internal_rsense_;
+  bool driver_is_enabled_{false};
+  float resistance_{.11};
+  bool stall_detected_{false};
+  bool overtemp_detected_{false};
   uint32_t coolstep_tcoolthrs_{0};
   uint8_t stallguard_sgthrs_{0};
 
   InternalGPIOPin *index_pin_;
   InternalGPIOPin *diag_pin_;
   InternalGPIOPin *enn_pin_;
-  bool enn_pin_state_{false};
 
   TMC2209ISRStore isr_store_{};
-  // ControlMode control_mode_{ControlMode::NONE};
   Direction direction_{Direction::NONE};
 
   HighFrequencyLoopRequester high_freq_;
-
-  bool fault_detected_{false};
   CallbackManager<void()> on_fault_signal_callback_;
+
+  time_t last_interval_time_{0};
 };
 
 class TMC2209StepperFaultSignalTrigger : public Trigger<> {
