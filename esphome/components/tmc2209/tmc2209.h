@@ -13,7 +13,7 @@ extern "C" {
 namespace esphome {
 namespace tmc {
 
-#define MAX_ALLOWED_COMPONENTS 3
+#define MAX_ALLOWED_COMPONENTS 1
 
 class TMC2209Stepper;  // Forward declare
 
@@ -32,42 +32,41 @@ struct TMC2209ISRStore {
   int32_t *current_position_ptr{nullptr};
   int32_t *target_position_ptr{nullptr};
   Direction *direction_ptr{nullptr};
-  bool *stall_detected_ptr{nullptr};
+  bool *diag_triggered_ptr{nullptr};
   bool *driver_is_enabled_ptr{nullptr};
 
   void stop();
 
-  static void pulse_isr(TMC2209ISRStore *arg);
-  static void fault_isr(TMC2209ISRStore *arg);
+  static void index_isr(TMC2209ISRStore *arg);
+  static void diag_isr(TMC2209ISRStore *arg);
 };
 
 class TMC2209Stepper : public Component, public stepper::Stepper, public uart::UARTDevice {
  public:
-  TMC2209Stepper(bool use_internal_rsense);
+  TMC2209Stepper(uint8_t address, bool use_internal_rsense, float rsense_);
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void dump_config() override;
   void setup() override;
   void loop() override;
-  // void set_target(int32_t target) override;
 
   void set_enn_pin(InternalGPIOPin *pin) { this->enn_pin_ = pin; }
   void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; }
   void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; }
-  void set_rsense(float resistance) { this->resistance_ = resistance; }
-  void set_address(uint8_t address) { this->address_ = address; }
 
   void enable(bool enable = true);
-  void disable() { this->enable(false); };
-  bool enabled() { return this->driver_is_enabled_; }
   void stop();
 
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
 
-  void add_on_fault_signal_callback(std::function<void()> callback) {
-    this->on_fault_signal_callback_.add(std::move(callback));
-  }
+  void rms_current(uint16_t mA);
+  uint16_t rms_current();
+  void rms_current_hold_scale(float scale);
+  float rms_current_hold_scale();
+  float motor_load();
+
+  void add_on_stall_callback(std::function<void()> callback) { this->on_stall_callback_.add(std::move(callback)); }
 
   // TMC-API wrappers
   void blank_time(uint8_t select);
@@ -139,21 +138,28 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public uart::U
   int32_t coolstep_tcoolthrs();
   bool chopconf_dedge();
   void chopconf_dedge(bool set);
+  void chopconf_vsense(bool high_sensitivity);
+  bool chopconf_vsense();
   void stallguard_sgthrs(uint8_t threshold);
   uint8_t stallguard_sgthrs();
   uint16_t stallguard_sgresult();
-  float motor_load();
   uint16_t internal_step_counter();  // Difference since last poll. Wrap around at 1023
   int16_t current_a();
   int16_t current_b();
   void vactual(int32_t velocity);
-  void ihold_irun_ihold(int32_t current);
-  void ihold_irun_irun(int32_t current);
-  void ihold_irun_ihold_delay(int32_t current);
+  uint32_t tstep();
+  void ihold_irun_ihold(uint8_t current);
+  uint8_t ihold_irun_ihold();
+  void ihold_irun_irun(uint8_t current);
+  uint8_t ihold_irun_irun();
+  void ihold_irun_ihold_delay(uint8_t current);
+  uint8_t ihold_irun_ihold_delay();
+  void tpowerdown(uint8_t delay);
+  uint8_t tpowerdown();
 
  protected:
   // TMC-API handlers
-  uint8_t index_{0};  // used for tmcapi channel index and esphome global component index
+  uint8_t channel_{0};  // used for tmcapi channel index and esphome global component index
   uint8_t address_{0x00};
   TMC2209TypeDef driver_;
   ConfigurationTypeDef config_;
@@ -161,40 +167,39 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public uart::U
   bool reset_();
   bool restore_();
 
-  bool use_internal_rsense_;
-  bool driver_is_enabled_{false};
-  float resistance_{.11};
-  bool stall_detected_{false};
-  bool overtemp_detected_{false};
-  uint32_t coolstep_tcoolthrs_{0};
-  uint8_t stallguard_sgthrs_{0};
+  void set_rms_current_();
+  uint16_t current_scale_to_rms_current_(uint8_t current_scaling);
 
   InternalGPIOPin *index_pin_;
   InternalGPIOPin *diag_pin_;
   InternalGPIOPin *enn_pin_;
 
+  bool use_internal_rsense_;
+  float rsense_;
+
+  bool driver_is_enabled_{false};
+  bool diag_triggered_{false};
+  bool overtemp_detected_{false};
+  uint32_t coolstep_tcoolthrs_{0};
+  uint8_t stallguard_sgthrs_{0};
+  uint16_t rms_current_{UINT16_MAX};
+  float rms_current_hold_scale_{1.0};
+
+  bool scheduled_powerdown_{false};
+  bool prev_has_reached_target_{false};
+
   TMC2209ISRStore isr_store_{};
   Direction direction_{Direction::NONE};
-
   HighFrequencyLoopRequester high_freq_;
-  CallbackManager<void()> on_fault_signal_callback_;
-
-  time_t last_interval_time_{0};
-};
-
-class TMC2209StepperFaultSignalTrigger : public Trigger<> {
- public:
-  explicit TMC2209StepperFaultSignalTrigger(TMC2209Stepper *parent) {
-    parent->add_on_fault_signal_callback([this]() { this->trigger(); });
-  }
+  CallbackManager<void()> on_stall_callback_;
 };
 
 template<typename... Ts> class TMC2209StepperConfigureAction : public Action<Ts...>, public Parented<TMC2209Stepper> {
  public:
   TEMPLATABLE_VALUE(bool, inverse_direction)
   TEMPLATABLE_VALUE(int, microsteps)
-  TEMPLATABLE_VALUE(int, run_current)
-  TEMPLATABLE_VALUE(int, hold_current)
+  TEMPLATABLE_VALUE(uint, rms_current)
+  TEMPLATABLE_VALUE(float, rms_current_hold_scale)
   TEMPLATABLE_VALUE(int, hold_current_delay)
   TEMPLATABLE_VALUE(int, coolstep_tcoolthrs)
   TEMPLATABLE_VALUE(int, stallguard_sgthrs)
@@ -206,11 +211,11 @@ template<typename... Ts> class TMC2209StepperConfigureAction : public Action<Ts.
     if (this->microsteps_.has_value())
       this->parent_->set_microsteps(this->microsteps_.value(x...));
 
-    if (this->run_current_.has_value())
-      this->parent_->ihold_irun_irun(this->run_current_.value(x...));
+    if (this->rms_current_.has_value())
+      this->parent_->rms_current(this->rms_current_.value(x...));
 
-    if (this->hold_current_.has_value())
-      this->parent_->ihold_irun_ihold(this->hold_current_.value(x...));
+    if (this->rms_current_hold_scale_.has_value())
+      this->parent_->rms_current_hold_scale(this->rms_current_hold_scale_.value(x...));
 
     if (this->hold_current_delay_.has_value())
       this->parent_->ihold_irun_ihold_delay(this->hold_current_delay_.value(x...));
@@ -223,11 +228,15 @@ template<typename... Ts> class TMC2209StepperConfigureAction : public Action<Ts.
   }
 };
 
-template<typename... Ts> class TMC2209StepperVelocityAction : public Action<Ts...>, public Parented<TMC2209Stepper> {
+template<typename... Ts> class TMC2209StepperStopAction : public Action<Ts...>, public Parented<TMC2209Stepper> {
  public:
-  TEMPLATABLE_VALUE(int, velocity)
-  void play(Ts... x) override {
-    // this->parent_->set_velocity(this->velocity_.value(x...));
+  void play(Ts... x) override { this->parent_->stop(); }
+};
+
+class TMC2209StepperOnStallTrigger : public Trigger<> {
+ public:
+  explicit TMC2209StepperOnStallTrigger(TMC2209Stepper *parent) {
+    parent->add_on_stall_callback([this]() { this->trigger(); });
   }
 };
 
