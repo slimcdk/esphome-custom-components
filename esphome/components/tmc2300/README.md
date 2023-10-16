@@ -3,7 +3,7 @@
 ```yaml
 external_components:
   - source: github://slimcdk/esphome-custom-components@master
-    components: [ stepper, tmc2300 ]
+    components: [ tmc2300 ]
 
 
 logger: ...
@@ -23,30 +23,50 @@ esp32:
 
 
 uart:
-  tx_pin: 4
-  rx_pin: 5
+  tx_pin: ...
+  rx_pin: ...
   baud_rate: 500000
 
 
 esphome:
   ...
   on_boot:
-    - lambda: |
-        id(tmc2300_stepper).set_microsteps(256);
-        id(tmc2300_stepper).stallguard_sgthrs(120);
+    - tmc2300.configure:
+        id: tmc2300_stepper
+        rms_current: 338
+        # hold_current_delay: 15
+        # coolstep_tcoolthrs: 400
+        stallguard_sgthrs: 60
+        microsteps: 256
 
 
 stepper:
   - platform: tmc2300
     id: tmc2300_stepper
+    max_speed: 100000 steps/s
+    acceleration: 100000 steps/s^2
+    deceleration: 100000 steps/s^2
     enn_pin:
       number: ...
       inverted: true
     diag_pin: ...
-    index_pin: ...
-    max_speed: 100000 steps/s
-    acceleration: 150000 steps/s^2
-    deceleration: 150000 steps/s^2
-    on_fault_signal:
+    address: 0b00
+    rsense: 220 mOhm
+    internal_rsense: false
+    on_stall:
       - logger.log: "Motor stalled!"
+
+
+sensor:
+  - platform: template
+    name: Motor load
+    lambda: return id(tmc2300_stepper)->motor_load() * 100.0;
+    update_interval: 10ms
+    internal: true
+    filters:
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 1
+
+
 ```

@@ -10,49 +10,38 @@ namespace tmc {
 
 static const char *TAG = "tmc2300.stepper";
 
-void IRAM_ATTR HOT TMC2300ISRStore::pulse_isr(TMC2300ISRStore *arg) {
-  // TODO check if pointers are set
-
+void IRAM_ATTR HOT TMC2300ISRStore::index_isr(TMC2300ISRStore *arg) {
   (*(arg->current_position_ptr)) += *(arg->direction_ptr);
   if (*(arg->current_position_ptr) == *(arg->target_position_ptr)) {
-    arg->enn_pin_.digital_write(false);
-    *(arg->enn_pin_state_ptr) = false;
-    *(arg->direction_ptr) = Direction::NONE;
-    *(arg->target_position_ptr) = *(arg->current_position_ptr);
+    arg->stop();
   }
 }
 
-void IRAM_ATTR HOT TMC2300ISRStore::fault_isr(TMC2300ISRStore *arg) { (*(arg->fault_detected_ptr)) = true; }
+void IRAM_ATTR HOT TMC2300ISRStore::stop() {
+  this->enn_pin_.digital_write(false);
+  *(this->driver_is_enabled_ptr) = false;
+  *(this->direction_ptr) = Direction::NONE;  // TODO: maybe remove
+  *(this->target_position_ptr) = *(this->current_position_ptr);
+}
 
 // Global list of driver to work around TMC channel index
-TMC2300Stepper::TMC2300Stepper() {
-  this->index_ = tmc2300_stepper_global_index++;
-  components[this->index_] = this;
+TMC2300Stepper::TMC2300Stepper(uint8_t address, bool use_internal_rsense, float resistance)
+    : address_(address), use_internal_rsense_(use_internal_rsense), rsense_(resistance) {
+  this->channel_ = tmc2300_stepper_global_index++;
+  components[this->channel_] = this;
 
   // Initialize TMC-API object
   tmc_fillCRC8Table((uint8_t) 0b100000111, true, 0);
-  tmc2300_init(&this->driver_, this->index_, &this->config_, &tmc2300_defaultRegisterResetState[0]);
+  tmc2300_init(&this->driver_, this->channel_, &this->config_, &tmc2300_defaultRegisterResetState[0]);
+  tmc2300_setSlaveAddress(&this->driver_, this->address_);
+  tmc2300_setStandby(&this->driver_, false);
 }
 
 void TMC2300Stepper::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2300...");
 
   this->enn_pin_->setup();
-  this->enn_pin_->digital_write(this->enn_pin_state_);
-
-  this->index_pin_->setup();
-  this->index_pin_->attach_interrupt(TMC2300ISRStore::pulse_isr, &this->isr_store_, gpio::INTERRUPT_FALLING_EDGE);
-
   this->diag_pin_->setup();
-  this->diag_pin_->attach_interrupt(TMC2300ISRStore::fault_isr, &this->isr_store_, gpio::INTERRUPT_RISING_EDGE);
-
-  // Pulse tracker setup
-  this->isr_store_.enn_pin_ = this->enn_pin_->to_isr();
-  this->isr_store_.target_position_ptr = &this->target_position;
-  this->isr_store_.current_position_ptr = &this->current_position;
-  this->isr_store_.direction_ptr = &this->direction_;
-  this->isr_store_.enn_pin_state_ptr = &this->enn_pin_state_;
-  this->isr_store_.fault_detected_ptr = &this->fault_detected_;
 
   // Fill default configuration for driver (TODO: retry call instead)
   if (!tmc2300_reset(&this->driver_)) {
@@ -72,7 +61,18 @@ void TMC2300Stepper::setup() {
 
   this->gconf_pdn_disable(true);       // Prioritize UART communication by disabling configuration pin.
   this->gconf_mstep_reg_select(true);  // Use MSTEP register to set microstep resolution
+  // Configure stepping pulses on index pin
+  this->gconf_diag_index(true);
+  this->gconf_diag_step(true);
 
+  // Pulse tracker setup
+  this->isr_store_.enn_pin_ = this->enn_pin_->to_isr();
+  this->isr_store_.target_position_ptr = &this->target_position;
+  this->isr_store_.current_position_ptr = &this->current_position;
+  this->isr_store_.direction_ptr = &this->direction_;
+  this->isr_store_.driver_is_enabled_ptr = &this->driver_is_enabled_;
+
+  this->diag_pin_->attach_interrupt(TMC2300ISRStore::index_isr, &this->isr_store_, gpio::INTERRUPT_RISING_EDGE);
   ESP_LOGCONFIG(TAG, "TMC2300 Stepper setup done.");
 }
 
@@ -80,39 +80,28 @@ void TMC2300Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2300 Stepper:");
   LOG_PIN("  Enn Pin: ", this->enn_pin_);
   LOG_PIN("  Diag Pin: ", this->diag_pin_);
-  LOG_PIN("  Index Pin: ", this->index_pin_);
+  ESP_LOGCONFIG(TAG, "  RSense: %.2f Ohm (%s)", this->rsense_, this->use_internal_rsense_ ? "Internal" : "External");
+  ESP_LOGCONFIG(TAG, "  Address: 0x%02X (TMCAPI Channel: %d)", this->address_, this->channel_);
   ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", this->ioin_version());
   LOG_STEPPER(this);
 }
 
 void TMC2300Stepper::loop() {
-  this->update_registers_();
-
-  if (this->fault_detected_) {
-    this->fault_detected_ = false;
-    this->on_fault_signal_callback_.call();
-    // this->stop();
-  }
-
-  if (this->has_reached_target()) {
+  if (this->ioin_diag()) {
     this->stop();
-    return;
+    this->on_stall_callback_.call();
   }
 
+  const bool has_reached_target_ = this->has_reached_target();
+  has_reached_target_ ? this->high_freq_.stop() : this->high_freq_.start();
+
+  this->enable(!has_reached_target_);
+
+  const int32_t to_target = (this->target_position - this->current_position);
+  this->direction_ = (Direction) (to_target != 0 ? to_target / abs(to_target) : NONE);  // yield 1, -1 or 0
   this->calculate_speed_(micros());
-  this->vactual(this->current_speed_ * this->direction_);
-}
-
-void TMC2300Stepper::set_target(int32_t target) {
-  Stepper::set_target(target);
-
-  const int32_t steps_to_target = (this->target_position - this->current_position);
-  if (steps_to_target == 0) {
-    return;
-  }
-
-  this->direction_ = (Direction) (steps_to_target / abs(steps_to_target));  // yield 1 or -1
-  this->enable(true);
+  this->vactual(this->direction_ * (int32_t) this->current_speed_);  // TODO: write only when values change
+  this->update_registers_();
 }
 
 void TMC2300Stepper::stop() {
@@ -124,7 +113,7 @@ void TMC2300Stepper::stop() {
 
 void TMC2300Stepper::enable(bool enable) {
   this->enn_pin_->digital_write(enable);
-  this->enn_pin_state_ = enable;
+  this->driver_is_enabled_ = enable;
 }
 
 bool TMC2300Stepper::reset_() { return tmc2300_reset(&this->driver_); }
@@ -132,55 +121,48 @@ bool TMC2300Stepper::restore_() { return tmc2300_restore(&this->driver_); }
 void TMC2300Stepper::update_registers_() { return tmc2300_periodicJob(&this->driver_, 0); }
 
 uint16_t TMC2300Stepper::get_microsteps() {
-  const uint8_t index = this->chopconf_mres();
-  switch (index) {
-    case 0:
-      return 256;
-    case 1:
-      return 128;
-    case 2:
-      return 64;
-    case 3:
-      return 32;
-    case 4:
-      return 16;
-    case 5:
-      return 8;
-    case 6:
-      return 4;
-    case 7:
-      return 2;
-    case 8:
-      return 1;
-    default:
-      return 0;
-  }
+  const uint8_t mres = this->chopconf_mres();
+  return 256 >> mres;
 }
 
 void TMC2300Stepper::set_microsteps(uint16_t ms) {
-  switch (ms) {
-    case 1:
-      return this->chopconf_mres(8);
-    case 2:
-      return this->chopconf_mres(7);
-    case 4:
-      return this->chopconf_mres(6);
-    case 8:
-      return this->chopconf_mres(5);
-    case 16:
-      return this->chopconf_mres(4);
-    case 32:
-      return this->chopconf_mres(3);
-    case 64:
-      return this->chopconf_mres(2);
-    case 128:
-      return this->chopconf_mres(1);
-    case 256:
-      return this->chopconf_mres(0);
-    default:
-      return this->chopconf_mres(0);
+  for (uint8_t mres = 8; mres > 0; mres--)
+    if ((256 >> mres) == ms)
+      return this->chopconf_mres(mres);
+}
+
+float TMC2300Stepper::motor_load() {
+  const uint16_t result = this->stallguard_sgresult();
+  return (510.0 - (float) result) / (510.0 - (float) this->stallguard_sgthrs_ * 2.0);
+}
+
+float TMC2300Stepper::rms_current_hold_scale() { return this->rms_current_hold_scale_; }
+void TMC2300Stepper::rms_current_hold_scale(float scale) {
+  this->rms_current_hold_scale_ = scale;
+  this->set_rms_current_();
+}
+
+void TMC2300Stepper::rms_current(uint16_t mA) {
+  this->rms_current_ = mA;
+  this->set_rms_current_();
+}
+
+uint16_t TMC2300Stepper::rms_current() { return this->current_scale_to_rms_current_(this->ihold_irun_irun()); }
+
+void TMC2300Stepper::set_rms_current_() {
+  uint8_t current_scale = 32.0 * 1.41421 * this->rms_current_ / 1000.0 * (this->rsense_ + 0.02) / 0.325 - 1;
+
+  if (current_scale > 31) {
+    current_scale = 31;
+    ESP_LOGW(TAG, "Selected rsense has a current limit of %d mA", this->current_scale_to_rms_current_(current_scale));
   }
-  return;
+
+  this->ihold_irun_irun(current_scale);
+  this->ihold_irun_ihold(current_scale * this->rms_current_hold_scale_);
+}
+
+uint16_t TMC2300Stepper::current_scale_to_rms_current_(uint8_t current_scaling) {
+  return (float) (current_scaling + 1) / 32.0 * 0.325 / (this->rsense_ + 0.02) / 1.41421 * 1000;
 }
 
 /**
@@ -214,16 +196,27 @@ void TMC2300Stepper::vactual(int32_t velocity) {
   TMC2300_FIELD_WRITE(&this->driver_, TMC2300_VACTUAL, TMC2300_VACTUAL_MASK, TMC2300_VACTUAL_SHIFT, velocity);
 }
 
-void TMC2300Stepper::ihold_irun_ihold(int32_t current) {
+void TMC2300Stepper::ihold_irun_ihold(uint8_t current) {
   TMC2300_FIELD_UPDATE(&this->driver_, TMC2300_IHOLD_IRUN, TMC2300_IRUN_MASK, TMC2300_IRUN_SHIFT, current);
 }
 
-void TMC2300Stepper::ihold_irun_irun(int32_t current) {
+uint8_t TMC2300Stepper::ihold_irun_ihold() {
+  return TMC2300_FIELD_READ(&this->driver_, TMC2300_IHOLD_IRUN, TMC2300_IRUN_MASK, TMC2300_IRUN_SHIFT);
+}
+
+void TMC2300Stepper::ihold_irun_irun(uint8_t current) {
   TMC2300_FIELD_UPDATE(&this->driver_, TMC2300_IHOLD_IRUN, TMC2300_IHOLD_MASK, TMC2300_IHOLD_SHIFT, current);
 }
 
-void TMC2300Stepper::ihold_irun_ihold_delay(int32_t delay) {
+uint8_t TMC2300Stepper::ihold_irun_irun() {
+  return TMC2300_FIELD_READ(&this->driver_, TMC2300_IHOLD_IRUN, TMC2300_IHOLD_MASK, TMC2300_IHOLD_SHIFT);
+}
+
+void TMC2300Stepper::ihold_irun_ihold_delay(uint8_t delay) {
   TMC2300_FIELD_UPDATE(&this->driver_, TMC2300_IHOLD_IRUN, TMC2300_IHOLDDELAY_MASK, TMC2300_IHOLDDELAY_SHIFT, delay);
+}
+uint8_t TMC2300Stepper::ihold_irun_ihold_delay() {
+  return TMC2300_FIELD_READ(&this->driver_, TMC2300_IHOLD_IRUN, TMC2300_IHOLDDELAY_MASK, TMC2300_IHOLDDELAY_SHIFT);
 }
 
 void TMC2300Stepper::stallguard_sgthrs(uint8_t threshold) {
@@ -354,6 +347,20 @@ void TMC2300Stepper::gconf_test_mode(bool enable) {
 
 bool TMC2300Stepper::gconf_test_mode() {
   return TMC2300_FIELD_READ(&this->driver_, TMC2300_GCONF, TMC2300_TEST_MODE_MASK, TMC2300_TEST_MODE_SHIFT);
+}
+
+void TMC2300Stepper::gconf_diag_index(bool enable) {
+  TMC2300_FIELD_UPDATE(&this->driver_, TMC2300_GCONF, TMC2300_DIAG_INDEX_MASK, TMC2300_DIAG_INDEX_SHIFT, enable);
+}
+bool TMC2300Stepper::gconf_diag_index() {
+  return TMC2300_FIELD_READ(&this->driver_, TMC2300_GCONF, TMC2300_DIAG_INDEX_MASK, TMC2300_DIAG_INDEX_SHIFT);
+}
+
+void TMC2300Stepper::gconf_diag_step(bool enable) {
+  TMC2300_FIELD_UPDATE(&this->driver_, TMC2300_GCONF, TMC2300_DIAG_STEP_MASK, TMC2300_DIAG_STEP_SHIFT, enable);
+}
+bool TMC2300Stepper::gconf_diag_step() {
+  return TMC2300_FIELD_READ(&this->driver_, TMC2300_GCONF, TMC2300_DIAG_STEP_MASK, TMC2300_DIAG_STEP_SHIFT);
 }
 
 void TMC2300Stepper::coolstep_tcoolthrs(int32_t threshold) {

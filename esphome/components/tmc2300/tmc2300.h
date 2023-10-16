@@ -27,42 +27,45 @@ enum Direction : int8_t {
 };
 
 struct TMC2300ISRStore {
+  ISRInternalGPIOPin enn_pin_;
+
   int32_t *current_position_ptr{nullptr};
   int32_t *target_position_ptr{nullptr};
   Direction *direction_ptr{nullptr};
-  bool *fault_detected_ptr{nullptr};
-  bool *enn_pin_state_ptr{nullptr};
+  bool *diag_triggered_ptr{nullptr};
+  bool *driver_is_enabled_ptr{nullptr};
 
-  ISRInternalGPIOPin enn_pin_;
-  static void pulse_isr(TMC2300ISRStore *arg);
-  static void fault_isr(TMC2300ISRStore *arg);
+  void stop();
+
+  static void index_isr(TMC2300ISRStore *arg);
+  static void diag_isr(TMC2300ISRStore *arg);
 };
 
 class TMC2300Stepper : public Component, public stepper::Stepper, public uart::UARTDevice {
  public:
-  TMC2300Stepper();
+  TMC2300Stepper(uint8_t address, bool use_internal_rsense, float resistance);
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void dump_config() override;
   void setup() override;
   void loop() override;
-  void set_target(int32_t target) override;
 
   void set_enn_pin(InternalGPIOPin *pin) { this->enn_pin_ = pin; }
   void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; }
-  void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; }
 
   void enable(bool enable = true);
-  void disable() { this->enable(false); };
-  bool enabled() { return this->enn_pin_state_; }
   void stop();
 
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
 
-  void add_on_fault_signal_callback(std::function<void()> callback) {
-    this->on_fault_signal_callback_.add(std::move(callback));
-  }
+  void rms_current(uint16_t mA);
+  uint16_t rms_current();
+  void rms_current_hold_scale(float scale);
+  float rms_current_hold_scale();
+  float motor_load();
+
+  void add_on_stall_callback(std::function<void()> callback) { this->on_stall_callback_.add(std::move(callback)); }
 
   // TMC-API wrappers
   uint16_t gconf();
@@ -80,6 +83,10 @@ class TMC2300Stepper : public Component, public stepper::Stepper, public uart::U
   bool gconf_multistep_filt();
   void gconf_test_mode(bool enable);
   bool gconf_test_mode();
+  void gconf_diag_step(bool enable);
+  bool gconf_diag_step();
+  void gconf_diag_index(bool enable);
+  bool gconf_diag_index();
 
   uint16_t gstat();
   void gstat(uint16_t setting);
@@ -111,45 +118,92 @@ class TMC2300Stepper : public Component, public stepper::Stepper, public uart::U
   uint16_t stallguard_sgresult();
   uint16_t internal_step_counter();  // Difference since last poll. Wrap around at 1023
   void vactual(int32_t velocity);
-  void ihold_irun_ihold(int32_t current);
-  void ihold_irun_irun(int32_t current);
-  void ihold_irun_ihold_delay(int32_t current);
+
+  void ihold_irun_ihold(uint8_t current);
+  uint8_t ihold_irun_ihold();
+  void ihold_irun_irun(uint8_t current);
+  uint8_t ihold_irun_irun();
+  void ihold_irun_ihold_delay(uint8_t current);
+  uint8_t ihold_irun_ihold_delay();
 
   void chopconf_mres(uint8_t index);
   uint8_t chopconf_mres();
   void chopconf_blank_time(uint8_t select);
 
-  //  protected:
+ protected:
   // TMC-API handlers
-  uint8_t index_{0};  // used for tmcapi channel index and esphome global component index
+  uint8_t channel_{0};  // used for tmcapi channel index and esphome global component index
+  uint8_t address_{0x00};
+
   TMC2300TypeDef driver_;
   ConfigurationTypeDef config_;
   void update_registers_();
   bool reset_();
   bool restore_();
 
+  void set_rms_current_();
+  uint16_t current_scale_to_rms_current_(uint8_t current_scaling);
+
+  InternalGPIOPin *enn_pin_;
+  InternalGPIOPin *diag_pin_;
+
+  bool driver_is_enabled_{false};
+  bool use_internal_rsense_;
+  float rsense_;
   uint32_t coolstep_tcoolthrs_{0};
   uint8_t stallguard_sgthrs_{0};
-
-  InternalGPIOPin *index_pin_;
-  InternalGPIOPin *diag_pin_;
-  InternalGPIOPin *enn_pin_;
-  bool enn_pin_state_{false};
+  uint16_t rms_current_{UINT16_MAX};
+  float rms_current_hold_scale_{1.0};
 
   TMC2300ISRStore isr_store_{};
-  // ControlMode control_mode_{ControlMode::NONE};
   Direction direction_{Direction::NONE};
-
   HighFrequencyLoopRequester high_freq_;
-
-  bool fault_detected_{false};
-  CallbackManager<void()> on_fault_signal_callback_;
+  CallbackManager<void()> on_stall_callback_;
 };
 
-class TMC2300StepperFaultSignalTrigger : public Trigger<> {
+template<typename... Ts> class TMC2300StepperConfigureAction : public Action<Ts...>, public Parented<TMC2300Stepper> {
  public:
-  explicit TMC2300StepperFaultSignalTrigger(TMC2300Stepper *parent) {
-    parent->add_on_fault_signal_callback([this]() { this->trigger(); });
+  TEMPLATABLE_VALUE(bool, inverse_direction)
+  TEMPLATABLE_VALUE(int, microsteps)
+  TEMPLATABLE_VALUE(uint, rms_current)
+  TEMPLATABLE_VALUE(float, rms_current_hold_scale)
+  TEMPLATABLE_VALUE(int, hold_current_delay)
+  TEMPLATABLE_VALUE(int, coolstep_tcoolthrs)
+  TEMPLATABLE_VALUE(int, stallguard_sgthrs)
+
+  void play(Ts... x) override {
+    if (this->inverse_direction_.has_value())
+      this->parent_->gconf_shaft(this->inverse_direction_.value(x...));
+
+    if (this->microsteps_.has_value())
+      this->parent_->set_microsteps(this->microsteps_.value(x...));
+
+    if (this->rms_current_.has_value())
+      this->parent_->rms_current(this->rms_current_.value(x...));
+
+    if (this->rms_current_hold_scale_.has_value())
+      this->parent_->rms_current_hold_scale(this->rms_current_hold_scale_.value(x...));
+
+    if (this->hold_current_delay_.has_value())
+      this->parent_->ihold_irun_ihold_delay(this->hold_current_delay_.value(x...));
+
+    if (this->coolstep_tcoolthrs_.has_value())
+      this->parent_->coolstep_tcoolthrs(this->coolstep_tcoolthrs_.value(x...));
+
+    if (this->stallguard_sgthrs_.has_value())
+      this->parent_->stallguard_sgthrs(this->stallguard_sgthrs_.value(x...));
+  }
+};
+
+template<typename... Ts> class TMC2300StepperStopAction : public Action<Ts...>, public Parented<TMC2300Stepper> {
+ public:
+  void play(Ts... x) override { this->parent_->stop(); }
+};
+
+class TMC2300StepperOnStallTrigger : public Trigger<> {
+ public:
+  explicit TMC2300StepperOnStallTrigger(TMC2300Stepper *parent) {
+    parent->add_on_stall_callback([this]() { this->trigger(); });
   }
 };
 
