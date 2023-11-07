@@ -13,11 +13,9 @@ extern "C" {
 namespace esphome {
 namespace tmc {
 
-#define MAX_ALLOWED_COMPONENTS 1
-
 class TMC2209Stepper;  // Forward declare
 
-static TMC2209Stepper *components[MAX_ALLOWED_COMPONENTS];
+static TMC2209Stepper *components[TMC2209_NUM_COMPONENTS];
 static uint8_t tmc2209_stepper_global_index = 0;
 
 enum Direction : int8_t {

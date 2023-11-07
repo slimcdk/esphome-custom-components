@@ -1,16 +1,16 @@
 from esphome import automation, pins
-from esphome.core import CORE, coroutine_with_priority
 import esphome.config_validation as cv
+import esphome.final_validate as fv
 import esphome.codegen as cg
 from esphome.components import uart, stepper
 
-from esphome.const import CONF_TRIGGER_ID, CONF_ADDRESS, CONF_ID
+from esphome.const import CONF_TRIGGER_ID, CONF_ADDRESS, CONF_ID, CONF_PLATFORM
 
 CODEOWNERS = ["@slimcdk"]
 
-
 DEPENDENCIES = ["uart"]
-
+CONF_STEPPER = "stepper"
+CONF_TMC2209 = "tmc2209"
 CONF_TMC2209_ID = "tmc2209_id"
 
 CONF_ENN_PIN = "enn_pin"
@@ -102,6 +102,15 @@ async def to_code(config):
         await automation.build_automation(trigger, [], conf)
 
     cg.add_library("https://github.com/slimcdk/TMC-API", "3.5.2")
+
+
+def final_validate_config(config):
+    steppers = fv.full_config.get()[CONF_STEPPER]
+    tmc2209_steppers = [stepper for stepper in steppers if stepper[CONF_PLATFORM] == CONF_TMC2209]
+    cg.add_define("TMC2209_NUM_COMPONENTS", len(tmc2209_steppers))
+    return config
+
+FINAL_VALIDATE_SCHEMA = final_validate_config
 
 
 

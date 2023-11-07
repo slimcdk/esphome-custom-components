@@ -107,7 +107,7 @@ void TMC2209Stepper::dump_config() {
 #endif
 
   ESP_LOGCONFIG(TAG, "  RSense: %.2f Ohm (%s)", this->rsense_, this->use_internal_rsense_ ? "Internal" : "External");
-  ESP_LOGCONFIG(TAG, "  Address: 0x%02X (TMCAPI Channel: %d)", this->address_, this->channel_);
+  ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
   ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", this->ioin_chip_version());
   LOG_STEPPER(this);
 }
@@ -144,7 +144,7 @@ void TMC2209Stepper::loop() {
   this->prev_has_reached_target_ = has_reached_target_;
 
   const int32_t to_target = (this->target_position - this->current_position);
-  this->direction_ = (Direction) (to_target != 0 ? to_target / abs(to_target) : NONE);  // yield 1, -1 or 0
+  this->direction_ = (to_target != 0 ? (Direction) (to_target / abs(to_target)) : Direction::NONE);  // yield 1, -1 or 0
   this->calculate_speed_(micros());
   this->vactual(this->direction_ * (int32_t) this->current_speed_);  // TODO: write only when values change
   this->update_registers_();
