@@ -24,7 +24,7 @@ void TMC5240::update_registers_() { return tmc5240_periodicJob(&this->driver_, 0
 
 void TMC5240::setup() {
   this->enn_pin_->setup();
-  this->enn_pin_->digital_write(false);
+  this->enn_pin_->digital_write(true);
 
   // Fill default configuration for driver (TODO: retry call instead)
   if (!tmc5240_reset(&this->driver_)) {
@@ -42,19 +42,36 @@ void TMC5240::setup() {
     return;
   }
 
-  this->enn_pin_->digital_write(true);
+  this->set_vmax(this->max_speed_);
+  this->set_amax(this->acceleration_);
+  this->set_dmax(this->deceleration_);
 }
 
-void TMC5240::loop() {}
+void TMC5240::loop() {
+  this->update_registers_();
+  this->current_position = this->get_xactual();
+
+  if (!this->has_reached_target()) {
+    this->enn_pin_->digital_write(false);
+    this->set_vmax(this->max_speed_);
+    this->set_amax(this->acceleration_);
+    this->set_dmax(this->deceleration_);
+    tmc5240_moveTo(&this->driver_, this->target_position, this->max_speed_);
+  } else {
+    this->enn_pin_->digital_write(true);
+  }
+}
 
 /** TMC-API wrappers **/
 extern "C" {
 
 void tmc5240_writeDatagram(TMC5240TypeDef *tmc5240, uint8_t address, uint8_t x1, uint8_t x2, uint8_t x3, uint8_t x4) {
   TMC5240 *comp = components[tmc5240->config->channel];
+
   uint8_t data[5] = {(uint8_t) (address | TMC5240_WRITE_BIT), x1, x2, x3, x4};
   comp->read_write(data, 5);
   int32_t value = ((uint32_t) x1 << 24) | ((uint32_t) x2 << 16) | (x3 << 8) | x4;
+  // int32_t value = _8_32(x1, x2, x3, x4);
 
   // Write to the shadow register and mark the register dirty
   address = TMC_ADDRESS(address);
@@ -75,6 +92,7 @@ int32_t tmc5240_readInt(TMC5240TypeDef *tmc5240, uint8_t address) {
     return tmc5240->config->shadowRegister[address];
 
   uint8_t data[5] = {address, 0, 0, 0, 0};
+  comp->read_write(data, 5);
   comp->read_write(data, 5);
 
   return _8_32(data[1], data[2], data[3], data[4]);

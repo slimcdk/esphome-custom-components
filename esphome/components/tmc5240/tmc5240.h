@@ -22,10 +22,6 @@ namespace tmc5240 {
       TMC5240_FIELD_READ(&this->driver_, TMC5240_INP_OUT, TMC5240_SILICON_RV_MASK, TMC5240_SILICON_RV_SHIFT)); \
   LOG_STEPPER(this);
 
-class TMC5240;  // Forward declare
-static TMC5240 *components[TMC5240_NUM_COMPONENTS];
-static uint8_t tmc5240_global_component_index = 0;
-
 class TMC5240 : public Component, public stepper::Stepper {
  public:
   TMC5240();
@@ -43,6 +39,19 @@ class TMC5240 : public Component, public stepper::Stepper {
   uint8_t x4);
   */
 
+  float get_vsupply();
+  float get_temp();
+
+  int32_t get_xactual();
+  void set_xactual(int32_t value);
+  int32_t get_vactual();
+  void set_vactual(int32_t value);
+
+  void set_vmax(int32_t max);
+  void set_amax(int32_t max);
+  void set_dmax(int32_t max);
+  void set_tvmax(int32_t max);
+
   virtual void read_write(uint8_t *buffer, size_t length) = 0;  // make tmc-api friends of TMC5240 and protect this
 
  protected:
@@ -56,6 +65,12 @@ class TMC5240 : public Component, public stepper::Stepper {
   bool reset_();
   bool restore_();
 };
+
+/**
+ * Components are globally indexed such that TMC-API functions can access the objects/components.
+ */
+static TMC5240 *components[TMC5240_NUM_COMPONENTS];
+static uint8_t tmc5240_global_component_index = 0;
 
 }  // namespace tmc5240
 }  // namespace esphome

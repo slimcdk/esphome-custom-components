@@ -21,19 +21,8 @@ void TMC5240SPI::setup() {
 }
 
 void TMC5240SPI::dump_config() {
-  ESP_LOGCONFIG(TAG, "TMC5240 Stepper:");
+  ESP_LOGCONFIG(TAG, "TMC5240 SPI Stepper:");
   LOG_TMC5240(this);
-
-  // int32_t xactual = TMC5240_FIELD_READ(&this->driver_, TMC5240_XACTUAL, TMC5240_XACTUAL_MASK, TMC5240_XACTUAL_SHIFT);
-  // ESP_LOGCONFIG(TAG, "  XACTUAL: 0x%02X", xactual);
-
-  int32_t vmax = TMC5240_FIELD_READ(&this->driver_, TMC5240_VMAX, TMC5240_VMAX_MASK, TMC5240_VMAX_SHIFT);
-  ESP_LOGCONFIG(TAG, "  VMAX: 0x%02X", vmax);
-
-  TMC5240_FIELD_WRITE(&this->driver_, TMC5240_VMAX, TMC5240_VMAX_MASK, TMC5240_VMAX_SHIFT, 0x00123456);
-
-  int32_t vmax2 = TMC5240_FIELD_READ(&this->driver_, TMC5240_VMAX, TMC5240_VMAX_MASK, TMC5240_VMAX_SHIFT);
-  ESP_LOGCONFIG(TAG, "  VMAX: 0x%02X", vmax2);
 }
 
 void TMC5240SPI::read_write(uint8_t *buffer, size_t length) {
@@ -42,6 +31,8 @@ void TMC5240SPI::read_write(uint8_t *buffer, size_t length) {
   this->transfer_array(buffer, length);
   this->disable();
   ESP_LOGVV(TAG, "got back=0x%02X %02X%02X%02X%02X", buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
+
+  ESP_LOGV(TAG, BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(buffer[0]));
 }
 
 void TMC5240SPI::set_spi_status(uint8_t ss) { this->spi_status_ = ss; }
