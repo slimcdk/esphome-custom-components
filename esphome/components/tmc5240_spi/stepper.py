@@ -21,7 +21,7 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(): cv.declare_id(TMC5240SPI)
         }
     )
-    .extend(spi.spi_device_schema(cs_pin_required=True)),
+    .extend(spi.spi_device_schema()),
 )
 
 async def to_code(config):

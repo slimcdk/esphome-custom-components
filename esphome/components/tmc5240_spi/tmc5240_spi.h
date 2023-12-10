@@ -13,7 +13,6 @@ class TMC5240SPI : public tmc5240::TMC5240,
                    public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_HIGH, spi::CLOCK_PHASE_TRAILING,
                                          spi::DATA_RATE_10MHZ> {
  public:
-  // TMC5240SPI();
   void setup() override;
   void dump_config() override;
 

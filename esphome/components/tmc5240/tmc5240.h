@@ -45,14 +45,19 @@ class TMC5240 : public Component, public stepper::Stepper {
   int32_t get_xactual();
   void set_xactual(int32_t value);
   int32_t get_vactual();
-  void set_vactual(int32_t value);
 
   void set_vmax(int32_t max);
   void set_amax(int32_t max);
   void set_dmax(int32_t max);
   void set_tvmax(int32_t max);
 
+  int32_t get_sg4_result();
   virtual void read_write(uint8_t *buffer, size_t length) = 0;  // make tmc-api friends of TMC5240 and protect this
+
+  // void set_enc_const(float value);
+  float get_enc_const();
+  int32_t get_x_enc();
+  uint8_t get_encmode_ignore_ab();
 
  protected:
   GPIOPin *enn_pin_;

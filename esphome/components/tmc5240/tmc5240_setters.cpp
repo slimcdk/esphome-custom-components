@@ -28,9 +28,9 @@ void TMC5240::set_xactual(int32_t value) {
   TMC5240_FIELD_WRITE(&this->driver_, TMC5240_XACTUAL, TMC5240_XACTUAL_MASK, TMC5240_XACTUAL_SHIFT, value);
 }
 
-void TMC5240::set_vactual(int32_t value) {
-  TMC5240_FIELD_WRITE(&this->driver_, TMC5240_VACTUAL, TMC5240_VACTUAL_MASK, TMC5240_VACTUAL_SHIFT, value);
-}
+// void TMC5240::set_enc_const(float value) {
+//   TMC5240_FIELD_WRITE(&this->driver_, TMC5240_ENC_CONST, TMC5240_ENC_CONST_MASK, TMC5240_ENC_CONST_SHIFT, value);
+// }
 
 }  // namespace tmc5240
 }  // namespace esphome

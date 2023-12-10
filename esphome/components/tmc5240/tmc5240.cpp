@@ -70,8 +70,7 @@ void tmc5240_writeDatagram(TMC5240TypeDef *tmc5240, uint8_t address, uint8_t x1,
 
   uint8_t data[5] = {(uint8_t) (address | TMC5240_WRITE_BIT), x1, x2, x3, x4};
   comp->read_write(data, 5);
-  int32_t value = ((uint32_t) x1 << 24) | ((uint32_t) x2 << 16) | (x3 << 8) | x4;
-  // int32_t value = _8_32(x1, x2, x3, x4);
+  int32_t value = _8_32(x1, x2, x3, x4);
 
   // Write to the shadow register and mark the register dirty
   address = TMC_ADDRESS(address);

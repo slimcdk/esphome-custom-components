@@ -25,7 +25,24 @@ int32_t TMC5240::get_xactual() {
 }
 
 int32_t TMC5240::get_vactual() {
-  return TMC5240_FIELD_READ(&this->driver_, TMC5240_VACTUAL, TMC5240_VACTUAL_MASK, TMC5240_VACTUAL_SHIFT);
+  int32_t value = TMC5240_FIELD_READ(&this->driver_, TMC5240_VACTUAL, TMC5240_VACTUAL_MASK, TMC5240_VACTUAL_SHIFT);
+  return CAST_Sn_TO_S32(value, 24);
+}
+
+int32_t TMC5240::get_sg4_result() {
+  return TMC5240_FIELD_READ(&this->driver_, TMC5240_SG4_RESULT, TMC5240_SG4_RESULT_MASK, TMC5240_SG4_RESULT_SHIFT);
+}
+
+float TMC5240::get_enc_const() {
+  return TMC5240_FIELD_READ(&this->driver_, TMC5240_ENC_CONST, TMC5240_ENC_CONST_MASK, TMC5240_ENC_CONST_SHIFT);
+}
+
+int32_t TMC5240::get_x_enc() {
+  return TMC5240_FIELD_READ(&this->driver_, TMC5240_XENC, TMC5240_X_ENC_MASK, TMC5240_X_ENC_SHIFT);
+}
+
+uint8_t TMC5240::get_encmode_ignore_ab() {
+  return TMC5240_FIELD_READ(&this->driver_, TMC5240_ENCMODE, TMC5240_IGNORE_AB_MASK, TMC5240_IGNORE_AB_SHIFT);
 }
 
 }  // namespace tmc5240
