@@ -45,11 +45,17 @@ void TMC5240::setup() {
   this->set_vmax(this->max_speed_);
   this->set_amax(this->acceleration_);
   this->set_dmax(this->deceleration_);
+
+  this->set_enc_const(50);
 }
 
 void TMC5240::loop() {
   this->update_registers_();
-  this->current_position = this->get_xactual();
+  // this->current_position = this->get_xactual();
+
+  // Close encoder -> motor loop
+  this->current_position = this->get_x_enc();
+  this->set_xactual(this->current_position);
 
   if (!this->has_reached_target()) {
     this->enn_pin_->digital_write(false);

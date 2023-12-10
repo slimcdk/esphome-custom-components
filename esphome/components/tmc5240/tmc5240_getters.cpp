@@ -34,7 +34,13 @@ int32_t TMC5240::get_sg4_result() {
 }
 
 float TMC5240::get_enc_const() {
-  return TMC5240_FIELD_READ(&this->driver_, TMC5240_ENC_CONST, TMC5240_ENC_CONST_MASK, TMC5240_ENC_CONST_SHIFT);
+  int32_t value =
+      TMC5240_FIELD_READ(&this->driver_, TMC5240_ENC_CONST, TMC5240_ENC_CONST_MASK, TMC5240_ENC_CONST_SHIFT);
+
+  int16_t factor = SHORT(value, 1);
+  int16_t fraction = SHORT(value, 0);
+
+  return (float) factor + (float) fraction / 10.0f;
 }
 
 int32_t TMC5240::get_x_enc() {

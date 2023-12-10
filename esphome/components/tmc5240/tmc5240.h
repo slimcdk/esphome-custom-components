@@ -32,13 +32,6 @@ class TMC5240 : public Component, public stepper::Stepper {
 
   void set_enn_pin(GPIOPin *pin) { this->enn_pin_ = pin; }
 
-  /*
-  friend void tmc5240_writeInt(TMC5240TypeDef *tmc5240, uint8_t address, int32_t value);
-  friend int32_t tmc5240_readInt(TMC5240TypeDef *tmc5240, uint8_t address);
-  friend void tmc5240_writeDatagram(TMC5240TypeDef *tmc5240, uint8_t address, uint8_t x1, uint8_t x2, uint8_t x3,
-  uint8_t x4);
-  */
-
   float get_vsupply();
   float get_temp();
 
@@ -54,7 +47,7 @@ class TMC5240 : public Component, public stepper::Stepper {
   int32_t get_sg4_result();
   virtual void read_write(uint8_t *buffer, size_t length) = 0;  // make tmc-api friends of TMC5240 and protect this
 
-  // void set_enc_const(float value);
+  void set_enc_const(float value);
   float get_enc_const();
   int32_t get_x_enc();
   uint8_t get_encmode_ignore_ab();

@@ -28,9 +28,12 @@ void TMC5240::set_xactual(int32_t value) {
   TMC5240_FIELD_WRITE(&this->driver_, TMC5240_XACTUAL, TMC5240_XACTUAL_MASK, TMC5240_XACTUAL_SHIFT, value);
 }
 
-// void TMC5240::set_enc_const(float value) {
-//   TMC5240_FIELD_WRITE(&this->driver_, TMC5240_ENC_CONST, TMC5240_ENC_CONST_MASK, TMC5240_ENC_CONST_SHIFT, value);
-// }
+void TMC5240::set_enc_const(float value) {
+  int16_t factor = (int16_t) value;
+  int16_t fraction = (value - factor) * 10;
+  int32_t value_ = _16_32(factor, fraction);
+  TMC5240_FIELD_WRITE(&this->driver_, TMC5240_ENC_CONST, TMC5240_ENC_CONST_MASK, TMC5240_ENC_CONST_SHIFT, value_);
+}
 
 }  // namespace tmc5240
 }  // namespace esphome
