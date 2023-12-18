@@ -5,6 +5,12 @@ external_components:
     - source: github://slimcdk/esphome-custom-components
       components: [ tmc2209 ]
 
+
+uart:
+  tx_pin: REPLACEME
+  rx_pin: REPLACEME
+  baud_rate: 115200
+
 esphome:
   ...
   on_boot:
@@ -12,26 +18,27 @@ esphome:
         id: motor
         coolstep_tcoolthrs: 400
         stallguard_sgthrs: 75
-        microsteps: 8
+        microsteps: 32
         rms_current: 800mA
 
 stepper:
   - platform: tmc2209
     id: motor
     enn_pin:
-      number: ...
+      number: REPLACEME
       inverted: true
-    index_pin: ...
-    max_speed: 2000 steps/s
+    index_pin: REPLACEME
+    max_speed: 25000 steps/s
 
     # optional
-    acceleration: 2000 steps/s^2
-    deceleration: 2000 steps/s^2
-    diag_pin: ...
+    acceleration: 50000 steps/s^2
+    deceleration: 50000 steps/s^2
+    diag_pin: REPLACEME
     address: 0x00
-    internal_rsense: false
-    rsense: 0.11
+    rsense: 110 mOhm # set empty to use internal sensing (current limit is set by vref)
+    oscillator_freq: 12MHz
     on_stall:
       - logger.log: "Motor stalled!"
-      - tmc2209.stop: motor
+      - tmc2209.stop: motor # as of now this is performed from inside the component as well
 ```
+

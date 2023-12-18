@@ -1,5 +1,7 @@
 #pragma once
 
+#include <limits>
+
 #include "esphome/core/helpers.h"
 #include "esphome/core/component.h"
 
@@ -41,16 +43,21 @@ struct TMC2209ISRStore {
 
 class TMC2209Stepper : public Component, public stepper::Stepper, public uart::UARTDevice {
  public:
-  TMC2209Stepper(uint8_t address, bool use_internal_rsense, float rsense_);
+  TMC2209Stepper(uint8_t address);
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void dump_config() override;
   void setup() override;
   void loop() override;
 
-  void set_enn_pin(InternalGPIOPin *pin) { this->enn_pin_ = pin; }
-  void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; }
-  void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; }
+  void set_enn_pin(InternalGPIOPin *pin) { this->enn_pin_ = pin; };
+  void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; };
+  void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; };
+  void set_oscillator_frequency(uint32_t frequency) { this->oscillator_freq_ = frequency; };
+  void set_rsense(float resistance = 0, bool use_internal = false) {
+    this->rsense_ = resistance;
+    this->use_internal_rsense_ = use_internal;
+  };
 
   void enable(bool enable = true);
   void stop();
@@ -58,11 +65,17 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public uart::U
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
 
-  void rms_current(uint16_t mA);
-  uint16_t rms_current();
+  void rms_current(float A);
+  float rms_current();
   void rms_current_hold_scale(float scale);
   float rms_current_hold_scale();
   float motor_load();
+
+  void ihold_irun_ihold_delay_ms(uint32_t delay_in_ms);
+  uint32_t ihold_irun_ihold_delay_ms();
+
+  void tpowerdown_ms(uint32_t delay_in_ms);
+  uint32_t tpowerdown_ms();
 
   void add_on_stall_callback(std::function<void()> callback) { this->on_stall_callback_.add(std::move(callback)); }
 
@@ -150,7 +163,7 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public uart::U
   uint8_t ihold_irun_ihold();
   void ihold_irun_irun(uint8_t current);
   uint8_t ihold_irun_irun();
-  void ihold_irun_ihold_delay(uint8_t current);
+  void ihold_irun_ihold_delay(uint8_t clock_cycle_factor);
   uint8_t ihold_irun_ihold_delay();
   void tpowerdown(uint8_t delay);
   uint8_t tpowerdown();
@@ -166,7 +179,7 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public uart::U
   bool restore_();
 
   void set_rms_current_();
-  uint16_t current_scale_to_rms_current_(uint8_t current_scaling);
+  float current_scale_to_rms_current_(uint8_t current_scaling);
 
   InternalGPIOPin *index_pin_;
   InternalGPIOPin *diag_pin_;
@@ -174,17 +187,18 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public uart::U
 
   bool use_internal_rsense_;
   float rsense_;
+  uint32_t oscillator_freq_{12000000};
 
   bool driver_is_enabled_{false};
   bool diag_triggered_{false};
   bool overtemp_detected_{false};
   uint32_t coolstep_tcoolthrs_{0};
   uint8_t stallguard_sgthrs_{0};
-  uint16_t rms_current_{UINT16_MAX};
+  float rms_current_{std::numeric_limits<float>::max()};
   float rms_current_hold_scale_{1.0};
 
-  bool scheduled_powerdown_{false};
-  bool prev_has_reached_target_{false};
+  bool prev_has_reached_target_{this->has_reached_target()};
+  int32_t prev_current_position_{this->current_position};
 
   TMC2209ISRStore isr_store_{};
   Direction direction_{Direction::NONE};
@@ -196,7 +210,7 @@ template<typename... Ts> class TMC2209StepperConfigureAction : public Action<Ts.
  public:
   TEMPLATABLE_VALUE(bool, inverse_direction)
   TEMPLATABLE_VALUE(int, microsteps)
-  TEMPLATABLE_VALUE(uint, rms_current)
+  TEMPLATABLE_VALUE(float, rms_current)
   TEMPLATABLE_VALUE(float, rms_current_hold_scale)
   TEMPLATABLE_VALUE(int, hold_current_delay)
   TEMPLATABLE_VALUE(int, coolstep_tcoolthrs)

@@ -36,6 +36,8 @@ CONF_TPWMTHRS = "tpwmthrs"
 CONF_RSENSE = "rsense"
 CONF_INTERNAL_RSENSE = "internal_rsense"
 
+CONF_OSCILLATOR_FREQUENCY = "oscillator_freq"
+
 CONF_COOLCONF_SEIMIN = "coolstep_seimin"
 CONF_COOLCONF_SEDN1 = "coolstep_sedn1"
 CONF_COOLCONF_SEDN0 = "coolstep_sedn0"
@@ -69,8 +71,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Required(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_ADDRESS, default=0x00): cv.uint8_t,
-            cv.Optional(CONF_RSENSE, default=0.11): cv.resistance,
-            cv.Optional(CONF_INTERNAL_RSENSE, default=True): cv.boolean,
+            cv.Optional(CONF_RSENSE): cv.resistance,
+            # cv.Optional(CONF_INTERNAL_RSENSE, default=True): cv.boolean,
+            cv.Optional(CONF_OSCILLATOR_FREQUENCY, default=12_000_000): cv.frequency,
             cv.Optional(CONF_ON_STALL): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
@@ -85,7 +88,7 @@ CONFIG_SCHEMA = cv.All(
 )
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID], config[CONF_ADDRESS], config[CONF_INTERNAL_RSENSE], config[CONF_RSENSE])
+    var = cg.new_Pvariable(config[CONF_ID], config[CONF_ADDRESS])
     await cg.register_component(var, config)
     await stepper.register_stepper(var, config)
     await uart.register_uart_device(var, config)
@@ -96,6 +99,13 @@ async def to_code(config):
     if CONF_DIAG_PIN in config:
         cg.add_define("USE_DIAG_PIN")
         cg.add(var.set_diag_pin(await cg.gpio_pin_expression(config[CONF_DIAG_PIN])))
+
+    cg.add(var.set_oscillator_frequency(config[CONF_OSCILLATOR_FREQUENCY]))
+
+    cg.add(var.set_rsense(
+        config[CONF_RSENSE] if CONF_RSENSE in config else 0,
+        CONF_RSENSE not in config   # If not set, use internal vref sensing
+    ))
 
     for conf in config.get(CONF_ON_STALL, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
@@ -112,63 +122,48 @@ def final_validate_config(config):
 
 FINAL_VALIDATE_SCHEMA = final_validate_config
 
-
-
 @automation.register_action(
     "tmc2209.configure",
     TMC2209StepperConfigureAction,
     cv.Schema(
         {
             cv.GenerateID(): cv.use_id(TMC2209Stepper),
-            cv.Optional(CONF_INVERSE_DIRECTION): cv.templatable(cv.boolean),
+            cv.Optional(CONF_INVERSE_DIRECTION): cv.boolean,
             cv.Optional(CONF_MICROSTEPS): cv.templatable(
                 cv.one_of(256, 128, 64, 32, 16, 8, 4, 2, 0)
             ),
-            cv.Optional(CONF_RMS_CURRENT): cv.templatable(cv.positive_int), # cv.current
-            cv.Optional(CONF_RMS_CURRENT_HOLD_SCALE): cv.templatable(cv.float_range( # cv.percentage
-                min=0.0, max=1.0, min_included=True, max_included=True
+            cv.Optional(CONF_RMS_CURRENT): cv.templatable(cv.All(
+                cv.current,
+                cv.positive_float
             )),
-            cv.Optional(CONF_HOLD_CURRENT_DELAY): cv.templatable(
-                cv.int_range(min=0, max=2**4, max_included=False),
-            ),
-            cv.Optional(CONF_POWER_DOWN_DELAY): cv.templatable(
-                cv.int_range(
-                    min=0, max=2**8, max_included=False
-                ),  # TODO: input value in time / duration format
-            ),
+            cv.Optional(CONF_RMS_CURRENT_HOLD_SCALE): cv.templatable(cv.percentage),
             cv.Optional(CONF_COOLSTEP_TCOOLTHRS): cv.templatable(
                 cv.int_range(min=0, max=2**20, max_included=False)
             ),
             cv.Optional(CONF_STALLGUARD_SGTHRS): cv.templatable(
                 cv.int_range(min=0, max=2**8, max_included=True)
             ),
-            # CoolStep configuration
-            # cv.Optional(CONF_COOLCONF_SEIMIN): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEDN1): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEDN0): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEDN1): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMAX3): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMAX2): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMAX1): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMAX0): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEUP1): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEUP0): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMIN3): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMIN2): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMIN1): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMIN0): cv.templatable(cv.boolean),
+            # cv.Optional(CONF_HOLD_CURRENT_DELAY): cv.templatable(cv.All(
+            #     cv.int_range(min=0, max=2**4, max_included=False),
+            #     cv.time_period_in_milliseconds_
+            # )),
+            # cv.Optional(CONF_POWER_DOWN_DELAY): cv.templatable(cv.All(
+            #     cv.int_range(min=0, max=2**8, max_included=False),
+            #     cv.time_period_in_milliseconds_
+            # )),
         }
     ),
 )
 def tmc2209_configure_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     yield cg.register_parented(var, config[CONF_ID])
+
     if CONF_INVERSE_DIRECTION in config:
         template_ = yield cg.templatable(config[CONF_INVERSE_DIRECTION], args, bool)
         cg.add(var.set_inverse_direction(template_))
 
     if CONF_RMS_CURRENT in config:
-        template_ = yield cg.templatable(config[CONF_RMS_CURRENT], args, int)
+        template_ = yield cg.templatable(config[CONF_RMS_CURRENT], args, float)
         cg.add(var.set_rms_current(template_))
 
     if CONF_RMS_CURRENT_HOLD_SCALE in config:
@@ -176,10 +171,8 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
         cg.add(var.set_rms_current_hold_scale(template_))
 
     if CONF_HOLD_CURRENT_DELAY in config:
-        template_ = yield cg.templatable(
-            config[CONF_HOLD_CURRENT_DELAY], args, int
-        )  # float)
-        cg.add(var.set_hold_current_delay(template_))
+        template_ = yield cg.templatable(config[CONF_HOLD_CURRENT_DELAY], args, int)
+        cg.add(var.ihold_irun_ihold_delay(template_))
 
     if CONF_MICROSTEPS in config:
         template_ = yield cg.templatable(config[CONF_MICROSTEPS], args, int)
