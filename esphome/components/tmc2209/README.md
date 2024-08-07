@@ -19,7 +19,7 @@ esphome:
         coolstep_tcoolthrs: 400
         stallguard_sgthrs: 75
         microsteps: 32
-        rms_current: 800mA
+        rms_current: 400mA
 
 stepper:
   - platform: tmc2209
@@ -41,4 +41,3 @@ stepper:
       - logger.log: "Motor stalled!"
       - tmc2209.stop: motor # as of now this is performed from inside the component as well
 ```
-
