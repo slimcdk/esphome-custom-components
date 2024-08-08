@@ -1,10 +1,11 @@
 # TMC2209
 
+
+### Example config
 ```yaml
 external_components:
-    - source: github://slimcdk/esphome-custom-components
-      components: [ tmc2209 ]
-
+  - source: github://slimcdk/esphome-custom-components
+    components: [ tmc2209 ]
 
 uart:
   tx_pin: REPLACEME
@@ -24,9 +25,7 @@ esphome:
 stepper:
   - platform: tmc2209
     id: motor
-    enn_pin:
-      number: REPLACEME
-      inverted: true
+    enn_pin: REPLACEME
     index_pin: REPLACEME
     max_speed: 25000 steps/s
 

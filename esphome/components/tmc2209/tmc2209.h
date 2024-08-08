@@ -15,10 +15,15 @@ extern "C" {
 namespace esphome {
 namespace tmc {
 
+#define DRIVER_STATE_TIMER_NAME "powerdown"
+#define INDEX_FB_CHECK_TIMER_NAME "indexcheck"
+
+static const char *TAG = "tmc2209.stepper";
+
 class TMC2209Stepper;  // Forward declare
 
 static TMC2209Stepper *components[TMC2209_NUM_COMPONENTS];
-static uint8_t tmc2209_stepper_global_index = 0;
+static uint16_t tmc2209_stepper_global_index = 0;
 
 enum Direction : int8_t {
   CLOCKWISE = -1,     // Moving one direction
@@ -168,15 +173,9 @@ class TMC2209Stepper : public Component, public stepper::Stepper, public uart::U
   void tpowerdown(uint8_t delay);
   uint8_t tpowerdown();
 
- protected:
-  // TMC-API handlers
-  uint8_t channel_{0};  // used for tmcapi channel index and esphome global component index
+  // protected:
+  uint16_t id_;  // used for tmcapi id index and esphome global component index
   uint8_t address_{0x00};
-  TMC2209TypeDef driver_;
-  ConfigurationTypeDef config_;
-  void update_registers_();
-  bool reset_();
-  bool restore_();
 
   void set_rms_current_();
   float current_scale_to_rms_current_(uint8_t current_scaling);

@@ -56,11 +56,17 @@ CONF_COOLCONF_SEMIN0 = "coolstep_semin0"
 CONF_ON_STALL = "on_stall"
 
 tmc_ns = cg.esphome_ns.namespace("tmc")
-TMC2209Stepper = tmc_ns.class_("TMC2209Stepper", cg.Component, stepper.Stepper, uart.UARTDevice)
+TMC2209Stepper = tmc_ns.class_(
+    "TMC2209Stepper", cg.Component, stepper.Stepper, uart.UARTDevice
+)
 
-TMC2209StepperConfigureAction = tmc_ns.class_("TMC2209StepperConfigureAction", automation.Action)
+TMC2209StepperConfigureAction = tmc_ns.class_(
+    "TMC2209StepperConfigureAction", automation.Action
+)
 TMC2209StepperStopAction = tmc_ns.class_("TMC2209StepperStopAction", automation.Action)
-TMC2209StepperOnStallTrigger = tmc_ns.class_("TMC2209StepperOnStallTrigger", automation.Trigger)
+TMC2209StepperOnStallTrigger = tmc_ns.class_(
+    "TMC2209StepperOnStallTrigger", automation.Trigger
+)
 
 
 CONFIG_SCHEMA = cv.All(
@@ -87,6 +93,7 @@ CONFIG_SCHEMA = cv.All(
     .extend(uart.UART_DEVICE_SCHEMA),
 )
 
+
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID], config[CONF_ADDRESS])
     await cg.register_component(var, config)
@@ -102,25 +109,31 @@ async def to_code(config):
 
     cg.add(var.set_oscillator_frequency(config[CONF_OSCILLATOR_FREQUENCY]))
 
-    cg.add(var.set_rsense(
-        config[CONF_RSENSE] if CONF_RSENSE in config else 0,
-        CONF_RSENSE not in config   # If not set, use internal vref sensing
-    ))
+    cg.add(
+        var.set_rsense(
+            config[CONF_RSENSE] if CONF_RSENSE in config else 0,
+            CONF_RSENSE not in config,  # If not set, use internal vref sensing
+        )
+    )
 
     for conf in config.get(CONF_ON_STALL, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
 
-    cg.add_library("https://github.com/slimcdk/TMC-API", "3.5.2")
+    cg.add_library("TMC-API", "3.10.3", "https://github.com/slimcdk/TMC-API")
 
 
 def final_validate_config(config):
     steppers = fv.full_config.get()[CONF_STEPPER]
-    tmc2209_steppers = [stepper for stepper in steppers if stepper[CONF_PLATFORM] == CONF_TMC2209]
+    tmc2209_steppers = [
+        stepper for stepper in steppers if stepper[CONF_PLATFORM] == CONF_TMC2209
+    ]
     cg.add_define("TMC2209_NUM_COMPONENTS", len(tmc2209_steppers))
     return config
 
+
 FINAL_VALIDATE_SCHEMA = final_validate_config
+
 
 @automation.register_action(
     "tmc2209.configure",
@@ -132,10 +145,9 @@ FINAL_VALIDATE_SCHEMA = final_validate_config
             cv.Optional(CONF_MICROSTEPS): cv.templatable(
                 cv.one_of(256, 128, 64, 32, 16, 8, 4, 2, 0)
             ),
-            cv.Optional(CONF_RMS_CURRENT): cv.templatable(cv.All(
-                cv.current,
-                cv.positive_float
-            )),
+            cv.Optional(CONF_RMS_CURRENT): cv.templatable(
+                cv.All(cv.current, cv.positive_float)
+            ),
             cv.Optional(CONF_RMS_CURRENT_HOLD_SCALE): cv.templatable(cv.percentage),
             cv.Optional(CONF_COOLSTEP_TCOOLTHRS): cv.templatable(
                 cv.int_range(min=0, max=2**20, max_included=False)
@@ -167,7 +179,9 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
         cg.add(var.set_rms_current(template_))
 
     if CONF_RMS_CURRENT_HOLD_SCALE in config:
-        template_ = yield cg.templatable(config[CONF_RMS_CURRENT_HOLD_SCALE], args, float)
+        template_ = yield cg.templatable(
+            config[CONF_RMS_CURRENT_HOLD_SCALE], args, float
+        )
         cg.add(var.set_rms_current_hold_scale(template_))
 
     if CONF_HOLD_CURRENT_DELAY in config:
@@ -188,11 +202,14 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
     yield var
 
 
-TMC2209_ACTION_SCHEMA = automation.maybe_simple_id({
-    cv.Required(CONF_ID): cv.use_id(TMC2209Stepper)
-})
+TMC2209_ACTION_SCHEMA = automation.maybe_simple_id(
+    {cv.Required(CONF_ID): cv.use_id(TMC2209Stepper)}
+)
 
-@automation.register_action("tmc2209.stop", TMC2209StepperStopAction, TMC2209_ACTION_SCHEMA)
+
+@automation.register_action(
+    "tmc2209.stop", TMC2209StepperStopAction, TMC2209_ACTION_SCHEMA
+)
 def tmc2209_stop_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     yield cg.register_parented(var, config[CONF_ID])
