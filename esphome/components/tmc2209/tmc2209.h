@@ -228,8 +228,8 @@ template<typename... Ts> class TMC2209StepperConfigureAction : public Action<Ts.
     if (this->rms_current_hold_scale_.has_value())
       this->parent_->rms_current_hold_scale(this->rms_current_hold_scale_.value(x...));
 
-    if (this->hold_current_delay_.has_value())
-      this->parent_->ihold_irun_ihold_delay(this->hold_current_delay_.value(x...));
+    // if (this->hold_current_delay_.has_value())
+    //   this->parent_->ihold_irun_ihold_delay(this->hold_current_delay_.value(x...));
 
     if (this->coolstep_tcoolthrs_.has_value())
       this->parent_->coolstep_tcoolthrs(this->coolstep_tcoolthrs_.value(x...));

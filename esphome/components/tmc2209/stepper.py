@@ -120,7 +120,7 @@ async def to_code(config):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
 
-    cg.add_library("TMC-API", "3.10.3", "https://github.com/slimcdk/TMC-API")
+    cg.add_library("https://github.com/slimcdk/TMC-API", "3.10.3")
 
 
 def final_validate_config(config):
@@ -184,9 +184,9 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
         )
         cg.add(var.set_rms_current_hold_scale(template_))
 
-    if CONF_HOLD_CURRENT_DELAY in config:
-        template_ = yield cg.templatable(config[CONF_HOLD_CURRENT_DELAY], args, int)
-        cg.add(var.ihold_irun_ihold_delay(template_))
+    # if CONF_HOLD_CURRENT_DELAY in config:
+    #     template_ = yield cg.templatable(config[CONF_HOLD_CURRENT_DELAY], args, int)
+    #     cg.add(var.ihold_irun_ihold_delay(template_))
 
     if CONF_MICROSTEPS in config:
         template_ = yield cg.templatable(config[CONF_MICROSTEPS], args, int)

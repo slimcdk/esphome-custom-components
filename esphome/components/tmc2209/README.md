@@ -17,10 +17,10 @@ esphome:
   on_boot:
     - tmc2209.configure:
         id: motor
-        coolstep_tcoolthrs: 400
+        coolstep_tcoolthrs: 800
         stallguard_sgthrs: 75
         microsteps: 32
-        rms_current: 400mA
+        rms_current: 1200mA
 
 stepper:
   - platform: tmc2209
@@ -34,7 +34,7 @@ stepper:
     deceleration: 50000 steps/s^2
     diag_pin: REPLACEME
     address: 0x00
-    rsense: 110 mOhm # set empty to use internal sensing (current limit is set by vref)
+    rsense: 110 mOhm # internal sensing is used if not set (current limit is set by vref)
     oscillator_freq: 12MHz
     on_stall:
       - logger.log: "Motor stalled!"
