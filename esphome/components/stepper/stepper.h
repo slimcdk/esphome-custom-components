@@ -14,13 +14,14 @@ namespace stepper {
 
 class Stepper {
  public:
-  virtual void set_target(int32_t steps) { this->target_position = steps; }
+  void set_target(int32_t steps) { this->target_position = steps; }
   void report_position(int32_t steps) { this->current_position = steps; }
   void set_acceleration(float acceleration) { this->acceleration_ = acceleration; }
   void set_deceleration(float deceleration) { this->deceleration_ = deceleration; }
   void set_max_speed(float max_speed) { this->max_speed_ = max_speed; }
   virtual void on_update_speed() {}
   bool has_reached_target() { return this->current_position == this->target_position; }
+  virtual void stop() { this->target_position = this->current_position; }
 
   int32_t current_position{0};
   int32_t target_position{0};
@@ -102,6 +103,16 @@ template<typename... Ts> class SetDecelerationAction : public Action<Ts...> {
     float deceleration = this->deceleration_.value(x...);
     this->parent_->set_deceleration(deceleration);
   }
+
+ protected:
+  Stepper *parent_;
+};
+
+template<typename... Ts> class StopAction : public Action<Ts...> {
+ public:
+  explicit StopAction(Stepper *parent) : parent_(parent) {}
+
+  void play(Ts... x) override { this->parent_->stop(); }
 
  protected:
   Stepper *parent_;

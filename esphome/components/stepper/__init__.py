@@ -22,6 +22,7 @@ ReportPositionAction = stepper_ns.class_("ReportPositionAction", automation.Acti
 SetSpeedAction = stepper_ns.class_("SetSpeedAction", automation.Action)
 SetAccelerationAction = stepper_ns.class_("SetAccelerationAction", automation.Action)
 SetDecelerationAction = stepper_ns.class_("SetDecelerationAction", automation.Action)
+StopAction = stepper_ns.class_("StopAction", automation.Action)
 
 
 def validate_acceleration(value):
@@ -177,6 +178,17 @@ async def stepper_set_deceleration_to_code(config, action_id, template_arg, args
     var = cg.new_Pvariable(action_id, template_arg, paren)
     template_ = await cg.templatable(config[CONF_DECELERATION], args, cg.float_)
     cg.add(var.set_deceleration(template_))
+    return var
+
+
+@automation.register_action(
+    "stepper.stop",
+    StopAction,
+    automation.maybe_simple_id(cv.Schema({cv.Required(CONF_ID): cv.use_id(Stepper)})),
+)
+async def stepper_stop_to_code(config, action_id, template_arg, args):
+    paren = await cg.get_variable(config[CONF_ID])
+    var = cg.new_Pvariable(action_id, template_arg, paren)
     return var
 
 
