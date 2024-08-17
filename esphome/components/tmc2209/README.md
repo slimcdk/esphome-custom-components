@@ -20,7 +20,7 @@ Import the component(s).
 ```yaml
 external_components:
   - source: github://slimcdk/esphome-custom-components
-    components: [ tmc2209, stepper, stepdir ]
+    components: [ tmc2209, stepdir ]
 ```
 ---
 
@@ -116,13 +116,12 @@ tmc2209:
   id: driver
   ...
   on_alert:
-    then:
-      - if:
-          condition:
-            lambda: return alert == tmc2209::STALLED;
-          then:
-            - logger.log: "Motor stalled!"
-            - stepper.stop: motor
+    - if:
+        condition:
+          lambda: return alert == tmc2209::STALLED;
+        then:
+          - logger.log: "Motor stalled!"
+          - stepper.stop: motor
 ```
 
 #### Current supported alert events
@@ -184,6 +183,117 @@ esphome:
 * `rms_current_hold_scale` (*Optional*, percentage, [templatable](config-templatable)): TODO
 
 
+### Example config for BTT TMC2209 breakout board
+```yaml
+external_components:
+  - source: github://slimcdk/esphome-custom-components@reworked-tmc2209
+    components: [tmc2209]
+
+esp32:
+  board: ...
+  variant: ...
+
+wifi:
+  ssid: !secret WIFI_SSID
+  password: !secret WIFI_PASSWORD
+
+esphome:
+  name: actuator
+  on_boot:
+    - tmc2209.configure:
+        id: driver
+        coolstep_tcoolthrs: 400
+        stallguard_sgthrs: 50
+        microsteps: 2
+        interpolation: true
+        rms_current: 800mA
+
+uart:
+  tx_pin: 14
+  rx_pin: 27
+  baud_rate: 500000
+
+tmc2209:
+  id: driver
+  index_pin: 12
+  diag_pin: 13
+  rsense: 110 mOhm
+  on_alert:
+    - if:
+        condition:
+          lambda: return alert == tmc2209::DIAG_TRIGGERED;
+        then:
+          - logger.log: "DIAG triggered"
+          - stepper.stop: motor
+
+stepper:
+  - platform: tmc2209
+    id: motor
+    tmc2209_id: driver
+    enn_pin: 4
+    max_speed: 500 steps/s
+    acceleration: 1000 steps/s^2
+    deceleration: 1000 steps/s^2
+
+  # - platform: stepdir
+  #   id: motor
+  #   step_pin: 15
+  #   dir_pin: 2
+  #   sleep_pin:
+  #     number: 4
+  #     inverted: true
+  #   max_speed: 500 steps/s
+  #   acceleration: 1000 steps/s^2
+  #   deceleration: 1000 steps/s^2
+
+button:
+  - platform: template
+    name: Stop
+    on_press:
+      - stepper.stop: motor
+
+  - platform: template
+    name: 1000 Steps forward
+    on_press:
+      - stepper.set_target:
+          id: motor
+          target: !lambda return id(motor).current_position +1000;
+
+  - platform: template
+    name: 1000 Steps backward
+    on_press:
+      - stepper.set_target:
+          id: motor
+          target: !lambda return id(motor).current_position -1000;
+
+number:
+  - platform: template
+    name: Target position
+    min_value: -100000
+    max_value: 100000
+    step: 100
+    lambda: return id(motor)->current_position;
+    update_interval: 1s
+    internal: true
+    set_action:
+      - stepper.set_target:
+          id: motor
+          target: !lambda "return x;"
+
+sensor:
+  - platform: template
+    name: Estimated motor load
+    lambda: return id(driver)->motor_load();
+    update_interval: 100ms
+    internal: true
+
+  - platform: template
+    name: Stallguard result
+    lambda: return id(driver)->stallguard_sgresult();
+    update_interval: 100ms
+    internal: true
+```
+
 
 ## Resources
 * https://esphome.io/components/uart
@@ -191,7 +301,6 @@ esphome:
 
 
 ## TODOs
-
 * Precise step control: Currently deviates over time due to imprecise position estimation from speed calculation. Stop (zero velocity) commands can't be issued over UART from an ISR that counts position.
 * ESPHome native implementation for `tmc2209_cache` (TMC-API).
 * Support multiple instances through addressing and multiplexing.
