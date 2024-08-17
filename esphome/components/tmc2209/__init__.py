@@ -75,9 +75,7 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(TMC2209),
-            cv.Required(
-                CONF_INDEX_PIN
-            ): pins.internal_gpio_input_pin_schema,  # TODO: make optional
+            cv.Optional(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_ADDRESS, default=0x00): cv.uint8_t,
             cv.Optional(CONF_RSENSE, default=0): cv.resistance,
@@ -116,7 +114,8 @@ async def to_code(config):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(DriverEvent, "alert")], conf)
 
-    cg.add_library("https://github.com/slimcdk/TMC-API", "3.10.3")
+    # cg.add_library("https://github.com/slimcdk/TMC-API", "3.10.3")
+    cg.add_library("/workspaces/esphome/config/TMC-API", None)
 
 
 def final_validate_config(config):

@@ -49,7 +49,7 @@ tmc2209:
 ```
 * `id` (**Required**, [ID][config-id]): Specify the ID of the component so that you can reference it from elsewhere.
 
-* `index_pin` (**Required**, [Input Pin Schema][config-pin]): Configured for warning alerts or stepping feedback from the internal step pulse generator on the driver when `tmc2209` stepper component is configured.
+* `index_pin` (*Optional* | **Required**, [Input Pin Schema][config-pin]): Configured for warning alerts or stepping feedback from the internal step pulse generator on the driver when `tmc2209` stepper component is configured. Is required when using `tmc2209` stepper component.
 
 * `diag_pin` (Optional, [Input Pin Schema][config-pin]): StallGuard signaling from the driver. If not defined, the less reliable detection over UART will be used instead. Do not use `diag_pin` to configure the DIAG for anything other than StallGuard output. The component will handle the configuration automatically.
 
