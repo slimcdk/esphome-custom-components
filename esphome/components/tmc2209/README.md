@@ -30,7 +30,8 @@ Configuration of [UART Bus](https://esphome.io/components/uart.html).
 > [!IMPORTANT]
 **TX and RX must be provided**
 
-> [!CAUTION] A lot is happening over serial and low baud rates might cause warnings about the component taking too long. Use something like 115200 or higher.
+> [!CAUTION]
+**A lot is happening over serial and low baud rates might cause warnings about the component taking too long. Use something like 115200 or higher.**
 
 
 ```yaml
