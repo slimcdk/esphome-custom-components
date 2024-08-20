@@ -4,14 +4,15 @@ ESPHome component to control a stepper motor using an ADI (formerly Trinamic) TM
 
 This implementation contains two parts: a base component that facilitates serial communication with and feedback from the TMC2209 driver, and a stepper component that allows control of the motor over serial or via step/dir.
 
-*NOTE: Only a single `tmc2209` instance per host device is currently supported.*
+> [!IMPORTANT]
+*NOTE: Only a single `tmc2209` instance per UART config is currently supported.*
 
 ## Wiring
 
 !MORE TO COME!
 
-Generic UART wiring between host microcontroller from [datasheet] section 4.3.
-![uart wiring](./docs/swi-uart-wiring.png "Title")
+<!-- Generic UART wiring between host microcontroller from [datasheet] section 4.3.
+![uart wiring](./docs/swi-uart-wiring.png "Title") -->
 
 
 ## Config
@@ -26,18 +27,23 @@ external_components:
 
 Configuration of [UART Bus](https://esphome.io/components/uart.html).
 
-*TMC2209 will auto-detect baud rates from 9600 to 500k with an internal oscillator. An external oscillator is needed for baud rates higher than 500k.*
+> [!IMPORTANT]
+**TX and RX must be provided**
+
+> [!CAUTION] A lot is happening over serial and low baud rates might cause warnings about the component taking too long. Use something like 115200 or higher.
+
+
 ```yaml
 uart:
   tx_pin: REPLACEME
   rx_pin: REPLACEME
   baud_rate: 115200 # 9600 -> 500k
 ```
+> *TMC2209 will auto-detect baud rates from 9600 to 500k with an internal oscillator. An external oscillator is needed for baud rates higher than 500k.*
 ---
 
-Base configuration that facilitates serial communication, event handling, and basic configuration for a generic setup with ESPHome.
+Base configuration that facilitates fundamental interaction with the driver like serial communication, event handling, and basic configuration for a generic setup with ESPHome.
 
-*Activation of the driver is delegated to the stepper component to perform. Long wires connected to ENN might pick up interference causing the driver to make a "sizzling" noise if floating.*
 ```yaml
 tmc2209:
   id: driver
@@ -59,13 +65,18 @@ tmc2209:
 
 * `oscillator_freq` (Optional, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to.
 
+> [!WARNING]
+**Activation of the driver is delegated to the stepper component to perform. Long wires connected to ENN might pick up interference causing the driver to make a "sizzling" noise if floating.**
 
 ---
 ### The stepper can be controlled in two ways
->*Don't configure both stepper components for same physical driver!*
+> [!CAUTION]
+**Don't configure multiple stepper components for same physical driver!**
 
 #### Using serial (UART)
-Accuracy is slightly reduced in favor of tight timings and high-frequency stepping pulses. Pulse generation is unaffected by ESPHome's handling of other components or main thread execution. This means that the host microcontroller (e.g., ESP32) running ESPHome doesn't provide the step generation, but it is handled internally by the driver. Relevant info can be found in [datasheet] section 1.3.
+Accuracy is slightly reduced in favor of tight timings and high-frequency stepping pulses. Pulse generation is unaffected by ESPHome's handling of other components or main thread execution. This means that the host microcontroller (e.g., ESP32) running ESPHome doesn't provide the step generation, but it is handled internally by the driver. Highly recommended for use with high microstep interpolation or true silent operation.
+
+Relevant info can be found in [datasheet] section 1.3.
 
 ```yaml
 stepper:
@@ -76,13 +87,15 @@ stepper:
     acceleration: 1000 steps/s^2 # optional
     deceleration: 1000 steps/s^2 # optional
 ```
-* `id` (**Required**, ID): Specify the ID of the stepper so that you can control it.
+* `id` (**Required**, [ID][config-id]): Specify the ID of the stepper so that you can control it.
 
 * `enn_pin` (**Required**, [Output Pin Schema][config-pin]): Enable not input pin for the driver. No need for manual inverted config as inverted logic is handled internally.
 
 * All other from [Base Stepper Component](base-stepper-component)
 
-*In this mode, `index_pin` is required for the base component and will be reconfigured to receive stepping feedback from the driver's internal step generator.*
+> [!IMPORTANT]
+**In this mode, `index_pin` is will receive stepping feedback from the driver's internal step generator and is required to be set.**
+> *Previous index usage is now handled over UART.*
 
 
 #### Using traditional stepping pulses and direction
@@ -294,16 +307,40 @@ sensor:
     internal: true
 ```
 
+Output of the above configuration.
+```console
+...
+[00:00:00][C][uart.idf:159]: UART Bus 1:
+[00:00:00][C][uart.idf:160]:   TX Pin: GPIO14
+[00:00:00][C][uart.idf:161]:   RX Pin: GPIO27
+[00:00:00][C][uart.idf:163]:   RX Buffer Size: 256
+[00:00:00][C][uart.idf:165]:   Baud Rate: 500000 baud
+[00:00:00][C][uart.idf:166]:   Data Bits: 8
+[00:00:00][C][uart.idf:167]:   Parity: NONE
+[00:00:00][C][uart.idf:168]:   Stop bits: 1
+[00:00:00][C][tmc2209:017]: TMC2209:
+[00:00:00][C][tmc2209:019]:   INDEX pin: GPIO12
+[00:00:00][C][tmc2209:022]:   DIAG pin: GPIO13
+[00:00:00][C][tmc2209:024]:   RSense: 0.11 Ohm (External)
+[00:00:00][C][tmc2209:025]:   Address: 0x00
+[00:00:00][C][tmc2209:026]:   Detected IC version: 0x21
+[00:00:00][C][tmc2209:027]:   Oscillator frequency: 12000000 Hz
+[00:00:00][C][tmc2209.stepper:036]: TMC2209 Stepper:
+[00:00:00][C][tmc2209.stepper:037]:   ENN pin: GPIO4
+[00:00:00][C][tmc2209.stepper:038]:   Acceleration: 1000 steps/s^2
+[00:00:00][C][tmc2209.stepper:038]:   Deceleration: 1000 steps/s^2
+[00:00:00][C][tmc2209.stepper:038]:   Max Speed: 500 steps/s
+...
+```
+
+
 
 ## Resources
 * https://esphome.io/components/uart
 * https://esphome.io/components/stepper
-
+* https://github.com/slimcdk/esphome-custom-components/tree/master/esphome/components/stepdir
 
 ## TODOs
-* Precise step control: Currently deviates over time due to imprecise position estimation from speed calculation. Stop (zero velocity) commands can't be issued over UART from an ISR that counts position.
-* ESPHome native implementation for `tmc2209_cache` (TMC-API).
-* Support multiple instances through addressing and multiplexing.
 * Example schematics and configs for well-known driver modules.
 * Learning resources on how to tune COOLSTEP/StallGuard.
 * Driver error detection on the DIAG pin or UART and event broadcasting.

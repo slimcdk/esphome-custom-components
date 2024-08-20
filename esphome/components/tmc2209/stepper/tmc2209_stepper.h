@@ -11,6 +11,12 @@
 namespace esphome {
 namespace tmc2209 {
 
+enum Direction : int8_t {
+  CLOCKWISE = 1,       // Moving one direction
+  NONE = 0,            // Not moving
+  ANTICLOCKWISE = -1,  // Moving the other direction
+};
+
 struct IndexPulseStore {
   int32_t *current_position_ptr{nullptr};
   int32_t *target_position_ptr{nullptr};

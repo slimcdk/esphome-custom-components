@@ -26,13 +26,15 @@ void TMC2209Stepper::setup() {
   this->parent_->index_pin_->attach_interrupt(IndexPulseStore::pulse_isr, &this->ips_, gpio::INTERRUPT_RISING_EDGE);
   /* Reconfiguration done */
 
+  // this->set_interval(1000, [this]() { ESP_LOGD(TAG, "current position %d", this->current_position); });
+
   this->prev_has_reached_target_ = this->has_reached_target();
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper setup done.");
 }
 
 void TMC2209Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
-  LOG_PIN("  Enn Pin: ", this->enn_pin_);
+  LOG_PIN("  ENN pin: ", this->enn_pin_);
   LOG_STEPPER(this);
 }
 
@@ -77,7 +79,7 @@ void TMC2209Stepper::loop() {
   const int32_t to_target = (this->target_position - this->current_position);
   this->direction_ = (to_target != 0 ? (Direction) (to_target / abs(to_target)) : Direction::NONE);  // yield 1, -1 or 0
   this->calculate_speed_(micros());
-  this->parent_->vactual(this->direction_ * (int32_t) this->current_speed_);  // TODO: write only when values change
+  this->parent_->vactual(this->direction_ * (int32_t) this->current_speed_ * 2.8);
 }
 
 void TMC2209Stepper::stop() {

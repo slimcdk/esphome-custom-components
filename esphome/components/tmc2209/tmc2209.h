@@ -19,22 +19,6 @@ namespace tmc2209 {
 #define DRIVER_STATE_TIMER_NAME "powerdown"
 #define INDEX_FB_CHECK_TIMER_NAME "indexcheck"
 
-/*
-class Latch {
- public:
-  Latch() = default;
-
-  bool check(bool state) {
-    const bool trigger = (state && state != prevState_);
-    prevState_ = state;
-    return trigger;
-  }
-
- private:
-  bool prevState_{false};
-};
-*/
-
 class EventHandler {
  public:
   EventHandler() = default;
@@ -72,12 +56,6 @@ class TMC2209;  // Forward declare
 
 static TMC2209 *components[TMC2209_NUM_COMPONENTS];
 static uint16_t tmc2209_global_index = 0;
-
-enum Direction : int8_t {
-  CLOCKWISE = -1,     // Moving one direction
-  NONE = 0,           // Not moving
-  ANTICLOCKWISE = 1,  // Moving the other direction
-};
 
 enum DriverEvent {
 
@@ -261,8 +239,8 @@ class TMC2209 : public Component, public uart::UARTDevice {
   float rsense_;
   uint32_t oscillator_freq_{12000000};
 
-  uint32_t coolstep_tcoolthrs_{0};
-  uint8_t stallguard_sgthrs_{0};
+  // uint32_t coolstep_tcoolthrs_{0};
+  // uint8_t stallguard_sgthrs_{0};
   float rms_current_{std::numeric_limits<float>::max()};
   float rms_current_hold_scale_{1.0};
 

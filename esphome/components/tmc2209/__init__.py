@@ -5,11 +5,10 @@ import esphome.codegen as cg
 from esphome.components import uart
 from esphome.const import CONF_TRIGGER_ID, CONF_ADDRESS, CONF_ID
 
-
 CODEOWNERS = ["@slimcdk"]
 
 DEPENDENCIES = ["uart"]
-MULTI_CONF = False  # can be multiconf when tmc2209_cache() is implemented
+MULTI_CONF = True
 MULTI_CONF_NO_DEFAULT = True
 
 CONF_TMC2209 = "tmc2209"
@@ -20,9 +19,7 @@ CONF_DIAG_PIN = "diag_pin"
 CONF_INDEX_PIN = "index_pin"
 
 CONF_INVERSE_DIRECTION = "inverse_direction"
-
 CONF_VELOCITY = "velocity"
-
 CONF_VACTUAL = "vactual"
 CONF_MICROSTEPS = "microsteps"  # CHOPCONF.mres
 CONF_INTERPOLATION = "interpolation"  # CHOPCONF.intpol
@@ -39,30 +36,17 @@ CONF_TPWMTHRS = "tpwmthrs"
 CONF_RSENSE = "rsense"
 CONF_OSCILLATOR_FREQUENCY = "oscillator_freq"
 
-# CONF_COOLCONF_SEIMIN = "coolstep_seimin"
-# CONF_COOLCONF_SEDN1 = "coolstep_sedn1"
-# CONF_COOLCONF_SEDN0 = "coolstep_sedn0"
-# CONF_COOLCONF_SEDN1 = "coolstep_sedn1"
-# CONF_COOLCONF_SEMAX3 = "coolstep_semax3"
-# CONF_COOLCONF_SEMAX2 = "coolstep_semax2"
-# CONF_COOLCONF_SEMAX1 = "coolstep_semax1"
-# CONF_COOLCONF_SEMAX0 = "coolstep_semax0"
-# CONF_COOLCONF_SEUP1 = "coolstep_seup1"
-# CONF_COOLCONF_SEUP0 = "coolstep_seup0"
-# CONF_COOLCONF_SEMIN3 = "coolstep_semin3"
-# CONF_COOLCONF_SEMIN2 = "coolstep_semin2"
-# CONF_COOLCONF_SEMIN1 = "coolstep_semin1"
-# CONF_COOLCONF_SEMIN0 = "coolstep_semin0"
-
 CONF_ON_ALERT = "on_alert"
+
+KEY_TMC2209_DEVICES = "tmc2209_devices"
 
 tmc2209_ns = cg.esphome_ns.namespace("tmc2209")
 TMC2209 = tmc2209_ns.class_("TMC2209", cg.Component, uart.UARTDevice)
 
-
 TMC2209OnAlertTrigger = tmc2209_ns.class_("TMC2209OnAlertTrigger", automation.Trigger)
 TMC2209ConfigureAction = tmc2209_ns.class_("TMC2209ConfigureAction", automation.Action)
 DriverEvent = tmc2209_ns.enum("DriverEvent")
+
 
 TMC2209_CONFIG_SCHEMA = cv.Schema(
     {
@@ -99,29 +83,83 @@ async def to_code(config):
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
 
+    cg.add(var.set_oscillator_frequency(config[CONF_OSCILLATOR_FREQUENCY]))
+    cg.add(var.set_rsense(config[CONF_RSENSE], CONF_RSENSE not in config))
+
     if CONF_INDEX_PIN in config:
         cg.add(var.set_index_pin(await cg.gpio_pin_expression(config[CONF_INDEX_PIN])))
         cg.add_define("USE_INDEX_PIN")
 
     if CONF_DIAG_PIN in config:
-        cg.add_define("USE_DIAG_PIN")
         cg.add(var.set_diag_pin(await cg.gpio_pin_expression(config[CONF_DIAG_PIN])))
-
-    cg.add(var.set_oscillator_frequency(config[CONF_OSCILLATOR_FREQUENCY]))
-    cg.add(var.set_rsense(config[CONF_RSENSE], CONF_RSENSE not in config))
+        cg.add_define("USE_DIAG_PIN")
 
     for conf in config.get(CONF_ON_ALERT, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(DriverEvent, "alert")], conf)
 
-    # cg.add_library("https://github.com/slimcdk/TMC-API", "3.10.3")
-    cg.add_library("/workspaces/esphome/config/TMC-API", None)
+    cg.add_library("https://github.com/slimcdk/TMC-API", "3.10.3")
+
+
+def final_validate_device_schema(
+    name: str,
+    *,
+    tmc2209_bus: str = CONF_TMC2209_ID,
+    require_index: bool = False,
+    require_diag: bool = False,
+):
+    def validate_pin(opt, device):
+        def validator(value):
+            if opt in device:
+                raise cv.Invalid(
+                    f"The uart {opt} is used both by {name} and {device[opt]}, "
+                    f"but can only be used by one. Please create a new uart bus for {name}."
+                )
+            device[opt] = name
+            return value
+
+        return validator
+
+    def validate_hub(hub_config):
+        hub_schema = {}
+        tmc2209_id = hub_config[CONF_ID]
+        devices = fv.full_config.get().data.setdefault(KEY_TMC2209_DEVICES, {})
+        device = devices.setdefault(tmc2209_id, {})
+
+        if require_index:
+            hub_schema[
+                cv.Required(
+                    CONF_INDEX_PIN,
+                    msg=f"Component {name} requires tmc2209 referenced by {tmc2209_bus} to declare a index_pin",
+                )
+            ] = validate_pin(CONF_INDEX_PIN, device)
+        if require_diag:
+            hub_schema[
+                cv.Required(
+                    CONF_DIAG_PIN,
+                    msg=f"Component {name} requires tmc2209 referenced by {tmc2209_bus} to declare a diag_pin",
+                )
+            ] = validate_pin(CONF_DIAG_PIN, device)
+        return cv.Schema(hub_schema, extra=cv.ALLOW_EXTRA)(hub_config)
+
+    return cv.Schema(
+        {cv.Required(tmc2209_bus): fv.id_declaration_match_schema(validate_hub)},
+        extra=cv.ALLOW_EXTRA,
+    )
 
 
 def final_validate_config(config):
-    tmc2209s = fv.full_config.get()[CONF_TMC2209]
-    cg.add_define("TMC2209_NUM_COMPONENTS", len(tmc2209s))
-    return config
+
+    uart.final_validate_device_schema("tmc2209", require_rx=True, require_tx=True)(
+        config
+    )
+
+    tmc2209s_count = len(fv.full_config.get()[CONF_TMC2209])
+    cg.add_define("TMC2209_NUM_COMPONENTS", tmc2209s_count)
+
+    # TMC-API caching https://github.com/slimcdk/TMC-API/blob/master/tmc/ic/TMC2209/README.md#option-to-use-the-cache-logic-for-write-only-registers
+    cg.add_define("TMC2209_ENABLE_TMC_CACHE", tmc2209s_count)
+    cg.add_define("TMC2209_CACHE", True)
 
 
 FINAL_VALIDATE_SCHEMA = final_validate_config

@@ -15,6 +15,12 @@ TMC2209::TMC2209(uint8_t address) : address_(address) {
 
 void TMC2209::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209:");
+  if (this->index_pin_) {
+    LOG_PIN("  INDEX pin: ", this->index_pin_);
+  }
+  if (this->diag_pin_) {
+    LOG_PIN("  DIAG pin: ", this->diag_pin_);
+  }
   ESP_LOGCONFIG(TAG, "  RSense: %.2f Ohm (%s)", this->rsense_, this->use_internal_rsense_ ? "Internal" : "External");
   ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
   ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", this->ioin_chip_version());
@@ -32,7 +38,7 @@ void TMC2209::setup() {
   this->gconf_iscale_analog(false);
   this->gconf_index_step(false);
   this->gconf_index_otpw(true);
-  this->vactual(0);  // Stop internal generator if last shutdown was ungraceful
+  this->vactual(0);  // Stop internal generator if last shutdown was ungraceful. 0 will have it listen for STEP input
   /*  */
 
   this->configure_event_handlers();
@@ -131,7 +137,7 @@ void TMC2209::set_microsteps(uint16_t ms) {
 
 float TMC2209::motor_load() {
   const uint16_t result = this->stallguard_sgresult();
-  return (510.0 - (float) result) / (510.0 - (float) this->stallguard_sgthrs_ * 2.0);
+  return (510.0 - (float) result) / (510.0 - (float) this->stallguard_sgthrs() * 2.0);
 }
 
 float TMC2209::rms_current_hold_scale() { return this->rms_current_hold_scale_; }
@@ -240,11 +246,8 @@ void TMC2209::ihold_irun_ihold_delay(uint8_t factor) {
 }
 uint32_t TMC2209::otpread() { return this->read_register(TMC2209_OTP_READ); }
 bool TMC2209::optread_en_spreadcycle() { return (bool) this->read_field(TMC2209_STST_FIELD); }
-uint8_t TMC2209::stallguard_sgthrs() { return this->stallguard_sgthrs_; }
-void TMC2209::stallguard_sgthrs(uint8_t threshold) {
-  this->write_register(TMC2209_SGTHRS, (int32_t) threshold);
-  this->stallguard_sgthrs_ = threshold;
-}
+uint8_t TMC2209::stallguard_sgthrs() { return this->read_register(TMC2209_SGTHRS); }
+void TMC2209::stallguard_sgthrs(uint8_t threshold) { this->write_register(TMC2209_SGTHRS, (int32_t) threshold); }
 uint16_t TMC2209::stallguard_sgresult() { return this->read_register(TMC2209_SG_RESULT); }
 uint32_t TMC2209::ioin() { return this->read_register(TMC2209_IOIN); }
 bool TMC2209::ioin_enn() { return this->read_field(TMC2209_ENN_FIELD); }
@@ -308,11 +311,8 @@ bool TMC2209::drv_status_s2vsa() { return this->read_field(TMC2209_S2VSA_FIELD);
 bool TMC2209::drv_status_s2vsb() { return this->read_field(TMC2209_S2VSB_FIELD); }
 bool TMC2209::drv_status_s2ga() { return this->read_field(TMC2209_S2GA_FIELD); }
 bool TMC2209::drv_status_s2gb() { return this->read_field(TMC2209_S2GB_FIELD); }
-int32_t TMC2209::coolstep_tcoolthrs() { return this->coolstep_tcoolthrs_; }
-void TMC2209::coolstep_tcoolthrs(int32_t threshold) {
-  this->write_register(TMC2209_TCOOLTHRS, threshold);
-  this->coolstep_tcoolthrs_ = threshold;
-}
+int32_t TMC2209::coolstep_tcoolthrs() { return this->read_register(TMC2209_TCOOLTHRS); }
+void TMC2209::coolstep_tcoolthrs(int32_t threshold) { this->write_register(TMC2209_TCOOLTHRS, threshold); }
 void TMC2209::blank_time(uint8_t select) { this->write_field(TMC2209_TBL_FIELD, select); }
 
 void TMC2209::chopconf_mres(uint8_t index) { this->write_field(TMC2209_MRES_FIELD, index); }
