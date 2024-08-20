@@ -79,7 +79,8 @@ void TMC2209Stepper::loop() {
   const int32_t to_target = (this->target_position - this->current_position);
   this->direction_ = (to_target != 0 ? (Direction) (to_target / abs(to_target)) : Direction::NONE);  // yield 1, -1 or 0
   this->calculate_speed_(micros());
-  this->parent_->vactual(this->direction_ * (int32_t) this->current_speed_ * 2.8);
+  // -2.8 inverts direction and scales stepping to match specified. Magic number
+  this->parent_->vactual((-2.8 * this->direction_) * (int32_t) this->current_speed_);
 }
 
 void TMC2209Stepper::stop() {
