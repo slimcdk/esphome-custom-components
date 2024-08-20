@@ -21,7 +21,7 @@ Import the component(s).
 ```yaml
 external_components:
   - source: github://slimcdk/esphome-custom-components
-    components: [ tmc2209, stepdir ]
+    components: [ tmc2209, stepper, stepdir ]
 ```
 ---
 
