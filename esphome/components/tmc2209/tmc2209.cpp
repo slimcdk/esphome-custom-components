@@ -23,7 +23,13 @@ void TMC2209::dump_config() {
   }
   ESP_LOGCONFIG(TAG, "  RSense: %.2f Ohm (%s)", this->rsense_, this->use_internal_rsense_ ? "Internal" : "External");
   ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
-  ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", this->ioin_chip_version());
+
+  const int8_t icv_ = this->ioin_chip_version();
+  ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", icv_);
+  if (!icv_) {
+    ESP_LOGW(TAG, "  Unknown IC version (0x%02X) detected. Is the driver powered?", icv_);
+  }
+
   ESP_LOGCONFIG(TAG, "  Oscillator frequency: %d Hz", this->oscillator_freq_);
 }
 
