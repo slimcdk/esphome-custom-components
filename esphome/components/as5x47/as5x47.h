@@ -164,16 +164,32 @@ typedef union {
   } values;
 } WriteDataFrame;
 
+enum AS5X47PulsesPerRevolution {
+  ABIRES_500_PPR = 0b0000,  // abires=000, abibin=0
+  ABIRES_400_PPR = 0b0010,  // abires=001, abibin=0
+  ABIRES_300_PPR = 0b0100,  // abires=010, abibin=0
+  ABIRES_200_PPR = 0b0110,  // abires=011, abibin=0
+  ABIRES_100_PPR = 0b1000,  // abires=100, abibin=0
+  ABIRES_50_PPR = 0b1010,   // abires=101, abibin=0
+  ABIRES_25_PPR = 0b1100,   // abires=110, abibin=0
+  ABIRES_8_PPR = 0b1110,    // abires=111, abibin=0
+  ABIRES_512_PPR = 0b0001,  // abires=000, abibin=1
+  ABIRES_256_PPR = 0b0011   // abires=001, abibin=1
+};
+
 class AS5X47Component : public Component,
                         public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW,
-                                              spi::CLOCK_PHASE_TRAILING, spi::DATA_RATE_200KHZ> {
+                                              spi::CLOCK_PHASE_TRAILING, spi::DATA_RATE_10MHZ> {
  public:
   AS5X47Component() = default;
   void dump_config() override;
   void setup() override;
-  void loop() override;
+  // void loop() override;
 
   float read_angle();
+
+  void set_abires(uint16_t value);
+  void set_abibin(bool value);
 
  protected:
   void write_data_(uint16_t command, uint16_t value);
@@ -187,5 +203,25 @@ class AS5X47Component : public Component,
   bool is_even_(uint16_t data);
 };
 
+/*template<typename... Ts> class TMC2209StepperConfigureAction : public Action<Ts...>, public Parented<TMC2209Stepper> {
+ public:
+  TEMPLATABLE_VALUE(int, set_ab_pulses_pr_revolution)
+
+  void play(Ts... x) override {
+    if (this->set_ab_pulses_pr_revolution_.has_value()) {
+      Settings1 set1;
+      set1.values.abibin = 1;
+      this->write_register_(SETTINGS1_REG, set1.raw);
+
+      Settings2 set2;
+      set2.values.abires = 0b001;
+      this->write_register_(SETTINGS2_REG, set2.raw);
+
+      this->parent_->gconf_shaft(this->inverse_direction_.value(x...));
+      this->parent_->gconf_shaft(this->inverse_direction_.value(x...));
+    }
+  }
+};
+*/
 }  // namespace as5x47
 }  // namespace esphome

@@ -10,7 +10,6 @@ static const char *TAG = "as5x47";
 void AS5X47Component::dump_config() {
   ESP_LOGCONFIG(TAG, "AS5X47:");
   LOG_PIN("  CS Pin: ", this->cs_);
-  ESP_LOGCONFIG(TAG, "  SPI Mode: %d", this->mode_);
 
   ReadDataFrame readDataFrame;
   readDataFrame = this->read_register_(ERRFL_REG);
@@ -108,8 +107,16 @@ void AS5X47Component::setup() {
   this->spi_setup();
   while (!this->spi_is_ready()) {
   }
+
+  Settings1 set1;
+  set1.values.abibin = 1;
+  set1.values.dir = 1;
+  this->write_register_(SETTINGS1_REG, set1.raw);
+
+  Settings2 set2;
+  set2.values.abires = 0b000;
+  this->write_register_(SETTINGS2_REG, set2.raw);
 };
-void AS5X47Component::loop() { ESP_LOGD(TAG, "angle=%f", this->read_angle()); };
 
 bool AS5X47Component::is_even_(uint16_t data) {
   int count = 0;
@@ -119,7 +126,6 @@ bool AS5X47Component::is_even_(uint16_t data) {
       count++;
     }
   }
-
   return (count % 2 != 0);
 }
 

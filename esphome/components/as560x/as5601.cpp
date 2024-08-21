@@ -10,8 +10,7 @@ namespace as560x {
 static const char *TAG = "as5601";
 
 void AS5601::dump_config() {
-  ESP_LOGCONFIG(TAG, "Setting up device...");
-
+  ESP_LOGCONFIG(TAG, "AS5601:");
   LOG_SENSOR("  ", "Angle Sensor", this->angle_sensor_);
   LOG_SENSOR("  ", "Magnitude Sensor", this->magnitude_sensor_);
   LOG_BINARY_SENSOR("  ", "Magnet Presence Binary Sensor", this->presence_binary_sensor_);
@@ -29,7 +28,7 @@ void AS5601::loop() {
 
   if (this->angle_sensor_ != nullptr) {
     const uint16_t data = get_angle();
-    const float angle = remap<float, uint16_t>(data, 0, 4095, 0, 360);
+    const float angle = remap<float, uint16_t>(data, 0, 4096, 0, 360);
     this->angle_sensor_->publish_state(angle);
   }
 }

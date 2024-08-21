@@ -7,7 +7,7 @@ namespace as560x {
 static const char *TAG = "as5600";
 
 void AS5600::dump_config() {
-  ESP_LOGCONFIG(TAG, "Setting up device...");
+  ESP_LOGCONFIG(TAG, "AS5600:");
   LOG_SENSOR("  ", "Angle Sensor", this->angle_sensor_);
   LOG_SENSOR("  ", "Magnitude Sensor", this->magnitude_sensor_);
   LOG_BINARY_SENSOR("  ", "Magnet Presence Binary Sensor", this->presence_binary_sensor_);
