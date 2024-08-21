@@ -1,18 +1,22 @@
 from esphome import automation, pins
 from esphome.components import uart, stepper
 import esphome.config_validation as cv
+import esphome.final_validate as fv
 import esphome.codegen as cg
 
-from esphome.const import  CONF_ID, CONF_ADDRESS, CONF_TRIGGER_ID
+from esphome.const import  CONF_ID, CONF_ADDRESS, CONF_TRIGGER_ID, CONF_PLATFORM
 
 CODEOWNERS = ["@slimcdk"]
 
 DEPENDENCIES = ["uart"]
 
+CONF_STEPPER = "stepper"
+CONF_TMC2300 = "tmc2300"
 CONF_TMC2300_ID = "tmc2300_id"
 
 CONF_ENN_PIN = "enn_pin"
 CONF_DIAG_PIN = "diag_pin"
+CONF_VIO_NSTDBY_PIN = "standby_pin"
 
 CONF_RSENSE = "rsense"
 CONF_INTERNAL_RSENSE = "internal_rsense"
@@ -66,6 +70,7 @@ CONFIG_SCHEMA = (
         {
             cv.GenerateID(): cv.declare_id(TMC2300Stepper),
             cv.Required(CONF_ENN_PIN): pins.gpio_output_pin_schema,
+            cv.Required(CONF_VIO_NSTDBY_PIN): pins.gpio_output_pin_schema,
             cv.Required(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_ADDRESS, default=0x00): cv.uint8_t,
             cv.Optional(CONF_RSENSE, default=0.11): cv.resistance,
@@ -91,6 +96,7 @@ async def to_code(config):
     await uart.register_uart_device(var, config)
 
     cg.add(var.set_enn_pin(await cg.gpio_pin_expression(config[CONF_ENN_PIN])))
+    cg.add(var.set_vionstdby_pin(await cg.gpio_pin_expression(config[CONF_VIO_NSTDBY_PIN])))
     cg.add(var.set_diag_pin(await cg.gpio_pin_expression(config[CONF_DIAG_PIN])))
 
     for conf in config.get(CONF_ON_STALL, []):
@@ -99,6 +105,15 @@ async def to_code(config):
 
     cg.add_library("https://github.com/slimcdk/TMC-API", "3.5.2")
 
+
+
+def final_validate_config(config):
+    steppers = fv.full_config.get()[CONF_STEPPER]
+    tmc2300_steppers = [stepper for stepper in steppers if stepper[CONF_PLATFORM] == CONF_TMC2300]
+    cg.add_define("TMC2300_NUM_COMPONENTS", len(tmc2300_steppers))
+    return config
+
+FINAL_VALIDATE_SCHEMA = final_validate_config
 
 
 @automation.register_action(

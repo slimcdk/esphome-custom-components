@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "esphome/core/helpers.h"
 #include "esphome/core/component.h"
 
@@ -13,11 +15,9 @@ extern "C" {
 namespace esphome {
 namespace tmc {
 
-#define MAX_ALLOWED_COMPONENTS 1
-
 class TMC2300Stepper;  // Forward declare
 
-static TMC2300Stepper *components[MAX_ALLOWED_COMPONENTS];
+static TMC2300Stepper *components[TMC2300_NUM_COMPONENTS];
 static uint8_t tmc2300_stepper_global_index = 0;
 
 enum Direction : int8_t {
@@ -49,11 +49,16 @@ class TMC2300Stepper : public Component, public stepper::Stepper, public uart::U
   void dump_config() override;
   void setup() override;
   void loop() override;
+  void on_shutdown() override;
+  void on_safe_shutdown() override;
 
   void set_enn_pin(InternalGPIOPin *pin) { this->enn_pin_ = pin; }
+  void set_vionstdby_pin(InternalGPIOPin *pin) { this->standby_pin_ = pin; }
   void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; }
 
   void enable(bool enable = true);
+  void standby(bool standby = true);
+
   void stop();
 
   void set_microsteps(uint16_t ms);
@@ -145,9 +150,12 @@ class TMC2300Stepper : public Component, public stepper::Stepper, public uart::U
   uint16_t current_scale_to_rms_current_(uint8_t current_scaling);
 
   InternalGPIOPin *enn_pin_;
+  InternalGPIOPin *standby_pin_;
   InternalGPIOPin *diag_pin_;
 
   bool driver_is_enabled_{false};
+  bool driver_is_in_standby_{true};  // TMC-API initializes the driver in standby mode
+
   bool use_internal_rsense_;
   float rsense_;
   uint32_t coolstep_tcoolthrs_{0};

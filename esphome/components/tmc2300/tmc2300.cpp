@@ -34,7 +34,6 @@ TMC2300Stepper::TMC2300Stepper(uint8_t address, bool use_internal_rsense, float 
   tmc_fillCRC8Table((uint8_t) 0b100000111, true, 0);
   tmc2300_init(&this->driver_, this->channel_, &this->config_, &tmc2300_defaultRegisterResetState[0]);
   tmc2300_setSlaveAddress(&this->driver_, this->address_);
-  tmc2300_setStandby(&this->driver_, false);
 }
 
 void TMC2300Stepper::setup() {
@@ -42,6 +41,9 @@ void TMC2300Stepper::setup() {
 
   this->enn_pin_->setup();
   this->diag_pin_->setup();
+  this->standby_pin_->setup();
+
+  this->standby(false);
 
   // Fill default configuration for driver (TODO: retry call instead)
   if (!tmc2300_reset(&this->driver_)) {
@@ -61,9 +63,9 @@ void TMC2300Stepper::setup() {
 
   this->gconf_pdn_disable(true);       // Prioritize UART communication by disabling configuration pin.
   this->gconf_mstep_reg_select(true);  // Use MSTEP register to set microstep resolution
-  // Configure stepping pulses on index pin
   this->gconf_diag_index(true);
   this->gconf_diag_step(true);
+  this->gconf_multistep_filt(true);
 
   // Pulse tracker setup
   this->isr_store_.enn_pin_ = this->enn_pin_->to_isr();
@@ -73,21 +75,32 @@ void TMC2300Stepper::setup() {
   this->isr_store_.driver_is_enabled_ptr = &this->driver_is_enabled_;
 
   this->diag_pin_->attach_interrupt(TMC2300ISRStore::index_isr, &this->isr_store_, gpio::INTERRUPT_RISING_EDGE);
+
+  this->standby(true);
   ESP_LOGCONFIG(TAG, "TMC2300 Stepper setup done.");
 }
+
+void TMC2300Stepper::on_shutdown() { this->standby(true); }
+void TMC2300Stepper::on_safe_shutdown() { this->standby(true); }
 
 void TMC2300Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2300 Stepper:");
   LOG_PIN("  Enn Pin: ", this->enn_pin_);
+  LOG_PIN("  Standby Pin: ", this->standby_pin_);
   LOG_PIN("  Diag Pin: ", this->diag_pin_);
-  ESP_LOGCONFIG(TAG, "  RSense: %.2f Ohm (%s)", this->rsense_, this->use_internal_rsense_ ? "Internal" : "External");
-  ESP_LOGCONFIG(TAG, "  Address: 0x%02X (TMCAPI Channel: %d)", this->address_, this->channel_);
+
+  this->standby(false);
+  ESP_LOGCONFIG(TAG, "  RSense: %.3f Ohm (%s)", this->rsense_, this->use_internal_rsense_ ? "Internal" : "External");
+  ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
   ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", this->ioin_version());
+  this->standby(true);
+
   LOG_STEPPER(this);
 }
 
 void TMC2300Stepper::loop() {
-  if (this->ioin_diag()) {
+  // if (this->ioin_diag()) {
+  if (this->motor_load() >= 100.0) {
     this->stop();
     this->on_stall_callback_.call();
   }
@@ -95,10 +108,10 @@ void TMC2300Stepper::loop() {
   const bool has_reached_target_ = this->has_reached_target();
   has_reached_target_ ? this->high_freq_.stop() : this->high_freq_.start();
 
-  this->enable(!has_reached_target_);
-
   const int32_t to_target = (this->target_position - this->current_position);
-  this->direction_ = (Direction) (to_target != 0 ? to_target / abs(to_target) : NONE);  // yield 1, -1 or 0
+  this->direction_ = (to_target != 0 ? (Direction) (to_target / abs(to_target)) : Direction::NONE);  // yield 1, -1 or 0
+  // this->standby(has_reached_target_);
+  this->enable(!has_reached_target_);
   this->calculate_speed_(micros());
   this->vactual(this->direction_ * (int32_t) this->current_speed_);  // TODO: write only when values change
   this->update_registers_();
@@ -108,12 +121,20 @@ void TMC2300Stepper::stop() {
   this->direction_ = Direction::NONE;
   this->target_position = this->current_position;
   this->vactual(0);
-  this->enable(false);
+  this->standby(true);
 }
 
 void TMC2300Stepper::enable(bool enable) {
   this->enn_pin_->digital_write(enable);
   this->driver_is_enabled_ = enable;
+}
+
+void TMC2300Stepper::standby(bool yes) {
+  this->standby_pin_->digital_write(!yes);
+  this->diag_pin_->digital_write(false);
+  this->enable(false);
+  this->driver_is_in_standby_ = yes;
+  tmc2300_setStandby(&this->driver_, yes);
 }
 
 bool TMC2300Stepper::reset_() { return tmc2300_reset(&this->driver_); }
@@ -171,6 +192,7 @@ uint16_t TMC2300Stepper::current_scale_to_rms_current_(uint8_t current_scaling) 
  * **/
 
 extern "C" {
+
 void tmc2300_readWriteArray(uint8_t channel, uint8_t *data, size_t writeLength, size_t readLength) {
   TMC2300Stepper *comp = components[channel];
 

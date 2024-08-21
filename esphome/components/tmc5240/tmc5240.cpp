@@ -46,16 +46,13 @@ void TMC5240::setup() {
   this->set_amax(this->acceleration_);
   this->set_dmax(this->deceleration_);
 
-  this->set_enc_const(50);
+  this->set_enc_const(25);
+  this->enable_encoder_position(true);
 }
 
 void TMC5240::loop() {
   this->update_registers_();
-  // this->current_position = this->get_xactual();
-
-  // Close encoder -> motor loop
-  this->current_position = this->get_x_enc();
-  this->set_xactual(this->current_position);
+  this->current_position = this->get_xactual();
 
   if (!this->has_reached_target()) {
     this->enn_pin_->digital_write(false);
@@ -66,6 +63,17 @@ void TMC5240::loop() {
   } else {
     this->enn_pin_->digital_write(true);
   }
+}
+
+uint16_t TMC5240::get_microsteps() {
+  const uint8_t mres = this->chopconf_mres();
+  return 256 >> mres;
+}
+
+void TMC5240::set_microsteps(uint16_t ms) {
+  for (uint8_t mres = 8; mres > 0; mres--)
+    if ((256 >> mres) == ms)
+      return this->chopconf_mres(mres);
 }
 
 /** TMC-API wrappers **/
