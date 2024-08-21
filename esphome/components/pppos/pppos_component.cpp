@@ -1,16 +1,9 @@
-#include "pppos_component.h"
-#include "esphome/core/log.h"
-#include "esphome/core/util.h"
-#include "esphome/core/application.h"
+/** https://www.nongnu.org/lwip/2_0_x/group__ppp.html **/
 
-#include <string.h>
-#include <lwip/dns.h>
-#include "esp_event.h"
+#include "pppos_component.h"
 
 namespace esphome {
 namespace ppp {
-
-static const char *TAG = "pppos.component";
 
 #define ESPHL_ERROR_CHECK(err, message) \
   if ((err) != ESP_OK) { \
@@ -19,49 +12,83 @@ static const char *TAG = "pppos.component";
     return; \
   }
 
-PPPoSComponent *global_pppos_component;
+static const char *TAG = "pppos";
 
+PPPoSComponent *global_pppos_component;
 PPPoSComponent::PPPoSComponent() { global_pppos_component = this; }
+
+// void PPPoSComponent::netif_status_callback(struct netif *nif) {
+//   ESP_LOGV(TAG, "PPPNETIF: %c%c%d is %s", nif->name[0], nif->name[1], nif->num, netif_is_up(nif) ? "UP" : "DOWN");
+//   ESP_LOGV(TAG, "IPV4: Host at %s ", ip4addr_ntoa(netif_ip4_addr(nif)));
+//   ESP_LOGV(TAG, "mask %s ", ip4addr_ntoa(netif_ip4_netmask(nif)));
+//   ESP_LOGV(TAG, "gateway %s", ip4addr_ntoa(netif_ip4_gw(nif)));
+// }
 
 void PPPoSComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up PPPoS...");
 
-  esp_err_t err;
-  err = esp_netif_init();
-  ESPHL_ERROR_CHECK(err, "netif init error");
-  err = esp_event_loop_create_default();
-  ESPHL_ERROR_CHECK(err, "event loop error");
+  ESPHL_ERROR_CHECK(esp_netif_init(), "netif init error");
+  ESPHL_ERROR_CHECK(esp_event_loop_create_default(), "event loop error");
 
-  this->ppp_control_block_ = pppos_create(&this->ppp_netif_, PPPoSComponent::output_cb, this->status_cb, NULL);
+  // esp_netif_config_t cfg = ESP_NETIF_DEFAULT_PPP();
+  // this->_ppp_netif_ = esp_netif_new(&cfg);
+
+  this->ppp_control_block_ =
+      pppos_create(&this->ppp_netif_, global_pppos_component->output_cb, global_pppos_component->status_cb, this);
   if (this->ppp_control_block_ == nullptr) {
-    ESP_LOGE(TAG, "Failed to create ppp control block");
+    ESP_LOGE(TAG, "Failed to create PPP interface");
     this->mark_failed();
     return;
   }
 
-  ppp_set_default(this->ppp_control_block_);
-  // ppp_set_usepeerdns(this->ppp_control_block_, 1);
+  // ESPHL_ERROR_CHECK(esp_netif_attach(this->_ppp_netif_, esp_ppp_new_netif_glue(&this->ppp_netif_)),
+  //                   "error attaching ppp interface");
 
-  if (ppp_connect(this->ppp_control_block_, 10) != ERR_OK) {
+  ppp_set_default(this->ppp_control_block_);
+
+#if LWIP_DNS
+  if (uint32_t(this->network_dns_->dns1) != 0) {
+    ip_addr_t d;
+    d.addr = static_cast<uint32_t>(this->network_dns_->dns1);
+    dns_setserver(0, &d);
+  }
+  if (uint32_t(this->network_dns_->dns2) != 0) {
+    ip_addr_t d;
+    d.addr = static_cast<uint32_t>(this->network_dns_->dns2);
+    dns_setserver(1, &d);
+  }
+#endif
+  ppp_set_usepeerdns(this->ppp_control_block_, 1);
+
+  if (ppp_connect(this->ppp_control_block_, 0) != ERR_OK) {
     ESP_LOGE(TAG, "Couldnt initiate connection");
     this->mark_failed();
     return;
   }
 
+  ESP_LOGI(TAG, "Setup done...");
   this->set_state(PPPoSComponentState::CONNECTING);
-  ESP_LOGI(TAG, "Connecting...");
 }
 
 void PPPoSComponent::status_cb(ppp_pcb *pcb, int err_code, void *ctx) {
+  LWIP_UNUSED_ARG(ctx);
+
   struct netif *pppif = ppp_netif(pcb);
 
   switch (err_code) {
     case PPPERR_NONE:
       global_pppos_component->set_state(PPPoSComponentState::CONNECTED);
+
       ESP_LOGI(TAG, "Connected");
-      ESP_LOGI(TAG, "  WAN IP %s", ipaddr_ntoa(&pppif->ip_addr));
-      ESP_LOGI(TAG, "  GW IP %s", ipaddr_ntoa(&pppif->gw));
+      ESP_LOGI(TAG, "  Network IP %s", ipaddr_ntoa(&pppif->ip_addr));
+      ESP_LOGI(TAG, "  Gateway IP %s", ipaddr_ntoa(&pppif->gw));
       ESP_LOGI(TAG, "  Netmask %s", ipaddr_ntoa(&pppif->netmask));
+
+#if LWIP_DNS
+      ESP_LOGI(TAG, "  DNS1 %s", ipaddr_ntoa(dns_getserver(0)));
+      ESP_LOGI(TAG, "  DNS2 %s", ipaddr_ntoa(dns_getserver(1)));
+#endif
+
       break;
     case PPPERR_PARAM:
       ESP_LOGE(TAG, "invalid parameter");
@@ -132,68 +159,40 @@ void PPPoSComponent::status_cb(ppp_pcb *pcb, int err_code, void *ctx) {
   /* ppp_close() was previously called, don't reconnect */
   if (err_code == PPPERR_USER) {
     /* ppp_free(); -- can be called here */
+    ppp_free(pcb);
     return;
   }
 
-  // try to reconnect in 30s
   if (!global_pppos_component->is_failed()) {
-    ppp_connect(pcb, 30);
+    ppp_connect(pcb, 30);  // try to reconnect in 30s
+    // ppp_listen(pcb);
   }
 }
+
 uint32_t PPPoSComponent::output_cb(ppp_pcb *pcb, uint8_t *data, uint32_t len, void *ctx) {
-  ESP_LOGV(TAG, "cb: sending %d bytes", len);
-  global_pppos_component->write_array((const uint8_t *) data, len);
-  global_pppos_component->flush();
+  LWIP_UNUSED_ARG(pcb);
+  LWIP_UNUSED_ARG(ctx);
+  global_pppos_component->write_array(data, len);
+  // global_pppos_component->flush();
   return len;
 }
 
 void PPPoSComponent::loop() {
-  sys_check_timeouts();
-
-  if (this->available() > 0) {
-    size_t size = this->available();
-    uint8_t data[size];
-    if (!this->read_array(data, size)) {
+  const size_t len = this->available();
+  if (len > 0) {
+    uint8_t data[len];
+    if (!this->read_array(data, len)) {
       ESP_LOGE(TAG, "error read_array");
     }
-    ESP_LOGV(TAG, "receiving %d bytes", size);
-    pppos_input(this->ppp_control_block_, data, size);
+    ESP_LOGV(TAG, "receiving %d bytes", len);
+    // pppos_input(this->ppp_control_block_, data, len);
+    pppos_input_tcpip(this->ppp_control_block_, data, len);
+    // global_pppos_component->flush();
   }
+  sys_check_timeouts();
 }
 
-void PPPoSComponent::dump_config() {
-  ESP_LOGCONFIG(TAG, "PPPoS:");
-
-  ESP_LOGCONFIG(TAG, "  is_connected: %d", this->is_connected());
-  ESP_LOGCONFIG(TAG, "  get_use_address: %s", this->get_use_address().c_str());
-  ESP_LOGCONFIG(TAG, "  get_ip_address: %s", this->get_ip_address().str().c_str());
-
-  // this->dump_connect_params_();
-}
-
-float PPPoSComponent::get_setup_priority() const { return setup_priority::WIFI; }
-
-bool PPPoSComponent::can_proceed() { return this->is_connected() || this->is_failed(); }
-
-network::IPAddress PPPoSComponent::get_ip_address() {
-  // esp_netif_ip_info_t ip;
-  // esp_netif_get_ip_info(this->ppp_netif_, &ip);
-  // return {ip.ip.addr};
-  return network::IPAddress(this->ppp_netif_.ip_addr.addr);
-}
-
-void PPPoSComponent::set_use_address(const std::string &use_address) { this->use_address_ = use_address; }
-
-std::string PPPoSComponent::get_use_address() const {
-  if (this->use_address_.empty()) {
-    return App.get_name() + ".local";
-  }
-  return this->use_address_;
-}
-
-bool PPPoSComponent::is_connected() { return this->state_ == PPPoSComponentState::CONNECTED; }
-
-void PPPoSComponent::set_manual_ip(const ManualIP &manual_ip) { this->manual_ip_ = manual_ip; }
+void PPPoSComponent::dump_config() { ESP_LOGCONFIG(TAG, "PPPoS:"); }
 
 void PPPoSComponent::set_state(PPPoSComponentState new_state) {
   if (new_state != this->state_)
