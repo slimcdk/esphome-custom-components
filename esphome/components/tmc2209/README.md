@@ -5,7 +5,7 @@ ESPHome component to control a stepper motor using an ADI (formerly Trinamic) TM
 This implementation contains two parts: a base component that facilitates serial communication with and feedback from the TMC2209 driver, and a stepper component that allows control of the motor over serial or via step/dir.
 
 > [!IMPORTANT]
-*NOTE: Only a single `tmc2209` instance per UART config is currently supported.*
+*Only a single `tmc2209` instance per UART config is currently supported.*
 
 ## Wiring
 
@@ -235,7 +235,7 @@ tmc2209:
   on_alert:
     - if:
         condition:
-          lambda: return alert == tmc2209::DIAG_TRIGGERED;
+          lambda: return alert == tmc2209::STALLED;
         then:
           - logger.log: "DIAG triggered"
           - stepper.stop: motor

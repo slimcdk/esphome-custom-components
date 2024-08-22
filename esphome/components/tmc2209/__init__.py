@@ -172,7 +172,7 @@ FINAL_VALIDATE_SCHEMA = final_validate_config
         {
             cv.GenerateID(): cv.use_id(TMC2209),
             cv.Optional(CONF_INVERSE_DIRECTION): cv.boolean,
-            cv.Optional(CONF_MICROSTEPS, default=1): cv.templatable(
+            cv.Optional(CONF_MICROSTEPS): cv.templatable(
                 cv.one_of(256, 128, 64, 32, 16, 8, 4, 2, 1)
             ),
             cv.Optional(CONF_RMS_CURRENT): cv.templatable(
@@ -185,7 +185,7 @@ FINAL_VALIDATE_SCHEMA = final_validate_config
             cv.Optional(CONF_STALLGUARD_SGTHRS): cv.templatable(
                 cv.int_range(min=0, max=2**8, max_included=True)
             ),
-            cv.Optional(CONF_INTERPOLATION, default=True): cv.templatable(cv.boolean),
+            cv.Optional(CONF_INTERPOLATION): cv.templatable(cv.boolean),
             # cv.Optional(CONF_HOLD_CURRENT_DELAY): cv.templatable(cv.All(
             #     cv.int_range(min=0, max=2**4, max_included=False),
             #     cv.time_period_in_milliseconds_

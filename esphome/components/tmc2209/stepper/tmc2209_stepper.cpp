@@ -14,8 +14,8 @@ void TMC2209Stepper::setup() {
 
   /* Reconfigure INDEX as it serves another purpose here. */
   // Check mux from figure 15.1 from datasheet rev1.09
-  this->parent_->gconf_index_step(true);
-  this->parent_->gconf_index_otpw(false);
+  this->parent_->set_gconf_index_step(true);
+  this->parent_->set_gconf_index_otpw(false);
 
   this->ips_.target_position_ptr = &this->target_position;
   this->ips_.current_position_ptr = &this->current_position;
@@ -52,7 +52,8 @@ void TMC2209Stepper::run_driver_activation_() {
       this->high_freq_.start();
 
       // Attempt to detect faulty index feedback
-      this->set_timeout(INDEX_FB_CHECK_TIMER_NAME, 1000, [this, from = this->current_position]() {
+      const int32_t from = this->current_position;
+      this->set_timeout(INDEX_FB_CHECK_TIMER_NAME, 1000, [this, from]() {
         if (this->current_position == from) {
           ESP_LOGE(TAG, "No stepping feedback received. Is your index-pin wired correctly?");
           this->stop();
@@ -80,13 +81,13 @@ void TMC2209Stepper::loop() {
   this->direction_ = (to_target != 0 ? (Direction) (to_target / abs(to_target)) : Direction::NONE);  // yield 1, -1 or 0
   this->calculate_speed_(micros());
   // -2.8 inverts direction and scales stepping to match specified. Magic number
-  this->parent_->vactual((-2.8 * this->direction_) * (int32_t) this->current_speed_);
+  this->parent_->set_vactual((-2.8 * this->direction_) * (int32_t) this->current_speed_);
 }
 
 void TMC2209Stepper::stop() {
   this->direction_ = Direction::NONE;
   this->target_position = this->current_position;
-  this->parent_->vactual(0);
+  this->parent_->set_vactual(0);
 }
 
 void TMC2209Stepper::enable(bool enable) {

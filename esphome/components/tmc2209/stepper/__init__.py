@@ -4,7 +4,6 @@ import esphome.config_validation as cv
 from esphome.components import stepper
 from esphome.const import CONF_ID
 
-
 from .. import (
     tmc2209_ns,
     CONF_TMC2209_ID,
