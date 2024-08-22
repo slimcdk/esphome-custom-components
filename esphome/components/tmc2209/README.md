@@ -90,7 +90,7 @@ stepper:
 * All other from [Base Stepper Component][base-stepper-component]
 
 > [!IMPORTANT]
-**In this mode, `index_pin` is will receive stepping feedback from the driver's internal step generator and is required to be set.**
+**`index_pin` will receive stepping feedback from the driver's internal step generator and is required to be set.**
 > *Previous index usage is now handled over UART.*
 
 
@@ -330,7 +330,7 @@ Output of the above configuration.
 
 Writing to and reading from registers and register fields from the driver can easily be done with the help of preexisting [helper definitions][tmcapi-tmc2209-hwa] from the underlying TMC-API. A description of the register map can be found under [section 5][datasheet].
 > [!IMPORTANT]
-**The `tmc2209` base component holds a mirror in memory of the values written to the driver. This means write-only registers can still be read with below methods.**
+**The `tmc2209` base component holds a mirror in memory of the values written to the driver. This means write-only registers can still be read with below methods provided they have been written already.**
 >
 >*Definitions ending in `_MASK` or `_SHIFT` should not be used.*
 
@@ -390,8 +390,7 @@ button:
 
 ## Wiring
 
-> [!WARNING]
-**More to come**
+***More to come***
 
 ### Generic TMC2209
 
