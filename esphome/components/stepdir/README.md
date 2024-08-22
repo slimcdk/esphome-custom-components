@@ -3,7 +3,7 @@
 Component to control stepper motor drivers using step pulses and direction signal.
 
 > [!IMPORTANT]
-**Source code for this component is a modified (renamed) version of [A4988](a4988-stepper-component) \
+**Source code for this component is a modified (renamed) version of [A4988][a4988-stepper-component] \
 All credits to the original authors.**
 
 
