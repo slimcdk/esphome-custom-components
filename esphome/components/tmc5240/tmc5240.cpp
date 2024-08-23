@@ -6,52 +6,29 @@
 namespace esphome {
 namespace tmc5240 {
 
-static const char *TAG = "tmc5240";
+static const char *TAG = "tmc5240.stepper";
 
-TMC5240::TMC5240() {
-  // Global list of driver to work around TMC channel index
-  this->comp_index_ = tmc5240_global_component_index++;
-  components[this->comp_index_] = this;
-
-  // Initialize TMC-API object
-  tmc_fillCRC8Table((uint8_t) 0b100000111, true, 0);
-  tmc5240_init(&this->driver_, this->comp_index_, &this->config_, &tmc5240_defaultRegisterResetState[0]);
+TMC5240Stepper::TMC5240Stepper() {
+  this->id_ = component_index++;
+  components[this->id_] = this;
 }
 
-bool TMC5240::reset_() { return tmc5240_reset(&this->driver_); }
-bool TMC5240::restore_() { return tmc5240_restore(&this->driver_); }
-void TMC5240::update_registers_() { return tmc5240_periodicJob(&this->driver_, 0); }
-
-void TMC5240::setup() {
+void TMC5240Stepper::setup() {
   this->enn_pin_->setup();
+  this->diag0_pin_->setup();
+  this->diag1_pin_->setup();
+
   this->enn_pin_->digital_write(true);
-
-  // Fill default configuration for driver (TODO: retry call instead)
-  if (!tmc5240_reset(&this->driver_)) {
-    this->mark_failed();
-    return;
-  }
-  // Write initial configuration
-  for (uint8_t i = 0; i < 255 && this->driver_.config->state != CONFIG_READY; i++) {
-    this->update_registers_();
-  }
-
-  if (this->driver_.config->state != CONFIG_READY) {
-    ESP_LOGE(TAG, "Failed to communicate with the driver");
-    this->mark_failed();
-    return;
-  }
 
   this->set_vmax(this->max_speed_);
   this->set_amax(this->acceleration_);
   this->set_dmax(this->deceleration_);
 
-  this->set_enc_const(25);
-  this->enable_encoder_position(true);
+  // this->set_enc_const(25);
+  // this->enable_encoder_position(true);
 }
 
-void TMC5240::loop() {
-  this->update_registers_();
+void TMC5240Stepper::loop() {
   this->current_position = this->get_xactual();
 
   if (!this->has_reached_target()) {
@@ -59,59 +36,92 @@ void TMC5240::loop() {
     this->set_vmax(this->max_speed_);
     this->set_amax(this->acceleration_);
     this->set_dmax(this->deceleration_);
-    tmc5240_moveTo(&this->driver_, this->target_position, this->max_speed_);
+    // TODO: tmc5240_moveTo(&this->driver_, this->target_position, this->max_speed_);
   } else {
     this->enn_pin_->digital_write(true);
   }
 }
 
-uint16_t TMC5240::get_microsteps() {
+uint16_t TMC5240Stepper::get_microsteps() {
   const uint8_t mres = this->chopconf_mres();
   return 256 >> mres;
 }
 
-void TMC5240::set_microsteps(uint16_t ms) {
+void TMC5240Stepper::set_microsteps(uint16_t ms) {
   for (uint8_t mres = 8; mres > 0; mres--)
     if ((256 >> mres) == ms)
       return this->chopconf_mres(mres);
 }
 
-/** TMC-API wrappers **/
+/** setters */
+void TMC5240Stepper::set_vmax(int32_t max) { this->write_field(TMC5240_VMAX_FIELD, max); }
+void TMC5240Stepper::set_amax(int32_t max) { this->write_field(TMC5240_AMAX_FIELD, max); }
+void TMC5240Stepper::set_dmax(int32_t max) { this->write_field(TMC5240_DMAX_FIELD, max); }
+void TMC5240Stepper::set_tvmax(int32_t max) { this->write_field(TMC5240_TVMAX_FIELD, max); }
+void TMC5240Stepper::enable_encoder_position(bool enable) { this->write_field(TMC5240_LATCH_X_ACT_FIELD, enable); }
+void TMC5240Stepper::set_xactual(int32_t value) { this->write_field(TMC5240_XACTUAL_FIELD, value); }
+void TMC5240Stepper::set_shaft_direction(bool invert) { this->write_field(TMC5240_SHAFT_FIELD, invert); }
+void TMC5240Stepper::chopconf_mres(uint8_t index) { this->write_field(TMC5240_MRES_FIELD, index); }
+void TMC5240Stepper::enc_deviation(uint32_t deviation) { this->write_field(TMC5240_ENC_DEVIATION_FIELD, deviation); }
+
+void TMC5240Stepper::set_enc_const(float value) {
+  int16_t factor = (int16_t) value;
+  int16_t fraction = (value - factor) * 10;
+  int32_t value_ = _16_32(factor, fraction);
+  this->write_field(TMC5240_ENC_CONST_FIELD, value_);
+}
+
+/** getters */
+bool TMC5240Stepper::get_using_external_oscillator() { return this->read_field(TMC5240_EXT_CLK_FIELD); }
+bool TMC5240Stepper::get_adc_err() { return this->read_field(TMC5240_ADC_ERR_FIELD); }
+bool TMC5240Stepper::get_shaft_direction() { return this->read_field(TMC5240_SHAFT_FIELD); }
+bool TMC5240Stepper::enable_encoder_position() { return this->read_field(TMC5240_LATCH_X_ACT_FIELD); }
+uint8_t TMC5240Stepper::get_encmode_ignore_ab() { return this->read_field(TMC5240_IGNORE_AB_FIELD); }
+uint8_t TMC5240Stepper::get_version() { return this->read_field(TMC5240_VERSION_FIELD); }
+uint8_t TMC5240Stepper::get_revision() { return this->read_field(TMC5240_SILICON_RV_FIELD); }
+uint8_t TMC5240Stepper::chopconf_mres() { return this->read_field(TMC5240_MRES_FIELD); }
+int32_t TMC5240Stepper::get_xactual() { return this->read_field(TMC5240_XACTUAL_FIELD); }
+int32_t TMC5240Stepper::get_sg4_result() { return this->read_field(TMC5240_SG4_RESULT_FIELD); }
+int32_t TMC5240Stepper::get_x_enc() { return this->read_field(TMC5240_X_ENC_FIELD); }
+
+float TMC5240Stepper::get_vsupply() {
+  int32_t adc_value = this->read_field(TMC5240_ADC_VSUPPLY_FIELD);
+  return (float) adc_value * 9.732;
+}
+
+float TMC5240Stepper::get_temp() {
+  int32_t adc_value = this->read_field(TMC5240_ADC_TEMP_FIELD);
+  return (adc_value - 2039) / 7.7;
+}
+
+int32_t TMC5240Stepper::get_vactual() {
+  int32_t value = this->read_field(TMC5240_VACTUAL_FIELD);
+  return CAST_Sn_TO_S32(value, 23);
+}
+
+float TMC5240Stepper::get_enc_const() {
+  int32_t value = this->read_field(TMC5240_ENC_CONST_FIELD);
+  int16_t factor = SHORT(value, 1);
+  int16_t fraction = SHORT(value, 0);
+  return (float) factor + (float) fraction / 10.0f;
+}
+
+uint32_t TMC5240Stepper::enc_deviation() {
+  uint32_t value = this->read_field(TMC5240_ENC_DEVIATION_FIELD);
+  return value;  // CAST_Sn_TO_S32(value, 19);
+}
+
 extern "C" {
 
-void tmc5240_writeDatagram(TMC5240TypeDef *tmc5240, uint8_t address, uint8_t x1, uint8_t x2, uint8_t x3, uint8_t x4) {
-  TMC5240 *comp = components[tmc5240->config->channel];
-
-  uint8_t data[5] = {(uint8_t) (address | TMC5240_WRITE_BIT), x1, x2, x3, x4};
-  comp->read_write(data, 5);
-  int32_t value = _8_32(x1, x2, x3, x4);
-
-  // Write to the shadow register and mark the register dirty
-  address = TMC_ADDRESS(address);
-  tmc5240->config->shadowRegister[address] = value;
-  tmc5240->registerAccess[address] |= TMC_ACCESS_DIRTY;
+uint8_t tmc5240_getBusType(uint16_t id) {
+  TMC5240Stepper *comp = components[id];
+  return comp->get_bus_type();
 }
 
-void tmc5240_writeInt(TMC5240TypeDef *tmc5240, uint8_t address, int32_t value) {
-  tmc5240_writeDatagram(tmc5240, address, BYTE(value, 3), BYTE(value, 2), BYTE(value, 1), BYTE(value, 0));
+// void tmc5240_readWriteSPI(uint16_t id, uint8_t *data, size_t dataLength) {}
+// uint8_t tmc5240_getNodeAddress(uint16_t id) {}
+// bool tmc5240_readWriteUART(uint16_t id, uint8_t *data, size_t writeLength, size_t readLength) {}
 }
-
-int32_t tmc5240_readInt(TMC5240TypeDef *tmc5240, uint8_t address) {
-  TMC5240 *comp = components[tmc5240->config->channel];
-
-  address = TMC_ADDRESS(address);
-
-  if (!TMC_IS_READABLE(tmc5240->registerAccess[address]))
-    return tmc5240->config->shadowRegister[address];
-
-  uint8_t data[5] = {address, 0, 0, 0, 0};
-  comp->read_write(data, 5);
-  comp->read_write(data, 5);
-
-  return _8_32(data[1], data[2], data[3], data[4]);
-}
-}
-/** TMC-API wrappers end **/
 
 }  // namespace tmc5240
 }  // namespace esphome
