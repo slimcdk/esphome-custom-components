@@ -415,6 +415,7 @@ button:
 * Reconfigure driver if driver was power cycled.
 * Driver warning and error trigger events.
 * Handle changes written directly to the driver.
+* Write default register on start?
 
 [datasheet]: <./docs/TMC2209_datasheet_rev1.09.pdf> "Datasheet rev 1.09"
 

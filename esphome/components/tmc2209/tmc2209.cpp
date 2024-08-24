@@ -7,9 +7,9 @@ namespace tmc2209 {
 
 static const char *TAG = "tmc2209";
 
-TMC2209::TMC2209(uint8_t address) : address_(address) {
+TMC2209::TMC2209(uint8_t address, uint32_t oscillator_freq) : address_(address), oscillator_freq_(oscillator_freq) {
   // Global list of instances to handle access in static C functions
-  this->id_ = tmc2209_global_index++;
+  this->id_ = component_index++;
   components[this->id_] = this;
 }
 
@@ -17,11 +17,11 @@ void TMC2209::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209:");
 
 #if defined(USE_INDEX_PIN)
-  LOG_PIN("  INDEX pin: ", this->index_pin_);
+  LOG_PIN("  INDEX Pin: ", this->index_pin_);
 #endif
 
 #if defined(USE_DIAG_PIN)
-  LOG_PIN("  DIAG pin: ", this->diag_pin_);
+  LOG_PIN("  DIAG Pin: ", this->diag_pin_);
 #endif
 
   ESP_LOGCONFIG(TAG, "  RSense: %.2f Ohm (%s)", this->rsense_, this->use_internal_rsense_ ? "Internal" : "External");
@@ -214,8 +214,6 @@ void TMC2209::tpowerdown_ms(uint32_t delay_in_ms) {
 
 uint32_t TMC2209::tpowerdown_ms() { return (this->get_tpowerdown() * 262144) / (this->oscillator_freq_ / 1000); };
 
-uint8_t TMC2209::get_address() { return this->address_; }
-
 /***
  * TMC-API wrappers
  *
@@ -245,6 +243,7 @@ uint8_t tmc2209_getNodeAddress(uint16_t id) {
 }
 }
 
+/** setters */
 void TMC2209::set_gconf_iscale_analog(bool use_vref) { this->write_field(TMC2209_I_SCALE_ANALOG_FIELD, use_vref); }
 void TMC2209::set_gconf_internal_rsense(bool internal) { this->write_field(TMC2209_INTERNAL_RSENSE_FIELD, internal); }
 void TMC2209::set_gconf_en_spreadcycle(bool enable) { this->write_field(TMC2209_EN_SPREADCYCLE_FIELD, enable); }
@@ -255,13 +254,15 @@ void TMC2209::set_gconf_pdn_disable(bool disable) { this->write_field(TMC2209_PD
 void TMC2209::set_gconf_mstep_reg_select(bool use) { this->write_field(TMC2209_MSTEP_REG_SELECT_FIELD, use); }
 void TMC2209::set_gconf_multistep_filt(bool enable) { this->write_field(TMC2209_MULTISTEP_FILT_FIELD, enable); }
 void TMC2209::set_gconf_test_mode(bool enable) { this->write_field(TMC2209_TEST_MODE_FIELD, enable); }
-bool TMC2209::get_ioin_diag() { return this->read_field(TMC2209_DIAG_FIELD); }
-int8_t TMC2209::get_ioin_chip_version() { return this->read_field(TMC2209_VERSION_FIELD); }
 void TMC2209::set_vactual(int32_t velocity) { this->write_field(TMC2209_VACTUAL_FIELD, velocity); }
 void TMC2209::set_ihold_irun_ihold(uint8_t current) { this->write_field(TMC2209_IRUN_FIELD, current); }
 void TMC2209::set_ihold_irun_irun(uint8_t current) { this->write_field(TMC2209_IHOLD_FIELD, current); }
-uint8_t TMC2209::get_ihold_irun_irun() { return this->read_field(TMC2209_IHOLD_FIELD); }
-uint8_t TMC2209::get_ihold_irun_ihold_delay() { return this->read_field(TMC2209_IHOLDDELAY_FIELD); }
+void TMC2209::set_stallguard_sgthrs(uint8_t threshold) { this->write_register(TMC2209_SGTHRS, (int32_t) threshold); }
+void TMC2209::set_coolstep_tcoolthrs(int32_t threshold) { this->write_register(TMC2209_TCOOLTHRS, threshold); }
+void TMC2209::set_chopconf_mres(uint8_t index) { this->write_field(TMC2209_MRES_FIELD, index); }
+void TMC2209::set_chopconf_intpol(bool enable) { this->write_field(TMC2209_INTPOL_FIELD, enable); }
+void TMC2209::set_chopconf_vsense(bool high_sensitivity) { this->write_field(TMC2209_VSENSE_FIELD, high_sensitivity); }
+void TMC2209::set_tpowerdown(uint8_t factor) { this->write_field(TMC2209_TPOWERDOWN_FIELD, factor); }
 void TMC2209::set_ihold_irun_ihold_delay(uint8_t factor) {
   if (factor > 15) {
     ESP_LOGW(TAG, "IHOLDDELAY is limited to 15. This is the raw value and not the delay in microseconds.");
@@ -269,23 +270,23 @@ void TMC2209::set_ihold_irun_ihold_delay(uint8_t factor) {
   }
   this->write_field(TMC2209_IHOLDDELAY_FIELD, factor);
 }
-uint8_t TMC2209::get_stallguard_sgthrs() { return this->read_register(TMC2209_SGTHRS); }
-void TMC2209::set_stallguard_sgthrs(uint8_t threshold) { this->write_register(TMC2209_SGTHRS, (int32_t) threshold); }
-uint16_t TMC2209::get_stallguard_sgresult() { return this->read_register(TMC2209_SG_RESULT); }
+
+/** getters */
+bool TMC2209::get_ioin_diag() { return this->read_field(TMC2209_DIAG_FIELD); }
 bool TMC2209::get_drv_status_otpw() { return this->read_field(TMC2209_OTPW_FIELD); }
 bool TMC2209::get_drv_status_ot() { return this->read_field(TMC2209_OT_FIELD); }
 bool TMC2209::get_drv_status_t120() { return this->read_field(TMC2209_T120_FIELD); }
 bool TMC2209::get_drv_status_t143() { return this->read_field(TMC2209_T143_FIELD); }
 bool TMC2209::get_drv_status_t150() { return this->read_field(TMC2209_T150_FIELD); }
 bool TMC2209::get_drv_status_t157() { return this->read_field(TMC2209_T157_FIELD); }
-void TMC2209::set_coolstep_tcoolthrs(int32_t threshold) { this->write_register(TMC2209_TCOOLTHRS, threshold); }
-void TMC2209::set_chopconf_mres(uint8_t index) { this->write_field(TMC2209_MRES_FIELD, index); }
-uint8_t TMC2209::get_chopconf_mres() { return this->read_field(TMC2209_MRES_FIELD); }
-void TMC2209::set_chopconf_intpol(bool enable) { this->write_field(TMC2209_INTPOL_FIELD, enable); }
 bool TMC2209::get_chopconf_vsense() { return this->read_field(TMC2209_VSENSE_FIELD); }
-void TMC2209::set_chopconf_vsense(bool high_sensitivity) { this->write_field(TMC2209_VSENSE_FIELD, high_sensitivity); }
-void TMC2209::set_tpowerdown(uint8_t factor) { this->write_field(TMC2209_TPOWERDOWN_FIELD, factor); }
+int8_t TMC2209::get_ioin_chip_version() { return this->read_field(TMC2209_VERSION_FIELD); }
+uint8_t TMC2209::get_ihold_irun_irun() { return this->read_field(TMC2209_IHOLD_FIELD); }
+uint8_t TMC2209::get_ihold_irun_ihold_delay() { return this->read_field(TMC2209_IHOLDDELAY_FIELD); }
+uint8_t TMC2209::get_stallguard_sgthrs() { return this->read_register(TMC2209_SGTHRS); }
+uint8_t TMC2209::get_chopconf_mres() { return this->read_field(TMC2209_MRES_FIELD); }
 uint8_t TMC2209::get_tpowerdown() { return this->read_field(TMC2209_TPOWERDOWN_FIELD); }
+uint16_t TMC2209::get_stallguard_sgresult() { return this->read_register(TMC2209_SG_RESULT); }
 
 }  // namespace tmc2209
 }  // namespace esphome

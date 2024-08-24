@@ -34,7 +34,7 @@ void TMC2209Stepper::setup() {
 
 void TMC2209Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
-  LOG_PIN("  ENN pin: ", this->enn_pin_);
+  LOG_PIN("  ENN Pin: ", this->enn_pin_);
   LOG_STEPPER(this);
 }
 

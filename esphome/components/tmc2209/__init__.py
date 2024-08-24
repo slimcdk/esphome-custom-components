@@ -61,7 +61,7 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(): cv.declare_id(TMC2209),
             cv.Optional(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
-            cv.Optional(CONF_ADDRESS, default=0x00): cv.uint8_t,
+            cv.Optional(CONF_ADDRESS, default=0x00): cv.hex_uint8_t,
             cv.Optional(CONF_RSENSE, default=0): cv.resistance,
             cv.Optional(CONF_OSCILLATOR_FREQUENCY, default=12_000_000): cv.frequency,
             cv.Optional(CONF_ON_ALERT): automation.validate_automation(
@@ -79,11 +79,12 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID], config[CONF_ADDRESS])
+    var = cg.new_Pvariable(
+        config[CONF_ID], config[CONF_ADDRESS], config[CONF_OSCILLATOR_FREQUENCY]
+    )
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
 
-    cg.add(var.set_oscillator_frequency(config[CONF_OSCILLATOR_FREQUENCY]))
     cg.add(var.set_rsense(config[CONF_RSENSE], CONF_RSENSE not in config))
 
     if CONF_INDEX_PIN in config:

@@ -1,20 +1,11 @@
 #pragma once
 
-#include "esphome/core/helpers.h"
-#include "esphome/core/component.h"
 #include "esphome/core/automation.h"
 
 #include "tmc2209.h"
 
 namespace esphome {
 namespace tmc2209 {
-
-class TMC2209OnAlertTrigger : public Trigger<DriverEvent> {
- public:
-  explicit TMC2209OnAlertTrigger(TMC2209 *parent) {
-    parent->add_on_alert_callback([this](DriverEvent event) { this->trigger(event); });
-  }
-};
 
 template<typename... Ts> class TMC2209ConfigureAction : public Action<Ts...>, public Parented<TMC2209> {
  public:
@@ -51,6 +42,13 @@ template<typename... Ts> class TMC2209ConfigureAction : public Action<Ts...>, pu
 
     if (this->stallguard_sgthrs_.has_value())
       this->parent_->set_stallguard_sgthrs(this->stallguard_sgthrs_.value(x...));
+  }
+};
+
+class TMC2209OnAlertTrigger : public Trigger<DriverEvent> {
+ public:
+  explicit TMC2209OnAlertTrigger(TMC2209 *parent) {
+    parent->add_on_alert_callback([this](DriverEvent event) { this->trigger(event); });
   }
 };
 

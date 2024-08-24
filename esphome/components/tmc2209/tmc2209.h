@@ -19,6 +19,39 @@ namespace tmc2209 {
 #define DRIVER_STATE_TIMER_NAME "powerdown"
 #define INDEX_FB_CHECK_TIMER_NAME "indexcheck"
 
+enum DriverEvent {
+
+  INDEX_TRIGGERED,
+  DIAG_TRIGGERED,
+  STALLED,
+  // CHARGPUMP_UNDERVOLTAGE,
+  // SHORT_CIRCUIT,
+
+  TEMPERATURE_NORMAL,
+  OVERTEMPERATURE_PREWARNING,
+  OVERTEMPERATURE_PREWARNING_GONE,
+  OVERTEMPERATURE,
+  OVERTEMPERATURE_GONE,
+  TEMPERATURE_BELOW_120C,
+  TEMPERATURE_ABOVE_120C,
+  TEMPERATURE_BELOW_143C,
+  TEMPERATURE_ABOVE_143C,
+  TEMPERATURE_BELOW_150C,
+  TEMPERATURE_ABOVE_150C,
+  TEMPERATURE_BELOW_157C,
+  TEMPERATURE_ABOVE_157C,
+};
+
+class TMC2209;  // forwared declare
+
+static TMC2209 *components[TMC2209_NUM_COMPONENTS];
+static uint16_t component_index = 0;
+
+struct ISRStore {
+  bool *pin_triggered_ptr{nullptr};
+  static void IRAM_ATTR HOT pin_isr(ISRStore *arg) { (*(arg->pin_triggered_ptr)) = true; }
+};
+
 class EventHandler {
  public:
   EventHandler() = default;
@@ -52,42 +85,9 @@ class EventHandler {
   std::function<void()> callback_recover_;
 };
 
-class TMC2209;  // Forward declare
-
-static TMC2209 *components[TMC2209_NUM_COMPONENTS];
-static uint16_t tmc2209_global_index = 0;
-
-enum DriverEvent {
-
-  INDEX_TRIGGERED,
-  DIAG_TRIGGERED,
-  STALLED,
-  // CHARGPUMP_UNDERVOLTAGE,
-  // SHORT_CIRCUIT,
-
-  TEMPERATURE_NORMAL,
-  OVERTEMPERATURE_PREWARNING,
-  OVERTEMPERATURE_PREWARNING_GONE,
-  OVERTEMPERATURE,
-  OVERTEMPERATURE_GONE,
-  TEMPERATURE_BELOW_120C,
-  TEMPERATURE_ABOVE_120C,
-  TEMPERATURE_BELOW_143C,
-  TEMPERATURE_ABOVE_143C,
-  TEMPERATURE_BELOW_150C,
-  TEMPERATURE_ABOVE_150C,
-  TEMPERATURE_BELOW_157C,
-  TEMPERATURE_ABOVE_157C,
-};
-
-struct ISRStore {
-  bool *pin_triggered_ptr{nullptr};
-  static void IRAM_ATTR HOT pin_isr(ISRStore *arg) { (*(arg->pin_triggered_ptr)) = true; }
-};
-
 class TMC2209 : public Component, public uart::UARTDevice {
  public:
-  TMC2209(uint8_t address);
+  TMC2209(uint8_t address, uint32_t oscillator_freq);
   friend class TMC2209Stepper;
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
@@ -98,13 +98,12 @@ class TMC2209 : public Component, public uart::UARTDevice {
   void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; };
   void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; };
 
-  void set_oscillator_frequency(uint32_t frequency) { this->oscillator_freq_ = frequency; };
   void set_rsense(float resistance = 0, bool use_internal = false) {
     this->rsense_ = resistance;
     this->use_internal_rsense_ = use_internal;
   };
 
-  uint8_t get_address();
+  uint8_t get_address() { return this->address_; }
 
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
@@ -182,7 +181,7 @@ class TMC2209 : public Component, public uart::UARTDevice {
 
   bool use_internal_rsense_;
   float rsense_;
-  uint32_t oscillator_freq_{12000000};
+  const uint32_t oscillator_freq_;
 
   float rms_current_{std::numeric_limits<float>::max()};
   float rms_current_hold_scale_{1.0};
