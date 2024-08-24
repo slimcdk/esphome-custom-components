@@ -1,13 +1,9 @@
 from esphome import automation, pins
 import esphome.config_validation as cv
 import esphome.codegen as cg
-from esphome.components import stepper, uart, spi
+from esphome.components import stepper
 from esphome.const import (
-    CONF_ID,
     CONF_TRIGGER_ID,
-    CONF_SPI_ID,
-    CONF_UART_ID,
-    CONF_ADDRESS,
 )
 
 CODEOWNERS = ["@slimcdk"]
@@ -41,11 +37,13 @@ CONF_INTERNAL_RSENSE = "internal_rsense"
 
 CONF_ON_ALERT = "on_alert"
 
+AUTO_LOAD = ["spi", "uart"]
+
 tmc5240_ns = cg.esphome_ns.namespace("tmc5240")
 TMC5240Stepper = tmc5240_ns.class_("TMC5240Stepper", cg.Component, stepper.Stepper)
 
 # TMC5240ConfigureAction = tmc5240_ns.class_("TMC5240ConfigureAction", automation.Action)
-# TMC2209OnAlertTrigger = tmc5240_ns.class_("TMC2209OnAlertTrigger", automation.Trigger)
+TMC2209OnAlertTrigger = tmc5240_ns.class_("TMC2209OnAlertTrigger", automation.Trigger)
 
 
 CONFIG_SCHEMA_BASE = (
@@ -54,6 +52,9 @@ CONFIG_SCHEMA_BASE = (
             cv.Required(CONF_ENN_PIN): pins.gpio_output_pin_schema,
             cv.Required(CONF_DIAG0_PIN): pins.gpio_input_pin_schema,
             cv.Required(CONF_DIAG1_PIN): pins.gpio_input_pin_schema,
+            cv.Optional(CONF_ON_ALERT): automation.validate_automation(
+                {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(TMC2209OnAlertTrigger)}
+            ),
         },
     )
     .extend(cv.COMPONENT_SCHEMA)
@@ -62,7 +63,6 @@ CONFIG_SCHEMA_BASE = (
 
 
 async def to_code_base(var, config):
-
     await cg.register_component(var, config)
     await stepper.register_stepper(var, config)
 

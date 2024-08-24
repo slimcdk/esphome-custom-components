@@ -8,8 +8,8 @@ CODEOWNERS = ["@slimcdk"]
 AUTO_LOAD = ["tmc5240"]
 DEPENDENCIES = ["spi"]
 
-tmc5240_spi_ns = cg.esphome_ns.namespace("tmc5240_spi")
-TMC5240SPIStepper = tmc5240_spi_ns.class_(
+tmc5240.tmc5240_ns = cg.esphome_ns.namespace("tmc5240")
+TMC5240SPIStepper = tmc5240.tmc5240_ns.class_(
     "TMC5240SPIStepper", cg.Component, stepper.Stepper, spi.SPIDevice
 )
 

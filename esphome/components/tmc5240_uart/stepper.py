@@ -8,8 +8,8 @@ CODEOWNERS = ["@slimcdk"]
 AUTO_LOAD = ["tmc5240"]
 DEPENDENCIES = ["uart"]
 
-tmc5240_uart_ns = cg.esphome_ns.namespace("tmc5240_uart")
-TMC5240UARTStepper = tmc5240_uart_ns.class_(
+tmc5240.tmc5240_ns = cg.esphome_ns.namespace("tmc5240")
+TMC5240UARTStepper = tmc5240.tmc5240_ns.class_(
     "TMC5240UARTStepper", cg.Component, stepper.Stepper, uart.UARTDevice
 )
 

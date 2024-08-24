@@ -5,6 +5,8 @@
 #include "esphome/core/hal.h"
 
 #include "esphome/components/stepper/stepper.h"
+#include "esphome/components/spi/spi.h"
+#include "esphome/components/uart/uart.h"
 
 extern "C" {
 #include <ic/TMC5240/TMC5240.h>
@@ -100,6 +102,32 @@ class TMC5240Stepper : public Component, public stepper::Stepper {
 
   CallbackManager<void(DriverEvent)> on_alert_callback_{};
 };
+
+/** SPI */
+class TMC5240SPIStepper : public tmc5240::TMC5240Stepper,
+                          public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_HIGH,
+                                                spi::CLOCK_PHASE_TRAILING, spi::DATA_RATE_10MHZ> {
+ public:
+  void setup() override;
+
+  TMC5240BusType get_bus_type() const override { return IC_BUS_SPI; }
+};
+/** End of SPI */
+
+/** UART */
+class TMC5240UARTStepper : public tmc5240::TMC5240Stepper, public uart::UARTDevice {
+ public:
+  TMC5240UARTStepper(uint8_t address);
+  void setup() override;
+
+  TMC5240BusType get_bus_type() const override { return IC_BUS_UART; }
+
+  uint8_t get_address() { return this->address_; }
+
+ protected:
+  uint8_t address_{0x00};
+};
+/** End of UART */
 
 }  // namespace tmc5240
 }  // namespace esphome
