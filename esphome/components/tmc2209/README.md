@@ -61,8 +61,12 @@ tmc2209:
 
 * `oscillator_freq` (Optional, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to.
 
-> [!WARNING]
+> [!CAUTION]
 **Activation of the driver is delegated to the stepper component to perform. Long wires connected to ENN might pick up interference causing the driver to make a "sizzling" noise if left floating.**
+
+> [!IMPORTANT]
+**First generation of TMC2209s have version `0x21`. Monitor the logger output for `[C][tmc2209:031]:   Detected IC version: 0x21` to see if it is correctly detected.  \
+You will see version `0x00` and an error message if the version couldn't be read.**
 
 ---
 ### The stepper can be controlled in two ways
@@ -245,17 +249,6 @@ stepper:
     acceleration: 1000 steps/s^2
     deceleration: 1000 steps/s^2
 
-  # - platform: stepdir
-  #   id: motor
-  #   step_pin: 15
-  #   dir_pin: 2
-  #   sleep_pin:
-  #     number: 4
-  #     inverted: true
-  #   max_speed: 500 steps/s
-  #   acceleration: 1000 steps/s^2
-  #   deceleration: 1000 steps/s^2
-
 button:
   - platform: template
     name: Stop
@@ -301,26 +294,26 @@ sensor:
 Output of the above configuration.
 ```console
 ...
-[00:00:00][C][uart.idf:159]: UART Bus 1:
-[00:00:00][C][uart.idf:160]:   TX Pin: GPIO14
-[00:00:00][C][uart.idf:161]:   RX Pin: GPIO27
-[00:00:00][C][uart.idf:163]:   RX Buffer Size: 256
-[00:00:00][C][uart.idf:165]:   Baud Rate: 500000 baud
-[00:00:00][C][uart.idf:166]:   Data Bits: 8
-[00:00:00][C][uart.idf:167]:   Parity: NONE
-[00:00:00][C][uart.idf:168]:   Stop bits: 1
-[00:00:00][C][tmc2209:017]: TMC2209:
-[00:00:00][C][tmc2209:019]:   INDEX pin: GPIO12
-[00:00:00][C][tmc2209:022]:   DIAG pin: GPIO13
-[00:00:00][C][tmc2209:024]:   RSense: 0.11 Ohm (External)
-[00:00:00][C][tmc2209:025]:   Address: 0x00
-[00:00:00][C][tmc2209:026]:   Detected IC version: 0x21
-[00:00:00][C][tmc2209:027]:   Oscillator frequency: 12000000 Hz
-[00:00:00][C][tmc2209.stepper:036]: TMC2209 Stepper:
-[00:00:00][C][tmc2209.stepper:037]:   ENN pin: GPIO4
-[00:00:00][C][tmc2209.stepper:038]:   Acceleration: 1000 steps/s^2
-[00:00:00][C][tmc2209.stepper:038]:   Deceleration: 1000 steps/s^2
-[00:00:00][C][tmc2209.stepper:038]:   Max Speed: 500 steps/s
+[08:51:47][C][uart.idf:159]: UART Bus 1:
+[08:51:47][C][uart.idf:160]:   TX Pin: GPIO27
+[08:51:47][C][uart.idf:161]:   RX Pin: GPIO26
+[08:51:47][C][uart.idf:163]:   RX Buffer Size: 256
+[08:51:47][C][uart.idf:165]:   Baud Rate: 500000 baud
+[08:51:47][C][uart.idf:166]:   Data Bits: 8
+[08:51:47][C][uart.idf:167]:   Parity: NONE
+[08:51:47][C][uart.idf:168]:   Stop bits: 1
+[08:51:47][C][tmc2209:017]: TMC2209:
+[08:51:47][C][tmc2209:020]:   INDEX Pin: GPIO12
+[08:51:47][C][tmc2209:024]:   DIAG Pin: GPIO13
+[08:51:47][C][tmc2209:027]:   RSense: 0.11 Ohm (External)
+[08:51:47][C][tmc2209:028]:   Address: 0x00
+[08:51:47][C][tmc2209:031]:   Detected IC version: 0x21
+[08:51:47][C][tmc2209:036]:   Oscillator frequency: 12000000 Hz
+[08:51:47][C][tmc2209.stepper:036]: TMC2209 Stepper:
+[08:51:47][C][tmc2209.stepper:037]:   ENN Pin: GPIO14
+[08:51:47][C][tmc2209.stepper:038]:   Acceleration: 1000 steps/s^2
+[08:51:47][C][tmc2209.stepper:038]:   Deceleration: 1000 steps/s^2
+[08:51:47][C][tmc2209.stepper:038]:   Max Speed: 500 steps/s
 ...
 ```
 
@@ -384,6 +377,8 @@ button:
       - lambda: id(driver)->write_field(TMC2209_MRES_FIELD, 3);
 
 ```
+
+## Troubleshooting
 
 
 
