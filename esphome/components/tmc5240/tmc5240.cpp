@@ -120,13 +120,7 @@ TMC5240BusType tmc5240_getBusType(uint16_t id) {
 
 void tmc5240_readWriteSPI(uint16_t id, uint8_t *data, size_t dataLength) {
 #if defined(TMC5240_USE_SPI)
-  auto *comp = static_cast<TMC5240SPIStepper *>(tmc5240::components[id]);
-
-  if (comp == nullptr) {
-    ESP_LOGE(TAG, "Component with id %d is null", id);
-    return;
-  }
-
+  auto *comp = static_cast<TMC5240SPIStepper *>(components[id]);
   comp->enable();
   comp->transfer_array(data, dataLength);
   comp->disable();
@@ -135,7 +129,7 @@ void tmc5240_readWriteSPI(uint16_t id, uint8_t *data, size_t dataLength) {
 
 uint8_t tmc5240_getNodeAddress(uint16_t id) {
 #if defined(TMC5240_USE_UART)
-  auto *comp = static_cast<TMC5240UARTStepper *>(tmc5240::components[id]);
+  auto *comp = static_cast<TMC5240UARTStepper *>(components[id]);
   return comp->get_uart_address();
 #else
   return 0;
@@ -144,17 +138,10 @@ uint8_t tmc5240_getNodeAddress(uint16_t id) {
 
 bool tmc5240_readWriteUART(uint16_t id, uint8_t *data, size_t writeLength, size_t readLength) {
 #if defined(TMC5240_USE_UART)
-  auto *comp = static_cast<TMC5240UARTStepper *>(tmc5240::components[id]);
-
-  if (comp == nullptr) {
-    ESP_LOGE(TAG, "Component with id %d is null", id);
-    return false;
-  }
-
+  auto *comp = static_cast<TMC5240UARTStepper *>(components[id]);
   if (writeLength > 0) {
-    comp->write_array(data, writeLength);
-
     // chop off transmitted data from the rx buffer and flush due to one-wire uart filling up rx when transmitting
+    comp->write_array(data, writeLength);
     comp->read_array(data, writeLength);
     comp->flush();
   }
