@@ -200,12 +200,10 @@ esphome:
 ## Example config
 ```yaml
 external_components:
-  - source: github://slimcdk/esphome-custom-components@reworked-tmc2209
+  - source: github://slimcdk/esphome-custom-components
     components: [tmc2209, stepper]
 
-esp32:
-  board: ...
-  variant: ...
+# esp32 or esp8266 config..
 
 wifi:
   ssid: !secret WIFI_SSID
@@ -277,7 +275,6 @@ number:
     step: 100
     lambda: return id(motor)->current_position;
     update_interval: 1s
-    internal: true
     set_action:
       - stepper.set_target:
           id: motor
@@ -288,7 +285,6 @@ sensor:
     name: Estimated motor load
     lambda: return id(driver)->motor_load();
     update_interval: 100ms
-    internal: true
 ```
 
 Output of the above configuration.
