@@ -5,8 +5,13 @@
 #include "esphome/core/hal.h"
 
 #include "esphome/components/stepper/stepper.h"
+
+#if defined(TMC5240_USE_SPI)
 #include "esphome/components/spi/spi.h"
+#endif
+#if defined(TMC5240_USE_UART)
 #include "esphome/components/uart/uart.h"
+#endif
 
 extern "C" {
 #include <ic/TMC5240/TMC5240.h>
@@ -53,7 +58,7 @@ class TMC5240Stepper : public Component, public stepper::Stepper {
   void set_diag0_pin(GPIOPin *pin) { this->diag0_pin_ = pin; }
   void set_diag1_pin(GPIOPin *pin) { this->diag1_pin_ = pin; }
 
-  // TMC-API wrappers
+  // TMC - API wrappers
   virtual TMC5240BusType get_bus_type() const = 0;
   void write_register(uint8_t address, int32_t value) { tmc5240_writeRegister(this->id_, address, value); }
   void write_field(RegisterField field, uint32_t value) { tmc5240_fieldWrite(this->id_, field, value); }
@@ -104,29 +109,37 @@ class TMC5240Stepper : public Component, public stepper::Stepper {
 };
 
 /** SPI */
+#if defined(TMC5240_USE_SPI)
 class TMC5240SPIStepper : public TMC5240Stepper,
                           public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_HIGH,
                                                 spi::CLOCK_PHASE_TRAILING, spi::DATA_RATE_10MHZ> {
  public:
-  void setup() override;
+  TMC5240SPIStepper() = default;
+  void setup() override {
+    tmc5240::TMC5240Stepper::setup();
+    this->spi_setup();
+  };
 
   TMC5240BusType get_bus_type() const override { return IC_BUS_SPI; }
 };
+#endif
 /** End of SPI */
 
 /** UART */
+#if defined(TMC5240_USE_UART)
 class TMC5240UARTStepper : public TMC5240Stepper, public uart::UARTDevice {
  public:
-  TMC5240UARTStepper(uint8_t address);
-  void setup() override;
+  TMC5240UARTStepper() = default;
+
+  void set_uart_address(uint8_t address) { this->address_ = address; }
+  uint8_t get_uart_address() { return this->address_; }
 
   TMC5240BusType get_bus_type() const override { return IC_BUS_UART; }
-
-  uint8_t get_address() { return this->address_; }
 
  protected:
   uint8_t address_{0x00};
 };
+#endif
 /** End of UART */
 
 }  // namespace tmc5240

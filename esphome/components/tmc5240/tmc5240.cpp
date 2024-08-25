@@ -24,8 +24,8 @@ void TMC5240Stepper::setup() {
   this->set_amax(this->acceleration_);
   this->set_dmax(this->deceleration_);
 
-  // this->set_enc_const(25);
-  // this->enable_encoder_position(true);
+  this->set_enc_const(25);
+  this->enable_encoder_position(true);
 }
 
 void TMC5240Stepper::loop() {
@@ -113,12 +113,13 @@ uint32_t TMC5240Stepper::enc_deviation() {
 
 extern "C" {
 
-uint8_t tmc5240_getBusType(uint16_t id) {
+TMC5240BusType tmc5240_getBusType(uint16_t id) {
   TMC5240Stepper *comp = components[id];
   return comp->get_bus_type();
 }
 
 void tmc5240_readWriteSPI(uint16_t id, uint8_t *data, size_t dataLength) {
+#if defined(TMC5240_USE_SPI)
   auto *comp = static_cast<TMC5240SPIStepper *>(tmc5240::components[id]);
 
   if (comp == nullptr) {
@@ -129,14 +130,20 @@ void tmc5240_readWriteSPI(uint16_t id, uint8_t *data, size_t dataLength) {
   comp->enable();
   comp->transfer_array(data, dataLength);
   comp->disable();
+#endif
 }
 
 uint8_t tmc5240_getNodeAddress(uint16_t id) {
+#if defined(TMC5240_USE_UART)
   auto *comp = static_cast<TMC5240UARTStepper *>(tmc5240::components[id]);
-  return comp->get_address();
+  return comp->get_uart_address();
+#else
+  return 0;
+#endif
 }
 
 bool tmc5240_readWriteUART(uint16_t id, uint8_t *data, size_t writeLength, size_t readLength) {
+#if defined(TMC5240_USE_UART)
   auto *comp = static_cast<TMC5240UARTStepper *>(tmc5240::components[id]);
 
   if (comp == nullptr) {
@@ -156,20 +163,11 @@ bool tmc5240_readWriteUART(uint16_t id, uint8_t *data, size_t writeLength, size_
     comp->read_array(data, readLength);
   }
   return true;
+#else
+  return false;
+#endif
 }
 }
-
-/** SPI */
-void TMC5240SPIStepper::setup() {
-  tmc5240::TMC5240Stepper::setup();
-  this->spi_setup();
-}
-/** End of SPI */
-
-/** UART */
-TMC5240UARTStepper::TMC5240UARTStepper(uint8_t address) : address_(address) {}
-void TMC5240UARTStepper::setup() { tmc5240::TMC5240Stepper::setup(); }
-/** End of UART */
 
 }  // namespace tmc5240
 }  // namespace esphome
