@@ -346,7 +346,7 @@ sensor:
     name: Stallguard result
     lambda: return id(driver)->read_register(TMC2209_SG_RESULT);
 
-    // Read microstep selection index (register field) into a sensor. This is an index like 0,1,2,3,...
+    // Read microstep selection index into a sensor. This is a binary exponent like 0,1,2,3,... and microsteps can be calculated like 2**<exponent>
   - platform: template
     name: Microstep selection index
     lambda: return id(driver)->read_field(TMC2209_MRES_FIELD);
@@ -370,7 +370,7 @@ number:
 
 button:
 
-    // Write value 2 to MRES register field. 2**3 = 8
+    // Write value 3 to MRES register field. 2**3 = 8
   - platform: template
     name: Set microstepping to 8
     on_press:
@@ -379,7 +379,6 @@ button:
 ```
 
 ## Troubleshooting
-
 
 
 
