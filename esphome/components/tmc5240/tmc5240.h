@@ -104,7 +104,7 @@ class TMC5240Stepper : public Component, public stepper::Stepper {
 };
 
 /** SPI */
-class TMC5240SPIStepper : public tmc5240::TMC5240Stepper,
+class TMC5240SPIStepper : public TMC5240Stepper,
                           public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_HIGH,
                                                 spi::CLOCK_PHASE_TRAILING, spi::DATA_RATE_10MHZ> {
  public:
@@ -115,7 +115,7 @@ class TMC5240SPIStepper : public tmc5240::TMC5240Stepper,
 /** End of SPI */
 
 /** UART */
-class TMC5240UARTStepper : public tmc5240::TMC5240Stepper, public uart::UARTDevice {
+class TMC5240UARTStepper : public TMC5240Stepper, public uart::UARTDevice {
  public:
   TMC5240UARTStepper(uint8_t address);
   void setup() override;
