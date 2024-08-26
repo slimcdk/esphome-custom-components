@@ -170,7 +170,7 @@ esphome:
   ...
   on_boot:
     - tmc2209.configure:
-        id: motor
+        id: driver
         inverse_direction: false
         microsteps: 4
         coolstep_tcoolthrs: 400
