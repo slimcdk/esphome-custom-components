@@ -13,6 +13,11 @@ TMC5240Stepper::TMC5240Stepper() {
   components[this->id_] = this;
 }
 
+void TMC5240Stepper::dump_config() {
+  LOG_TMC5240(this);
+  LOG_STEPPER(this);
+}
+
 void TMC5240Stepper::setup() {
   this->enn_pin_->setup();
   this->diag0_pin_->setup();
@@ -24,8 +29,8 @@ void TMC5240Stepper::setup() {
   this->set_amax(this->acceleration_);
   this->set_dmax(this->deceleration_);
 
-  this->set_enc_const(25);
-  this->enable_encoder_position(true);
+  // this->set_enc_const(25);
+  // this->enable_encoder_position(true);
 }
 
 void TMC5240Stepper::loop() {
@@ -33,9 +38,15 @@ void TMC5240Stepper::loop() {
 
   if (!this->has_reached_target()) {
     this->enn_pin_->digital_write(false);
+
+    this->write_register(TMC5240_RAMPMODE, TMC5240_MODE_POSITION);
+    // this->write_register(TMC5240_VMAX, (int32_t) this->max_speed_);
     this->set_vmax(this->max_speed_);
     this->set_amax(this->acceleration_);
     this->set_dmax(this->deceleration_);
+
+    this->write_register(TMC5240_XTARGET, this->target_position);
+
     // TODO: tmc5240_moveTo(&this->driver_, this->target_position, this->max_speed_);
   } else {
     this->enn_pin_->digital_write(true);

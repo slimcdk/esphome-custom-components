@@ -53,6 +53,7 @@ class TMC5240Stepper : public Component, public stepper::Stepper {
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void setup() override;
   void loop() override;
+  void dump_config() override;
 
   void set_enn_pin(GPIOPin *pin) { this->enn_pin_ = pin; }
   void set_diag0_pin(GPIOPin *pin) { this->diag0_pin_ = pin; }
@@ -116,8 +117,8 @@ class TMC5240SPIStepper : public TMC5240Stepper,
  public:
   TMC5240SPIStepper() = default;
   void setup() override {
-    tmc5240::TMC5240Stepper::setup();
     this->spi_setup();
+    TMC5240Stepper::setup();
   };
 
   TMC5240BusType get_bus_type() const override { return IC_BUS_SPI; }
