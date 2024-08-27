@@ -19,11 +19,17 @@ void TMC5240Stepper::dump_config() {
 }
 
 void TMC5240Stepper::setup() {
+  ESP_LOGCONFIG(TAG, "Setting up TMC5240...");
+
   this->enn_pin_->setup();
   this->diag0_pin_->setup();
   this->diag1_pin_->setup();
 
   this->enn_pin_->digital_write(true);
+
+  for (uint8_t i = 0; i < TMC5240_REGISTER_COUNT; i++) {
+    this->write_register(i, tmc5240_sampleRegisterPreset[i]);
+  }
 
   this->set_vmax(this->max_speed_);
   this->set_amax(this->acceleration_);
@@ -31,6 +37,7 @@ void TMC5240Stepper::setup() {
 
   // this->set_enc_const(25);
   // this->enable_encoder_position(true);
+  ESP_LOGCONFIG(TAG, "TMC5240 setup done.");
 }
 
 void TMC5240Stepper::loop() {

@@ -52,6 +52,8 @@ ConfigureAction = tmc5240_ns.class_("TMC5240ConfigureAction", automation.Action)
 OnAlertTrigger = tmc5240_ns.class_("TMC5240OnAlertTrigger", automation.Trigger)
 
 
+DEVICE_SCHEMA = cv.Schema({cv.GenerateID(CONF_TMC5240_ID): cv.use_id(Stepper)})
+
 BASE_SCHEMA = cv.Schema(
     {
         cv.Required(CONF_ENN_PIN): pins.gpio_output_pin_schema,
@@ -79,7 +81,6 @@ CONFIG_SCHEMA = cv.typed_schema(
         CONF_UART: cv.Schema(
             {
                 cv.GenerateID(): cv.declare_id(UARTStepper),
-                cv.Required(CONF_DIAG1_PIN): pins.gpio_pin_schema,
                 cv.Optional(CONF_ADDRESS, default=0x00): cv.hex_uint8_t,
             }
         ).extend(
@@ -105,9 +106,11 @@ async def to_code(config):
         cg.add(var.set_uart_address(config[CONF_ADDRESS]))
         await uart.register_uart_device(var, config)
 
+    if CONF_DIAG1_PIN in config:
+        cg.add(var.set_diag1_pin(await cg.gpio_pin_expression(config[CONF_DIAG1_PIN])))
+
     cg.add(var.set_enn_pin(await cg.gpio_pin_expression(config[CONF_ENN_PIN])))
     cg.add(var.set_diag0_pin(await cg.gpio_pin_expression(config[CONF_DIAG0_PIN])))
-    cg.add(var.set_diag1_pin(await cg.gpio_pin_expression(config[CONF_DIAG1_PIN])))
 
     for conf in config.get(CONF_ON_ALERT, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)

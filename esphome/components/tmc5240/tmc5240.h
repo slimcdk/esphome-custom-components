@@ -41,11 +41,6 @@ enum DriverEvent {
   STALLED,
 };
 
-class TMC5240Stepper;  // forwared declare
-
-static TMC5240Stepper *components[TMC5240_NUM_COMPONENTS];
-static uint16_t component_index = 0;
-
 class TMC5240Stepper : public Component, public stepper::Stepper {
  public:
   TMC5240Stepper();
@@ -59,7 +54,7 @@ class TMC5240Stepper : public Component, public stepper::Stepper {
   void set_diag0_pin(GPIOPin *pin) { this->diag0_pin_ = pin; }
   void set_diag1_pin(GPIOPin *pin) { this->diag1_pin_ = pin; }
 
-  // TMC - API wrappers
+  // TMC-API wrappers
   virtual TMC5240BusType get_bus_type() const = 0;
   void write_register(uint8_t address, int32_t value) { tmc5240_writeRegister(this->id_, address, value); }
   void write_field(RegisterField field, uint32_t value) { tmc5240_fieldWrite(this->id_, field, value); }
@@ -131,6 +126,7 @@ class TMC5240SPIStepper : public TMC5240Stepper,
 class TMC5240UARTStepper : public TMC5240Stepper, public uart::UARTDevice {
  public:
   TMC5240UARTStepper() = default;
+  void setup() override { TMC5240Stepper::setup(); };
 
   void set_uart_address(uint8_t address) { this->address_ = address; }
   uint8_t get_uart_address() { return this->address_; }
@@ -138,10 +134,13 @@ class TMC5240UARTStepper : public TMC5240Stepper, public uart::UARTDevice {
   TMC5240BusType get_bus_type() const override { return IC_BUS_UART; }
 
  protected:
-  uint8_t address_{0x00};
+  uint8_t address_;
 };
 #endif
 /** End of UART */
+
+static TMC5240Stepper *components[TMC5240_NUM_COMPONENTS];
+static uint16_t component_index = 0;
 
 }  // namespace tmc5240
 }  // namespace esphome
