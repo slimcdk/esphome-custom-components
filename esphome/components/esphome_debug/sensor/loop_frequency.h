@@ -5,11 +5,11 @@
 #include "esphome/components/sensor/sensor.h"
 
 namespace esphome {
-namespace loop_frequency {
+namespace debug {
 
 static const char *const TAG = "loop_frequency.sensor";
 
-class LoopFrequencySensor : public PollingComponent, public sensor::Sensor {
+class ESPHomeLoopFrequencySensor : public PollingComponent, public sensor::Sensor {
  public:
   void dump_config() override { LOG_SENSOR(" ", "Loop Frequency Sensor", this); }
 
@@ -30,6 +30,5 @@ class LoopFrequencySensor : public PollingComponent, public sensor::Sensor {
 
   HighFrequencyLoopRequester high_freq_;
 };
-
-}  // namespace loop_frequency
+}  // namespace debug
 }  // namespace esphome

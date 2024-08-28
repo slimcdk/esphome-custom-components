@@ -10,9 +10,9 @@ from esphome.const import (
 
 CODEOWNERS = ["@slimcdk"]
 
-loop_frequency_ns = cg.esphome_ns.namespace("loop_frequency")
-LoopFrequencySensor = loop_frequency_ns.class_(
-    "LoopFrequencySensor", cg.PollingComponent, sensor.Sensor
+debug_ns = cg.esphome_ns.namespace("debug")
+ESPHomeLoopFrequencySensor = debug_ns.class_(
+    "ESPHomeLoopFrequencySensor", cg.PollingComponent, sensor.Sensor
 )
 
 TYPE_LOOP_FREQUENCY = "loop_frequency"
@@ -20,7 +20,7 @@ TYPE_LOOP_FREQUENCY = "loop_frequency"
 CONFIG_SCHEMA = cv.typed_schema(
     {
         TYPE_LOOP_FREQUENCY: sensor.sensor_schema(
-            LoopFrequencySensor,
+            ESPHomeLoopFrequencySensor,
             unit_of_measurement=UNIT_HERTZ,
             device_class=DEVICE_CLASS_FREQUENCY,
             state_class=STATE_CLASS_MEASUREMENT,
