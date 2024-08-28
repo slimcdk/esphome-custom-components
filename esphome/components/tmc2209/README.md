@@ -197,6 +197,21 @@ esphome:
 * `rms_current_hold_scale` (*Optional*, percentage, [templatable][config-templatable]): TODO
 
 
+### Sensor
+
+```yaml
+sensor:
+  - platform: tmc2209
+    type: stallguard_result
+    name: Driver stallguard
+    update_interval: 1s
+
+  - platform: tmc2209
+    type: motor_load
+    name: Motor load
+    update_interval: 100ms
+```
+
 ## Example config
 ```yaml
 external_components:

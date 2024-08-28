@@ -16,20 +16,14 @@ TMC2209::TMC2209(uint8_t address, uint32_t oscillator_freq) : address_(address),
 void TMC2209::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209:");
 
-#if defined(USE_INDEX_PIN)
   LOG_PIN("  INDEX Pin: ", this->index_pin_);
-#endif
-
-#if defined(USE_DIAG_PIN)
   LOG_PIN("  DIAG Pin: ", this->diag_pin_);
-#endif
-
   ESP_LOGCONFIG(TAG, "  RSense: %.2f Ohm (%s)", this->rsense_, this->use_internal_rsense_ ? "Internal" : "External");
   ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
 
   const int8_t icv_ = this->get_ioin_chip_version();
   ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", icv_);
-  if (!icv_) {
+  if (std::isnan(icv_)) {
     ESP_LOGE(TAG, "  Unknown IC version (0x%02X) detected. Is the driver powered and wired correctly?", icv_);
   }
 
@@ -158,7 +152,7 @@ void TMC2209::set_microsteps(uint16_t ms) {
       return this->set_chopconf_mres(mres);
 }
 
-float TMC2209::motor_load() {
+float TMC2209::get_motor_load() {
   const uint16_t result = this->get_stallguard_sgresult();
   return (510.0 - (float) result) / (510.0 - (float) this->get_stallguard_sgthrs() * 2.0);
 }

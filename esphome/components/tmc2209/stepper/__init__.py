@@ -7,7 +7,7 @@ from esphome.const import CONF_ID
 from .. import (
     tmc2209_ns,
     CONF_TMC2209_ID,
-    TMC2209_CONFIG_SCHEMA,
+    DEVICE_SCHEMA,
     CONF_ENN_PIN,
     final_validate_device_schema,
 )
@@ -25,7 +25,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Required(CONF_ENN_PIN): pins.gpio_output_pin_schema,
         },
     )
-    .extend(TMC2209_CONFIG_SCHEMA)
+    .extend(DEVICE_SCHEMA)
     .extend(stepper.STEPPER_SCHEMA)
     .extend(cv.COMPONENT_SCHEMA)
 )

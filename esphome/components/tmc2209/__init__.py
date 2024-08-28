@@ -43,12 +43,12 @@ KEY_TMC2209_DEVICES = "tmc2209_devices"
 tmc2209_ns = cg.esphome_ns.namespace("tmc2209")
 TMC2209 = tmc2209_ns.class_("TMC2209", cg.Component, uart.UARTDevice)
 
-TMC2209OnAlertTrigger = tmc2209_ns.class_("TMC2209OnAlertTrigger", automation.Trigger)
-TMC2209ConfigureAction = tmc2209_ns.class_("TMC2209ConfigureAction", automation.Action)
+OnAlertTrigger = tmc2209_ns.class_("TMC2209OnAlertTrigger", automation.Trigger)
+ConfigureAction = tmc2209_ns.class_("TMC2209ConfigureAction", automation.Action)
 DriverEvent = tmc2209_ns.enum("DriverEvent")
 
 
-TMC2209_CONFIG_SCHEMA = cv.Schema(
+DEVICE_SCHEMA = cv.Schema(
     {
         cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209),
     }
@@ -66,9 +66,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_OSCILLATOR_FREQUENCY, default=12_000_000): cv.frequency,
             cv.Optional(CONF_ON_ALERT): automation.validate_automation(
                 {
-                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
-                        TMC2209OnAlertTrigger
-                    ),
+                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnAlertTrigger),
                 }
             ),
         },
@@ -168,7 +166,7 @@ FINAL_VALIDATE_SCHEMA = final_validate_config
 
 @automation.register_action(
     "tmc2209.configure",
-    TMC2209ConfigureAction,
+    ConfigureAction,
     cv.Schema(
         {
             cv.GenerateID(): cv.use_id(TMC2209),

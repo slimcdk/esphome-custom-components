@@ -112,7 +112,7 @@ class TMC2209 : public Component, public uart::UARTDevice {
   float get_rms_current();
   void rms_current_hold_scale(float scale);
   float rms_current_hold_scale();
-  float motor_load();
+  float get_motor_load();
 
   void ihold_irun_ihold_delay_ms(uint32_t delay_in_ms);
   uint32_t ihold_irun_ihold_delay_ms();
