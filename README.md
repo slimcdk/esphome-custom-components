@@ -28,7 +28,7 @@ Component to interface ADI Trinamic stepper driver.
 Component to interface quadrature encoder with SPI.
 
 
-## [ESPHome Debug](esphome/components/esphome_debug)
+## [Insight](esphome/components/insight)
 > Working
 
 Component to expose internal metrics from the running device.
