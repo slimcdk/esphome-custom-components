@@ -10,7 +10,6 @@ from esphome.const import (
 
 CODEOWNERS = ["@slimcdk"]
 
-
 loop_frequency_ns = cg.esphome_ns.namespace("loop_frequency")
 LoopFrequencySensor = loop_frequency_ns.class_(
     "LoopFrequencySensor", cg.PollingComponent, sensor.Sensor
