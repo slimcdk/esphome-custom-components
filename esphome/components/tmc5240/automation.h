@@ -17,19 +17,10 @@ template<typename... Ts> class TMC5240ConfigureAction : public Action<Ts...>, pu
 
   void play(Ts... x) override {
     if (this->inverse_direction_.has_value())
-      this->parent_->set_shaft_direction(this->inverse_direction_.value(x...));
+      this->parent_->write_field(TMC5240_SHAFT_FIELD, this->inverse_direction_.value(x...));
 
     if (this->microsteps_.has_value())
       this->parent_->set_microsteps(this->microsteps_.value(x...));
-
-    // if (this->rms_current_.has_value())
-    //   this->parent_->rms_current(this->rms_current_.value(x...));
-
-    // if (this->coolstep_tcoolthrs_.has_value())
-    //   this->parent_->coolstep_tcoolthrs(this->coolstep_tcoolthrs_.value(x...));
-
-    // if (this->stallguard_sgthrs_.has_value())
-    //   this->parent_->stallguard_sgthrs(this->stallguard_sgthrs_.value(x...));
   }
 };
 

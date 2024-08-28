@@ -51,13 +51,14 @@ UARTStepper = tmc5240_ns.class_("TMC5240UARTStepper", Stepper, uart.UARTDevice)
 ConfigureAction = tmc5240_ns.class_("TMC5240ConfigureAction", automation.Action)
 OnAlertTrigger = tmc5240_ns.class_("TMC5240OnAlertTrigger", automation.Trigger)
 
+DriverEvent = tmc5240_ns.enum("DriverEvent")
 
 DEVICE_SCHEMA = cv.Schema({cv.GenerateID(CONF_TMC5240_ID): cv.use_id(Stepper)})
 
 BASE_SCHEMA = cv.Schema(
     {
         cv.Required(CONF_ENN_PIN): pins.gpio_output_pin_schema,
-        cv.Optional(CONF_DIAG0_PIN): pins.gpio_input_pin_schema,
+        cv.Optional(CONF_DIAG0_PIN): pins.internal_gpio_input_pin_schema,
         cv.Optional(CONF_ON_ALERT): automation.validate_automation(
             {
                 cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnAlertTrigger),
@@ -114,7 +115,7 @@ async def to_code(config):
 
     for conf in config.get(CONF_ON_ALERT, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-        await automation.build_automation(trigger, [], conf)
+        await automation.build_automation(trigger, [(DriverEvent, "alert")], conf)
 
     cg.add_library("https://github.com/slimcdk/TMC-API", "3.10.3")
 
@@ -188,15 +189,3 @@ def tmc5240_configure_to_code(config, action_id, template_arg, args):
         template_ = yield cg.templatable(config[CONF_STALLGUARD_SGTHRS], args, int)
         cg.add(var.set_stallguard_sgthrs(template_))
     yield var
-
-
-TMC5240_ACTION_SCHEMA = automation.maybe_simple_id(
-    {cv.Required(CONF_ID): cv.use_id(Stepper)}
-)
-
-
-# @automation.register_action("tmc5240.stop", StopAction, TMC5240_ACTION_SCHEMA)
-# def tmc5240_stop_to_code(config, action_id, template_arg, args):
-#     var = cg.new_Pvariable(action_id, template_arg)
-#     yield cg.register_parented(var, config[CONF_ID])
-#     yield var

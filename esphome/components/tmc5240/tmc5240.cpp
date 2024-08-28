@@ -25,62 +25,103 @@ void TMC5240Stepper::setup() {
   this->diag0_pin_->setup();
   this->diag1_pin_->setup();
 
-  this->enn_pin_->digital_write(true);
+  this->enable_driver(false);
 
   for (uint8_t i = 0; i < TMC5240_REGISTER_COUNT; i++) {
     this->write_register(i, tmc5240_sampleRegisterPreset[i]);
   }
 
-  this->set_vmax(this->max_speed_);
-  this->set_amax(this->acceleration_);
-  this->set_dmax(this->deceleration_);
+  this->write_field(TMC5240_VMAX_FIELD, (int32_t) this->max_speed_);
+  this->write_field(TMC5240_AMAX_FIELD, (int32_t) this->acceleration_);
+  this->write_field(TMC5240_DMAX_FIELD, (int32_t) this->deceleration_);
+
+  //
+  // this->set_interval(1, [this]() { this->current_position = this->read_field(TMC5240_XACTUAL_FIELD); });
 
   // this->set_enc_const(25);
   // this->enable_encoder_position(true);
+
+  this->diag0_pin_->setup();
+  this->diag0_pin_->attach_interrupt(ISRStore::pin_isr, &this->diag0_isr_store_, gpio::INTERRUPT_RISING_EDGE);
+  this->diag0_isr_store_.pin_triggered_ptr = &this->diag0_triggered_;
+
+  this->diag0_handler_.set_callback([this]() { this->on_alert_callback_.call(DIAG0_TRIGGERED); });
+
   ESP_LOGCONFIG(TAG, "TMC5240 setup done.");
 }
 
 void TMC5240Stepper::loop() {
-  this->current_position = this->get_xactual();
+  this->current_position = this->read_field(TMC5240_XACTUAL_FIELD);
+
+  this->diag0_handler_.check(this->diag0_triggered_);
+  this->diag0_triggered_ = false;
 
   if (!this->has_reached_target()) {
-    this->enn_pin_->digital_write(false);
+    this->enable_driver(true);
 
     this->write_register(TMC5240_RAMPMODE, TMC5240_MODE_POSITION);
-    // this->write_register(TMC5240_VMAX, (int32_t) this->max_speed_);
-    this->set_vmax(this->max_speed_);
-    this->set_amax(this->acceleration_);
-    this->set_dmax(this->deceleration_);
-
+    this->write_field(TMC5240_VMAX_FIELD, (int32_t) this->max_speed_);
+    this->write_field(TMC5240_AMAX_FIELD, (int32_t) this->acceleration_);
+    this->write_field(TMC5240_DMAX_FIELD, (int32_t) this->deceleration_);
     this->write_register(TMC5240_XTARGET, this->target_position);
-
-    // TODO: tmc5240_moveTo(&this->driver_, this->target_position, this->max_speed_);
   } else {
-    this->enn_pin_->digital_write(true);
+    this->enable_driver(false, 1000);
   }
 }
 
+#define DRIVER_ACTIVATION "driver_activation"
+
+void TMC5240Stepper::enable_driver(bool enable, uint32_t delay) {
+  this->enn_pin_->digital_write(!enable);
+  /*
+  // Check if the new state or delay is different from the current one
+  bool new_state = (this->driver_state_ != enable);
+  bool new_delay = (this->current_delay_ != delay);
+
+  // If neither state nor delay has changed, do nothing
+  if (!new_state && !new_delay) {
+    return;
+  }
+
+  // Cancel any existing scheduled state change
+  if (this->driver_state_change_scheduled_) {
+    this->cancel_timeout(DRIVER_ACTIVATION);
+    this->driver_state_change_scheduled_ = false;
+  }
+
+  // Update the current delay
+  this->current_delay_ = delay;
+
+  // If delay is 0, apply the state change immediately
+  if (delay == 0) {
+    this->enn_pin_->digital_write(!enable);
+    this->driver_state_ = enable;
+    ESP_LOGV(TAG, "ENN state changed to %d immediately at %ld", enable, millis());
+    return;
+  }
+
+  // Schedule a state change after the specified delay
+  this->driver_state_change_scheduled_ = true;
+  this->set_timeout(DRIVER_ACTIVATION, delay, [this, enable]() {
+    this->enn_pin_->digital_write(!enable);
+    this->driver_state_ = enable;
+    this->driver_state_change_scheduled_ = false;
+    ESP_LOGV(TAG, "Scheduled ENN change to %d executed at %ld", enable, millis());
+  });
+  ESP_LOGV(TAG, "Scheduled ENN change to %d in %ld ms from %ld", enable, delay, millis());
+  */
+}
+
 uint16_t TMC5240Stepper::get_microsteps() {
-  const uint8_t mres = this->chopconf_mres();
+  const uint8_t mres = (uint8_t) this->read_field(TMC5240_MRES_FIELD);
   return 256 >> mres;
 }
 
 void TMC5240Stepper::set_microsteps(uint16_t ms) {
   for (uint8_t mres = 8; mres > 0; mres--)
     if ((256 >> mres) == ms)
-      return this->chopconf_mres(mres);
+      return this->write_field(TMC5240_MRES_FIELD, mres);
 }
-
-/** setters */
-void TMC5240Stepper::set_vmax(int32_t max) { this->write_field(TMC5240_VMAX_FIELD, max); }
-void TMC5240Stepper::set_amax(int32_t max) { this->write_field(TMC5240_AMAX_FIELD, max); }
-void TMC5240Stepper::set_dmax(int32_t max) { this->write_field(TMC5240_DMAX_FIELD, max); }
-void TMC5240Stepper::set_tvmax(int32_t max) { this->write_field(TMC5240_TVMAX_FIELD, max); }
-void TMC5240Stepper::enable_encoder_position(bool enable) { this->write_field(TMC5240_LATCH_X_ACT_FIELD, enable); }
-void TMC5240Stepper::set_xactual(int32_t value) { this->write_field(TMC5240_XACTUAL_FIELD, value); }
-void TMC5240Stepper::set_shaft_direction(bool invert) { this->write_field(TMC5240_SHAFT_FIELD, invert); }
-void TMC5240Stepper::chopconf_mres(uint8_t index) { this->write_field(TMC5240_MRES_FIELD, index); }
-void TMC5240Stepper::enc_deviation(uint32_t deviation) { this->write_field(TMC5240_ENC_DEVIATION_FIELD, deviation); }
 
 void TMC5240Stepper::set_enc_const(float value) {
   int16_t factor = (int16_t) value;
@@ -89,25 +130,17 @@ void TMC5240Stepper::set_enc_const(float value) {
   this->write_field(TMC5240_ENC_CONST_FIELD, value_);
 }
 
-/** getters */
-bool TMC5240Stepper::get_using_external_oscillator() { return this->read_field(TMC5240_EXT_CLK_FIELD); }
-bool TMC5240Stepper::get_adc_err() { return this->read_field(TMC5240_ADC_ERR_FIELD); }
-bool TMC5240Stepper::get_shaft_direction() { return this->read_field(TMC5240_SHAFT_FIELD); }
-bool TMC5240Stepper::enable_encoder_position() { return this->read_field(TMC5240_LATCH_X_ACT_FIELD); }
-uint8_t TMC5240Stepper::get_encmode_ignore_ab() { return this->read_field(TMC5240_IGNORE_AB_FIELD); }
-uint8_t TMC5240Stepper::get_version() { return this->read_field(TMC5240_VERSION_FIELD); }
-uint8_t TMC5240Stepper::get_revision() { return this->read_field(TMC5240_SILICON_RV_FIELD); }
-uint8_t TMC5240Stepper::chopconf_mres() { return this->read_field(TMC5240_MRES_FIELD); }
-int32_t TMC5240Stepper::get_xactual() { return this->read_field(TMC5240_XACTUAL_FIELD); }
-int32_t TMC5240Stepper::get_sg4_result() { return this->read_field(TMC5240_SG4_RESULT_FIELD); }
-int32_t TMC5240Stepper::get_x_enc() { return this->read_field(TMC5240_X_ENC_FIELD); }
-
-float TMC5240Stepper::get_vsupply() {
+float TMC5240Stepper::read_supply_voltage() {
   int32_t adc_value = this->read_field(TMC5240_ADC_VSUPPLY_FIELD);
   return (float) adc_value * 9.732;
 }
 
-float TMC5240Stepper::get_temp() {
+float TMC5240Stepper::read_adc_ain() {
+  int32_t adc_value = this->read_field(TMC5240_ADC_AIN_FIELD);
+  return (float) adc_value * 305.2;
+}
+
+float TMC5240Stepper::read_temp() {
   int32_t adc_value = this->read_field(TMC5240_ADC_TEMP_FIELD);
   return (adc_value - 2039) / 7.7;
 }
@@ -124,13 +157,18 @@ float TMC5240Stepper::get_enc_const() {
   return (float) factor + (float) fraction / 10.0f;
 }
 
-uint32_t TMC5240Stepper::enc_deviation() {
+uint32_t TMC5240Stepper::get_enc_deviation() {
   uint32_t value = this->read_field(TMC5240_ENC_DEVIATION_FIELD);
   return value;  // CAST_Sn_TO_S32(value, 19);
 }
 
-extern "C" {
+float TMC5240Stepper::get_motor_load() {
+  const uint16_t result = this->read_field(TMC5240_SG4_RESULT_FIELD);
+  return (float) (510 - result) / (float) (510 - this->read_field(TMC5240_SGT_FIELD) * 2);
+}
 
+/** TMC-API wrappers */
+extern "C" {
 TMC5240BusType tmc5240_getBusType(uint16_t id) {
   TMC5240Stepper *comp = components[id];
   return comp->get_bus_type();
