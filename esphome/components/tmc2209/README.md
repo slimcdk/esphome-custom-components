@@ -197,7 +197,11 @@ esphome:
 * `rms_current_hold_scale` (*Optional*, percentage, [templatable][config-templatable]): TODO
 
 
-### Sensor
+### Sensors
+
+Two metrics from the driver is exposed as a ready-to-use sensor component.
+
+
 
 ```yaml
 sensor:
@@ -211,6 +215,14 @@ sensor:
     name: Motor load
     update_interval: 100ms
 ```
+
+* `type` (**Required**):
+  * `stallguard_result` Stator angle shift detected by the driver.
+  * `motor_load` Percentage off stall calculated from StallGuard result and set StallGuard threshold. 100% = stalled
+* `tmc2209_id` (*Optional*, [ID][config-id]): Manually specify the ID of the `tmc2209` you want to use this sensor.
+
+* All other from [Sensor][base-sensor-component]
+
 
 ## Example config
 ```yaml
@@ -429,6 +441,8 @@ button:
 [config-templatable]: <https://esphome.io/automations/templates#config-templatable> "Templatable configuration"
 [uart-component]: <https://esphome.io/components/uart.html> "ESPHome UART Config"
 [base-stepper-component]: <https://esphome.io/components/stepper/#base-stepper-configuration> "ESPHome Base Stepper Component"
+[base-sensor-component]: <https://esphome.io/components/sensor/#config-sensor> "ESPHome Base Sensor Component"
+
 
 [highfrequencylooprequester]: <https://github.com/esphome/esphome/blob/9713458368dfb9fd9aab8016cfe8c85d77b04887/esphome/core/helpers.h#L609> "HighFrequencyLoopRequester class"
 
