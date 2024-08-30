@@ -28,48 +28,48 @@ Component to interface ADI Trinamic stepper driver.
 
 Component to interface ADI Trinamic stepper driver.
 
-## [AS5X47](esphome/components/as5x47)
+## [AS5X47](esphome/components/as5x47/README.md)
 > Work in progress
 
 Component to interface quadrature encoder with SPI.
 
 
-## [Insight](esphome/components/insight)
+## [Insight](esphome/components/insight/README.md)
 > Working
 
 Component to expose internal metrics from the running device.
 
 
-## [Modem](esphome/components/modem)
+## [Modem](esphome/components/modem/README.md)
 > Work in progress
 
 Component to handle state of cellular modems.
 
 
-## [PPPoS](esphome/components/pppos)
+## [PPPoS](esphome/components/pppos/README.md)
 > Work in progress
 
 Networking over serial i.e. cellular modems.
 
 
-## [Network2](esphome/components/network2)
+## [Network2](esphome/components/network2/README.md)
 > Work in progress
 
 
 
 
-## [Freematics](esphome/components/freematics)
+## [Freematics](esphome/components/freematics/README.md)
 > Work in progress
 
 Component to interface the Freematics firmware.
 
 
-## [ICM20948](esphome/components/icm20948)
+## [ICM20948](esphome/components/icm20948/README.md)
 > Work in progress
 
 Component to interface 9-axis IMU.
 
-## [Latch](esphome/components/latch)
+## [Latch](esphome/components/latch/README.md)
 > Work in progress
 
 Binary sensor with latching/locking and release functionality.
