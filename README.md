@@ -7,14 +7,20 @@ external_components:
     components: [ <component1>, <component2>, ... ]
 ```
 
+## [StepDir](esphome/components/stepdir/README.md)
+> Working
+
 
 ## [TMC2209](esphome/components/tmc2209/README.md)
 > Working, but needs testing
 
 Component to interface ADI Trinamic stepper driver.
 
-## [StepDir](esphome/components/stepdir/README.md)
-> Working
+
+## [TMC2300](esphome/components/tmc2300/README.md)
+> Working, but needs testing
+
+Component to interface ADI Trinamic stepper driver.
 
 
 ## [TMC5240](esphome/components/tmc5240/README.md)

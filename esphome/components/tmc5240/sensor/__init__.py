@@ -50,16 +50,12 @@ CONFIG_SCHEMA = cv.typed_schema(
             unit_of_measurement=UNIT_MILLIVOLT,
             accuracy_decimals=0,
             device_class=DEVICE_CLASS_VOLTAGE,
-            state_class=STATE_CLASS_MEASUREMENT,
-            icon=ICON_FLASH,
         ).extend(DEVICE_SCHEMA, cv.polling_component_schema("30s")),
         TYPE_ADC_VOLTAGE: sensor.sensor_schema(
-            SupplyVoltageSensor,
+            ADCVoltageSensor,
             unit_of_measurement=UNIT_MILLIVOLT,
             accuracy_decimals=0,
             device_class=DEVICE_CLASS_VOLTAGE,
-            state_class=STATE_CLASS_MEASUREMENT,
-            icon=ICON_FLASH,
         ).extend(DEVICE_SCHEMA, cv.polling_component_schema("30s")),
         TYPE_ENCODER_POS: sensor.sensor_schema(
             EncoderPosSensor,

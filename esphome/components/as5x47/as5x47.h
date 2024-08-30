@@ -203,25 +203,5 @@ class AS5X47Component : public Component,
   bool is_even_(uint16_t data);
 };
 
-/*template<typename... Ts> class TMC2209StepperConfigureAction : public Action<Ts...>, public Parented<TMC2209Stepper> {
- public:
-  TEMPLATABLE_VALUE(int, set_ab_pulses_pr_revolution)
-
-  void play(Ts... x) override {
-    if (this->set_ab_pulses_pr_revolution_.has_value()) {
-      Settings1 set1;
-      set1.values.abibin = 1;
-      this->write_register_(SETTINGS1_REG, set1.raw);
-
-      Settings2 set2;
-      set2.values.abires = 0b001;
-      this->write_register_(SETTINGS2_REG, set2.raw);
-
-      this->parent_->gconf_shaft(this->inverse_direction_.value(x...));
-      this->parent_->gconf_shaft(this->inverse_direction_.value(x...));
-    }
-  }
-};
-*/
 }  // namespace as5x47
 }  // namespace esphome

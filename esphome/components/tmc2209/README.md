@@ -2,7 +2,7 @@
 
 ESPHome component to control a stepper motor using an ADI (formerly Trinamic) TMC2209 stepper motor driver over UART. Technical information can be found in the [section 1.2.1][datasheet].
 
-This implementation contains two parts: a base component that facilitates serial communication with and feedback from the TMC2209 driver, and a stepper component that allows control of the motor over serial or via step/dir.
+This implementation contains multiple parts: a base component that facilitates serial communication with and feedback from the TMC2209 driver, and a stepper component that allows control of the motor over serial or via step/dir.
 
 > [!IMPORTANT]
 *Only a single `tmc2209` instance per UART config is currently supported.*

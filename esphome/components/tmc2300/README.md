@@ -1,4 +1,4 @@
-
+# TMC2300
 
 ```yaml
 external_components:
