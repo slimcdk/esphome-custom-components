@@ -26,6 +26,9 @@ AS5X47Component = as5x47_ns.class_("AS5X47Component", cg.Component, spi.SPIDevic
 # )
 
 
+DEVICE_SCHEMA = cv.Schema({cv.GenerateID(CONF_AS5X47_ID): cv.use_id(AS5X47Component)})
+
+
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {

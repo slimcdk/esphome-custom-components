@@ -184,7 +184,6 @@ class AS5X47Component : public Component,
   AS5X47Component() = default;
   void dump_config() override;
   void setup() override;
-  // void loop() override;
 
   float read_angle();
 
