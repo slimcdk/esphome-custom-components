@@ -308,9 +308,9 @@ number:
           target: !lambda "return x;"
 
 sensor:
-  - platform: template
-    name: Estimated motor load
-    lambda: return id(driver)->motor_load();
+  - platform: tmc2209
+    type: motor_load
+    name: Motor load
     update_interval: 100ms
 ```
 
