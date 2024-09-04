@@ -310,7 +310,7 @@ number:
 sensor:
   - platform: template
     name: Estimated motor load
-    lambda: return id(driver)->motor_load();
+    lambda: return id(driver)->get_motor_load();
     update_interval: 100ms
 ```
 
