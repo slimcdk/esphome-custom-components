@@ -409,14 +409,13 @@ Guides to wire ESPHome supported MCU to a TMC2209 driver for either only UART co
 
 Wiring for [UART control](#using-serial-uart). `DIAG` is optional but recommended for reliability.
 
-![UART wiring][uart-wiring]
-
+<img src="./docs/uart-wiring.svg" alt="UART wiring" width="100%" />
 
 
 ### Pulse train control
 Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-direction).
 
-![STEP/DIR wiring][sd-wiring]
+<img src="./docs/sd-wiring.svg" alt="STEP/DIR wiring" width="100%" />
 
 
 > [!IMPORTANT]
@@ -440,7 +439,6 @@ Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-directio
 
 
 ## TODOs
-* Example schematics and configs for well-known driver modules.
 * Learning resources on how to tune StallGuard etc.
 * Driver error detection on the DIAG pin or UART and event broadcasting.
 * Write default register to driver.
@@ -462,5 +460,3 @@ Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-directio
 
 [tmcapi-tmc2209-hwa]: <https://github.com/slimcdk/TMC-API/blob/master/tmc/ic/TMC2209/TMC2209_HW_Abstraction.h> "TMC-API TMC2209 Hardware Abstractions"
 
-[uart-wiring]: <./docs/uart-wiring.svg> "UART wiring"
-[sd-wiring]: <./docs/sd-wiring.svg> "STEP/DIR wiring"
