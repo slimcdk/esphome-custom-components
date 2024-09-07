@@ -7,7 +7,7 @@ This implementation contains multiple parts: a base component that facilitates s
 > [!IMPORTANT]
 *Only a single `tmc2209` instance per UART config is currently supported.*
 
-
+# Table of contents
 
 - [Config](#config)
   - [UART Setup](#uart-bus-configuration)
@@ -27,6 +27,7 @@ This implementation contains multiple parts: a base component that facilitates s
   - [for pulse train control](#pulse-train-control)
 - [Resources](#resources)
 - [TODOs](#todos)
+
 
 
 ## Config
