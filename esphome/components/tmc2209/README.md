@@ -424,7 +424,13 @@ Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-directio
 
 
 #### Examples of modules
-![Trinamic BOB][trinamic-module-img]![BigTreeTech][bigtreetech-module-img]![Fysetc][fysetc-module-img]![GrObo][grobo-module-img]![SilentStepStick][silentstepstick-module-img]
+<p align="center">
+  <img src="./docs/trinamic-bob-module.jpg" alt="Trinamic BOB" width="19%" />
+  <img src="./docs/silentstepstick-module.jpg" alt="SilentStepStick" width="19%" />
+  <img src="./docs/bigtreetech-module.webp" alt="BigTreeTech" width="19%" />
+  <img src="./docs/fysetc-module.webp" alt="Fysetc" width="19%" />
+  <img src="./docs/grobo-module.jpg" alt="GRobotronics" width="19%" />
+</p>
 
 
 ## Resources
@@ -458,9 +464,3 @@ Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-directio
 
 [uart-wiring]: <./docs/uart-wiring.svg> "UART wiring"
 [sd-wiring]: <./docs/sd-wiring.svg> "STEP/DIR wiring"
-
-[bigtreetech-module-img]: <./docs/bigtreetech-module.webp>
-[grobo-module-img]: <./docs/grobo-module.jpg>
-[silentstepstick-module-img]: <./docs/silentstepstick-module.jpg>
-[trinamic-module-img]: <./docs/trinamic-bob-module.jpg>
-[fysetc-module-img]: <./docs/fysetc-module.webp>
