@@ -424,10 +424,7 @@ Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-directio
 
 
 #### Examples of modules
-![BigTreeTech][bigtreetech-module-img]
-![GrObo][grobo-module-img]
-![SilentStepStick][silentstepstick-module-img]
-![Trinamic BOB][trinamic-module-img]
+![Trinamic BOB][trinamic-module-img]![BigTreeTech][bigtreetech-module-img]![Fysetc][fysetc-module-img]![GrObo][grobo-module-img]![SilentStepStick][silentstepstick-module-img]
 
 
 ## Resources
@@ -466,3 +463,4 @@ Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-directio
 [grobo-module-img]: <./docs/grobo-module.jpg>
 [silentstepstick-module-img]: <./docs/silentstepstick-module.jpg>
 [trinamic-module-img]: <./docs/trinamic-bob-module.jpg>
+[fysetc-module-img]: <./docs/fysetc-module.webp>
