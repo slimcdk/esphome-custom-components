@@ -401,28 +401,40 @@ button:
 
 ```
 
-## Troubleshooting
-
-
 
 ## Wiring
+Guides to wire ESPHome supported MCU to a TMC2209 driver for either only UART control or pulse train control.
 
-***More to come***
+### UART Control
 
-### Generic TMC2209
+Wiring for [UART control](#using-serial-uart). `DIAG` is optional but recommended for reliability.
 
-<!-- Generic UART wiring between host microcontroller from [datasheet] section 4.3.
-![uart wiring](./docs/swi-uart-wiring.png "Title") -->
+![UART wiring][uart-wiring]
 
 
-### BigTreeTech Module
 
+### Pulse train control
+Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-direction).
+
+![STEP/DIR wiring][sd-wiring]
+
+
+> [!IMPORTANT]
+> Most drivers come as breakout modules and connections can often be labeled slightly differently. `PDN_UART` was often not labeled, as serial communication was rarly used in the early days, but is apparent on nearly all new modules.
+
+
+#### Examples of modules
+![BigTreeTech][bigtreetech-module-img]
+![GrObo][grobo-module-img]
+![SilentStepStick][silentstepstick-module-img]
+![Trinamic BOB][trinamic-module-img]
 
 
 ## Resources
 * https://esphome.io/components/uart
 * https://esphome.io/components/stepper
 * https://github.com/slimcdk/esphome-custom-components/tree/master/esphome/components/stepdir
+
 
 ## TODOs
 * Example schematics and configs for well-known driver modules.
@@ -443,8 +455,14 @@ button:
 [base-stepper-component]: <https://esphome.io/components/stepper/#base-stepper-configuration> "ESPHome Base Stepper Component"
 [base-sensor-component]: <https://esphome.io/components/sensor/#config-sensor> "ESPHome Base Sensor Component"
 
-
 [highfrequencylooprequester]: <https://github.com/esphome/esphome/blob/9713458368dfb9fd9aab8016cfe8c85d77b04887/esphome/core/helpers.h#L609> "HighFrequencyLoopRequester class"
 
-
 [tmcapi-tmc2209-hwa]: <https://github.com/slimcdk/TMC-API/blob/master/tmc/ic/TMC2209/TMC2209_HW_Abstraction.h> "TMC-API TMC2209 Hardware Abstractions"
+
+[uart-wiring]: <./docs/uart-wiring.svg> "UART wiring"
+[sd-wiring]: <./docs/sd-wiring.svg> "STEP/DIR wiring"
+
+[bigtreetech-module-img]: <./docs/bigtreetech-module.webp>
+[grobo-module-img]: <./docs/grobo-module.jpg>
+[silentstepstick-module-img]: <./docs/silentstepstick-module.jpg>
+[trinamic-module-img]: <./docs/trinamic-bob-module.jpg>
