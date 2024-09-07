@@ -9,6 +9,26 @@ This implementation contains multiple parts: a base component that facilitates s
 
 
 
+- [Config](#config)
+  - [UART Setup](#uart-bus-configuration)
+  - [TMC2209 Base Configuration](#base-configuration)
+  - [Stepper Control](#the-stepper-can-be-controlled-in-two-ways)
+    - [Serial (UART)](#using-serial-uart)
+    - [Pulse Train](#using-traditional-stepping-pulses-and-direction)
+- [Automation](#automation)
+  - [Alert Events](#current-supported-alert-events)
+- [Actions](#actions)
+  - [`tmc2209.configure`](#tmc2209configure-action)
+- [Driver sensors](#sensors)
+- [Example Config](#example-config)
+- [Advanced](#advanced)
+- [Wiring](#wiring)
+  - [For UART control](#uart-control)
+  - [for pulse train control](#pulse-train-control)
+- [Resources](#resources)
+- [TODOs](#todos)
+
+
 ## Config
 
 Import the component(s).
