@@ -9,7 +9,7 @@ from .. import (
     CONF_TMC2209_ID,
     DEVICE_SCHEMA,
     CONF_ENN_PIN,
-    final_validate_device_schema,
+    CONF_INDEX_PIN,
 )
 
 CODEOWNERS = ["@slimcdk"]
@@ -23,6 +23,7 @@ CONFIG_SCHEMA = cv.All(
         {
             cv.GenerateID(): cv.declare_id(TMC2209Stepper),
             cv.Required(CONF_ENN_PIN): pins.gpio_output_pin_schema,
+            cv.Required(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
         },
     )
     .extend(DEVICE_SCHEMA)
@@ -36,9 +37,6 @@ async def to_code(config):
     await cg.register_parented(var, config[CONF_TMC2209_ID])
     await cg.register_component(var, config)
     await stepper.register_stepper(var, config)
+
     cg.add(var.set_enn_pin(await cg.gpio_pin_expression(config[CONF_ENN_PIN])))
-
-
-FINAL_VALIDATE_SCHEMA = final_validate_device_schema(
-    "tmc2209.stepper", require_index=True
-)
+    cg.add(var.set_index_pin(await cg.gpio_pin_expression(config[CONF_INDEX_PIN])))

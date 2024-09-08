@@ -54,7 +54,7 @@ uart:
   rx_pin: REPLACEME
   baud_rate: 115200 # 9600 -> 500k
 ```
-> *TMC2209 will auto-detect baud rates from 9600 to 500k with an internal oscillator. An external oscillator is needed for baud rates higher than 500k.*
+> *TMC2209 will auto-detect baud rates from 9600 to 500k with the internal clock/oscillator. An external clock/oscillator is needed for baud rates higher than 500k.*
 ---
 
 Base configuration that facilitates fundamental interaction with the driver like serial communication, event handling and basic configuration, for a generic setup with ESPHome.
@@ -63,24 +63,32 @@ Base configuration that facilitates fundamental interaction with the driver like
 tmc2209:
   id: driver
   address: 0x00
-  index_pin: REPLACEME
   diag_pin: REPLACEME # highly recommended to set
   rsense: 110 mOhm    # highly recommended to set
-  oscillator_freq: 12MHz
+  clock_frequency: 12MHz
+  otpw_selection: 120
+  ot_selection: 143
 ```
 * `id` (**Required**, [ID][config-id]): Specify the ID of the component so that you can reference it from elsewhere.
 
-* `index_pin` (*Optional* | **Required**, [Input Pin Schema][config-pin]): Configured for warning signaling.
-  >Is required when using `tmc2209` stepper component as it serves stepping feedback from the internal step pulse generator. Warning signal detection is moved to UART.
-
-* `diag_pin` (Optional, [Input Pin Schema][config-pin]): Driver error signaling from the driver.
+* `diag_pin` (*Optional*, [Input Pin Schema][config-pin]): Driver error signaling from the driver.
   >If not defined, the less reliable detection over UART will be used instead.
 
-* `address` (Optional, hex): UART address of the IC. Configured by setting MS1_AD0 or MS2_AD1 high or low. Default is `0x00`.
+* `address` (*Optional*, hex): UART address of the IC. Configured by setting MS1_AD0 or MS2_AD1 high or low. Default is `0x00`.
 
-* `rsense` (Optional, resistance): Motor current sense resistors. Varies from ~75 to 1000 mOhm. Consult [section 8][datasheet] for a lookup table.
+* `rsense` (*Optional*, resistance): Motor current sense resistors. Varies from ~75 to 1000 mOhm. Consult [section 8][datasheet] for a lookup table.
 
-* `oscillator_freq` (Optional, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to.
+* `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
+
+* `overtemperature` (*Optional*, dict): Limits for warning and shutdown temperatures. Default is OTP which is factory configuration of 120C for prewarning and 143C for overtemperature (shutdown).
+  * `prewarning` (**Required**, temperature): At which a prewarning for overtemperature is signaled.
+  * `shutdown` (**Required**, temperature): At which the driver disables the output. Can be reenabled once temperature is below prewarning and `ENN` has been toggled.
+
+  Valid combinations are:
+    * `prewarning=120C` and `shutdown=143C`.
+    * `prewarning=120C` and `shutdown=150C`.
+    * `prewarning=143C` and `shutdown=150C`.
+    * `prewarning=143C` and `shutdown=157C`.
 
 > [!CAUTION]
 **Activation of the driver is delegated to the stepper component to perform. Long wires connected to ENN might pick up interference causing the driver to make a "sizzling" noise if left floating.**
@@ -104,6 +112,7 @@ stepper:
   - platform: tmc2209
     id: motor
     enn_pin: REPLACEME
+    index_pin: REPLACEME
     max_speed: 500 steps/s
     acceleration: 1000 steps/s^2 # optional
     deceleration: 1000 steps/s^2 # optional
@@ -112,11 +121,9 @@ stepper:
 
 * `enn_pin` (**Required**, [Output Pin Schema][config-pin]): Enable not input pin for the driver. No need for manual inverted config as inverted logic is handled internally.
 
-* All other from [Base Stepper Component][base-stepper-component]
+* `index_pin` (**Required**, [Input Pin Schema][config-pin]): Serves as stepping feedback from the internal step pulse generator.
 
-> [!IMPORTANT]
-**`index_pin` will receive stepping feedback from the driver's internal step generator and is required to be set.**
-> *Previous index usage is now handled over UART.*
+* All other from [Base Stepper Component][base-stepper-component]
 
 
 #### Using traditional stepping pulses and direction
@@ -161,26 +168,26 @@ tmc2209:
 
 #### Current supported alert events
 
-  * `INDEX_TRIGGERED` When a warning flag is raised. *Not firing when configured for stepping feedback*
+Most alerts is signaling that the driver is in a given state. The majority of alert events also has a `CLEARED` or similar counterpart signaling the driver is now not in the given state anymore.
 
 #### Diagnostics output
   * `DIAG_TRIGGERED` DIAG output is triggered. Primarily driver errors.
   * `STALLED` Motor crossed Stallguard thresholds and is considered stalled.
 
 ##### Temperature events
-  * `TEMPERATURE_NORMAL` Driver has recovered to a safe operational temperature.
-  * `OVERTEMPERATURE_PREWARNING` Driver is warning about increasing temperature. (happens at 120C)
-  * `OVERTEMPERATURE_PREWARNING_GONE` Above warning is dismissed.
-  * `OVERTEMPERATURE` Driver is at critial high temperature and is shutting down.
-  * `OVERTEMPERATURE_GONE` Above warning is dismissed.
-  * `TEMPERATURE_BELOW_120C` Temperature is higher than 120C.
-  * `TEMPERATURE_ABOVE_120C` Temperature is lower then 120C.
-  * `TEMPERATURE_BELOW_143C` Temperature is higher than 143C.
-  * `TEMPERATURE_ABOVE_143C` Temperature is lower then 143C.
-  * `TEMPERATURE_BELOW_150C` Temperature is higher than 150C.
-  * `TEMPERATURE_ABOVE_150C` Temperature is lower then 150C.
-  * `TEMPERATURE_BELOW_157C` Temperature is higher than 157C.
-  * `TEMPERATURE_ABOVE_157C` Temperature is lower then 157C.
+  * `OVERTEMPERATURE_PREWARNING` | `OVERTEMPERATURE_PREWARNING_CLEARED` Driver is warning about increasing temperature.
+  * `OVERTEMPERATURE` | `OVERTEMPERATURE_CLEARED` Driver is at critial high temperature and is shutting down.
+  * `TEMPERATURE_ABOVE_120C` | `TEMPERATURE_BELOW_120C` Temperature is higher or lower than 120C.
+  * `TEMPERATURE_ABOVE_143C` | `TEMPERATURE_BELOW_143C` Temperature is higher or lower than 143C.
+  * `TEMPERATURE_ABOVE_150C` | `TEMPERATURE_BELOW_150C` Temperature is higher or lower than 150C.
+  * `TEMPERATURE_ABOVE_157C` | `TEMPERATURE_BELOW_157C` Temperature is higher or lower than 157C.
+  * `A_OPEN_LOAD` | `A_OPEN_LOAD_CLEARED` Open load indicator phase A.
+  * `B_OPEN_LOAD` | `B_OPEN_LOAD_CLEARED` Open load indicator phase B.
+  * `A_LOW_SIDE_SHORT` | `A_LOW_SIDE_SHORT_CLEARED` Low side short indicator phase A.
+  * `B_LOW_SIDE_SHORT` | `B_LOW_SIDE_SHORT_CLEARED` Low side short indicator phase B.
+  * `A_GROUND_SHORT` | `A_GROUND_SHORT_CLEARED` Short to ground indicator phase A.
+  * `B_GROUND_SHORT` | `B_GROUND_SHORT_CLEARED` Short to ground indicator phase B.
+
 
 ## Actions
 
@@ -275,7 +282,6 @@ uart:
 
 tmc2209:
   id: driver
-  index_pin: 12
   diag_pin: 13
   rsense: 110 mOhm
   on_alert:
@@ -291,6 +297,7 @@ stepper:
     id: motor
     tmc2209_id: driver
     enn_pin: 4
+    index_pin: 12
     max_speed: 500 steps/s
     acceleration: 1000 steps/s^2
     deceleration: 1000 steps/s^2

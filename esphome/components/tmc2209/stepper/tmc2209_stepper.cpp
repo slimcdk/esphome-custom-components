@@ -14,16 +14,16 @@ void TMC2209Stepper::setup() {
 
   /* Reconfigure INDEX as it serves another purpose here. */
   // Check mux from figure 15.1 from datasheet rev1.09
-  this->parent_->set_gconf_index_step(true);
-  this->parent_->set_gconf_index_otpw(false);
+  this->parent_->write_gconf_index_step(true);
+  this->parent_->write_gconf_index_otpw(false);
 
   this->ips_.target_position_ptr = &this->target_position;
   this->ips_.current_position_ptr = &this->current_position;
   this->ips_.direction_ptr = &this->direction_;
 
   // Override interrupt set by parent on index_pin.
-  this->parent_->index_pin_->detach_interrupt();
-  this->parent_->index_pin_->attach_interrupt(IndexPulseStore::pulse_isr, &this->ips_, gpio::INTERRUPT_RISING_EDGE);
+  this->index_pin_->setup();
+  this->index_pin_->attach_interrupt(IndexPulseStore::pulse_isr, &this->ips_, gpio::INTERRUPT_RISING_EDGE);
   /* Reconfiguration done */
 
   // this->set_interval(1000, [this]() { ESP_LOGD(TAG, "current position %d", this->current_position); });
@@ -35,6 +35,7 @@ void TMC2209Stepper::setup() {
 void TMC2209Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
   LOG_PIN("  ENN Pin: ", this->enn_pin_);
+  LOG_PIN("  INDEX Pin: ", this->index_pin_);
   LOG_STEPPER(this);
 }
 
@@ -81,13 +82,13 @@ void TMC2209Stepper::loop() {
   this->direction_ = (to_target != 0 ? (Direction) (to_target / abs(to_target)) : Direction::NONE);  // yield 1, -1 or 0
   this->calculate_speed_(micros());
   // -2.8 inverts direction and scales stepping to match specified. Magic number
-  this->parent_->set_vactual((-2.8 * this->direction_) * (int32_t) this->current_speed_);
+  this->parent_->write_vactual((-2.8 * this->direction_) * (int32_t) this->current_speed_);
 }
 
 void TMC2209Stepper::stop() {
   this->direction_ = Direction::NONE;
   this->target_position = this->current_position;
-  this->parent_->set_vactual(0);
+  this->parent_->write_vactual(0);
 }
 
 void TMC2209Stepper::enable(bool enable) {

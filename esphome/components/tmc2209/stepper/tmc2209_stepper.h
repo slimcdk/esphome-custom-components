@@ -33,11 +33,13 @@ class TMC2209Stepper : public Parented<TMC2209>, public Component, public steppe
   void stop() override;
 
   void set_enn_pin(InternalGPIOPin *pin) { this->enn_pin_ = pin; };
+  void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; };
 
   void enable(bool enable = true);
 
  protected:
   InternalGPIOPin *enn_pin_;
+  InternalGPIOPin *index_pin_;
 
   bool driver_is_enabled_{false};
   IndexPulseStore ips_{};  // index pulse store

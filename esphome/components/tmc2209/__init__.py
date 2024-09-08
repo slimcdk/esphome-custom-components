@@ -34,7 +34,12 @@ CONF_POWER_DOWN_DELAY = "power_down_delay"
 CONF_TSTEP = "tstep"
 CONF_TPWMTHRS = "tpwmthrs"
 CONF_RSENSE = "rsense"
-CONF_OSCILLATOR_FREQUENCY = "oscillator_freq"
+CONF_CLOCK_FREQUENCY = "clock_frequency"
+
+CONF_OVERTEMPERATURE = "overtemperature"
+CONF_OVERTEMPERATURE_PREWARNING = "prewarning"
+CONF_OVERTEMPERATURE_SHUTDOWN = "shutdown"
+CONF_OTTRIM = "ottrim"
 
 CONF_ON_ALERT = "on_alert"
 
@@ -55,15 +60,39 @@ DEVICE_SCHEMA = cv.Schema(
 )
 
 
+def _validate_ottrim_selection(config):
+    otpw = int(config[CONF_OVERTEMPERATURE_PREWARNING])
+    ot = int(config[CONF_OVERTEMPERATURE_SHUTDOWN])
+    valid_ottrim = [[143, 120], [150, 120], [150, 143], [157, 143]]
+
+    if [ot, otpw] not in valid_ottrim:
+        raise cv.Invalid("Selected overtemperature combinations are invalid")
+
+    config[CONF_OTTRIM] = valid_ottrim.index([ot, otpw])
+    return config
+
+
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(TMC2209),
-            cv.Optional(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_ADDRESS, default=0x00): cv.hex_uint8_t,
             cv.Optional(CONF_RSENSE, default=0): cv.resistance,
-            cv.Optional(CONF_OSCILLATOR_FREQUENCY, default=12_000_000): cv.frequency,
+            cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.frequency,
+            cv.Optional(CONF_OVERTEMPERATURE): cv.All(
+                cv.Schema(
+                    {
+                        cv.Required(CONF_OVERTEMPERATURE_PREWARNING): cv.temperature,
+                        cv.Required(CONF_OVERTEMPERATURE_SHUTDOWN): cv.temperature,
+                    }
+                ),
+                cv.has_none_or_all_keys(
+                    CONF_OVERTEMPERATURE_PREWARNING,
+                    CONF_OVERTEMPERATURE_SHUTDOWN,
+                ),
+                _validate_ottrim_selection,
+            ),
             cv.Optional(CONF_ON_ALERT): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnAlertTrigger),
@@ -78,73 +107,25 @@ CONFIG_SCHEMA = cv.All(
 
 async def to_code(config):
     var = cg.new_Pvariable(
-        config[CONF_ID], config[CONF_ADDRESS], config[CONF_OSCILLATOR_FREQUENCY]
+        config[CONF_ID], config[CONF_ADDRESS], config[CONF_CLOCK_FREQUENCY]
     )
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
 
     cg.add(var.set_rsense(config[CONF_RSENSE], CONF_RSENSE not in config))
 
-    if CONF_INDEX_PIN in config:
-        cg.add(var.set_index_pin(await cg.gpio_pin_expression(config[CONF_INDEX_PIN])))
-        cg.add_define("USE_INDEX_PIN")
-
     if CONF_DIAG_PIN in config:
         cg.add(var.set_diag_pin(await cg.gpio_pin_expression(config[CONF_DIAG_PIN])))
         cg.add_define("USE_DIAG_PIN")
+
+    if CONF_OVERTEMPERATURE in config and CONF_OTTRIM in config[CONF_OVERTEMPERATURE]:
+        cg.add(var.set_ottrim(config[CONF_OVERTEMPERATURE][CONF_OTTRIM]))
 
     for conf in config.get(CONF_ON_ALERT, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(DriverEvent, "alert")], conf)
 
     cg.add_library("https://github.com/slimcdk/TMC-API", "3.10.3")
-
-
-def final_validate_device_schema(
-    name: str,
-    *,
-    tmc2209_bus: str = CONF_TMC2209_ID,
-    require_index: bool = False,
-    require_diag: bool = False,
-):
-    def validate_pin(opt, device):
-        def validator(value):
-            if opt in device:
-                raise cv.Invalid(
-                    f"The uart {opt} is used both by {name} and {device[opt]}, "
-                    f"but can only be used by one. Please create a new uart bus for {name}."
-                )
-            device[opt] = name
-            return value
-
-        return validator
-
-    def validate_hub(hub_config):
-        hub_schema = {}
-        tmc2209_id = hub_config[CONF_ID]
-        devices = fv.full_config.get().data.setdefault(KEY_TMC2209_DEVICES, {})
-        device = devices.setdefault(tmc2209_id, {})
-
-        if require_index:
-            hub_schema[
-                cv.Required(
-                    CONF_INDEX_PIN,
-                    msg=f"Component {name} requires tmc2209 referenced by {tmc2209_bus} to declare a index_pin",
-                )
-            ] = validate_pin(CONF_INDEX_PIN, device)
-        if require_diag:
-            hub_schema[
-                cv.Required(
-                    CONF_DIAG_PIN,
-                    msg=f"Component {name} requires tmc2209 referenced by {tmc2209_bus} to declare a diag_pin",
-                )
-            ] = validate_pin(CONF_DIAG_PIN, device)
-        return cv.Schema(hub_schema, extra=cv.ALLOW_EXTRA)(hub_config)
-
-    return cv.Schema(
-        {cv.Required(tmc2209_bus): fv.id_declaration_match_schema(validate_hub)},
-        extra=cv.ALLOW_EXTRA,
-    )
 
 
 def final_validate_config(config):
@@ -182,7 +163,7 @@ FINAL_VALIDATE_SCHEMA = final_validate_config
                 cv.int_range(min=0, max=2**20, max_included=False)
             ),
             cv.Optional(CONF_STALLGUARD_SGTHRS): cv.templatable(
-                cv.int_range(min=0, max=2**8, max_included=True)
+                cv.int_range(min=0, max=2**8)
             ),
             cv.Optional(CONF_INTERPOLATION): cv.templatable(cv.boolean),
             # cv.Optional(CONF_HOLD_CURRENT_DELAY): cv.templatable(cv.All(
