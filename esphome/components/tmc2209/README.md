@@ -5,7 +5,7 @@ ESPHome component to control a stepper motor using an ADI (formerly Trinamic) TM
 This implementation contains multiple parts: a base component that facilitates serial communication with and feedback from the TMC2209 driver, and a stepper component that allows control of the motor over serial or via step/dir.
 
 > [!IMPORTANT]
-*Only a single `tmc2209` instance per UART config is currently supported.*
+*Only a single `tmc2209` instance (device) per UART config is currently supported by ESPHome. Multiple drivers require multiple UART connections.*
 
 # Table of contents
 
@@ -24,9 +24,12 @@ This implementation contains multiple parts: a base component that facilitates s
 - [Advanced](#advanced)
 - [Wiring](#wiring)
   - [For UART control](#uart-control)
-  - [for pulse train control](#pulse-train-control)
+  - [For pulse train control](#pulse-train-control)
 - [Resources](#resources)
-- [TODOs](#todos)
+- [Troubleshooting](#troubleshooting)
+  - [Unable to read IC version](#unable-to-read-ic-version-is-the-driver-powered-and-wired-correctly)
+  - [Detected unknown IC version](#detected-unknown-ic-version-0x)
+  - [Reading from UART timed out](#reading-from-uart-timed-out-at-byte-0)
 
 
 
@@ -66,8 +69,9 @@ tmc2209:
   diag_pin: REPLACEME # highly recommended to set
   rsense: 110 mOhm    # highly recommended to set
   clock_frequency: 12MHz
-  otpw_selection: 120
-  ot_selection: 143
+  overtemperature:
+    prewarning: 120C
+    shutdown: 143C
 ```
 * `id` (**Required**, [ID][config-id]): Specify the ID of the component so that you can reference it from elsewhere.
 
@@ -90,12 +94,8 @@ tmc2209:
     * `prewarning=143C` and `shutdown=150C`.
     * `prewarning=143C` and `shutdown=157C`.
 
-> [!CAUTION]
-**Activation of the driver is delegated to the stepper component to perform. Long wires connected to ENN might pick up interference causing the driver to make a "sizzling" noise if left floating.**
-
-> [!IMPORTANT]
-**First generation of TMC2209s have version `0x21`. Monitor the logger output for `[C][tmc2209:031]:   Detected IC version: 0x21` to see if it is correctly detected.  \
-You will see version `0x00` and an error message if the version couldn't be read.**
+>[!WARNING]
+*Configuring `overtemperature` has no effect at the moment as there is an issue with updating the register field on the driver. It will however still monitor temperatures and emit alert events and the driver will also shutdown when temperature is too high*
 
 ---
 ### The stepper can be controlled in two ways
@@ -104,6 +104,7 @@ You will see version `0x00` and an error message if the version couldn't be read
 
 #### Using serial (UART)
 Accuracy is slightly reduced in favor of tight timings and high-frequency stepping pulses. Pulse generation is unaffected by ESPHome's handling of other components or main thread execution. This means that the host microcontroller (e.g., ESP32) running ESPHome doesn't provide the step generation, but it is handled internally by the driver. Highly recommended for use with high microstep interpolation or true silent operation.
+>*The provided accuracy is often precise enough, but it depends on speeds and how often the component can write to the driver.*
 
 Relevant info can be found in [section 1.3][datasheet].
 
@@ -165,16 +166,16 @@ tmc2209:
           - logger.log: "Motor stalled!"
           - stepper.stop: motor
 ```
+> <small>[All events in an example config](#alert-events)</small>
+
+
 
 #### Current supported alert events
 
-Most alerts is signaling that the driver is in a given state. The majority of alert events also has a `CLEARED` or similar counterpart signaling the driver is now not in the given state anymore.
+Most alerts is signaling that the driver is in a given state. The majority of alert events also has a `CLEARED` or similar counterpart signaling that the driver is now not in the given state anymore.
 
-#### Diagnostics output
   * `DIAG_TRIGGERED` DIAG output is triggered. Primarily driver errors.
-  * `STALLED` Motor crossed Stallguard thresholds and is considered stalled.
-
-##### Temperature events
+  * `STALLED` StallGuard result crossed StallGuard threshold and motor is considered stalled.
   * `OVERTEMPERATURE_PREWARNING` | `OVERTEMPERATURE_PREWARNING_CLEARED` Driver is warning about increasing temperature.
   * `OVERTEMPERATURE` | `OVERTEMPERATURE_CLEARED` Driver is at critial high temperature and is shutting down.
   * `TEMPERATURE_ABOVE_120C` | `TEMPERATURE_BELOW_120C` Temperature is higher or lower than 120C.
@@ -188,6 +189,9 @@ Most alerts is signaling that the driver is in a given state. The majority of al
   * `A_GROUND_SHORT` | `A_GROUND_SHORT_CLEARED` Short to ground indicator phase A.
   * `B_GROUND_SHORT` | `B_GROUND_SHORT_CLEARED` Short to ground indicator phase B.
 
+>[!IMPORTANT]
+*`STALLED` is the event you would want for sensorless homing*
+
 
 ## Actions
 
@@ -199,13 +203,10 @@ esphome:
   on_boot:
     - tmc2209.configure:
         id: driver
-        inverse_direction: false
         microsteps: 4
         coolstep_tcoolthrs: 400
         stallguard_sgthrs: 75
-        interpolation: true
         rms_current: 800mA
-        rms_current_hold_scale: 0%
 ```
 
 * `id` (**Required**, ID): Reference to the stepper tmc2209 (base, not stepper) component.
@@ -222,14 +223,10 @@ esphome:
 
 * `rms_current` (*Optional*, current, [templatable][config-templatable]): RMS current setting according to [section 9][datasheet].
 
-* `rms_current_hold_scale` (*Optional*, percentage, [templatable][config-templatable]): TODO
-
 
 ### Sensors
 
-Two metrics from the driver is exposed as a ready-to-use sensor component.
-
-
+Some metrics from the driver is exposed as a ready-to-use sensor component.
 
 ```yaml
 sensor:
@@ -243,11 +240,11 @@ sensor:
     name: Motor load
     update_interval: 100ms
 ```
+* `tmc2209_id` (*Optional*, [ID][config-id]): Manually specify the ID of the `tmc2209` you want to use this sensor.
 
 * `type` (**Required**):
   * `stallguard_result` Stator angle shift detected by the driver.
   * `motor_load` Percentage off stall calculated from StallGuard result and set StallGuard threshold. 100% = stalled
-* `tmc2209_id` (*Optional*, [ID][config-id]): Manually specify the ID of the `tmc2209` you want to use this sensor.
 
 * All other from [Sensor][base-sensor-component]
 
@@ -276,9 +273,9 @@ esphome:
         rms_current: 800mA
 
 uart:
-  tx_pin: 14
-  rx_pin: 27
-  baud_rate: 500000
+  tx_pin: 27
+  rx_pin: 26
+  baud_rate: 115200
 
 tmc2209:
   id: driver
@@ -289,14 +286,14 @@ tmc2209:
         condition:
           lambda: return alert == tmc2209::STALLED;
         then:
-          - logger.log: "DIAG triggered"
+          - logger.log: "Motor stalled!"
           - stepper.stop: motor
 
 stepper:
   - platform: tmc2209
     id: motor
     tmc2209_id: driver
-    enn_pin: 4
+    enn_pin: 14
     index_pin: 12
     max_speed: 500 steps/s
     acceleration: 1000 steps/s^2
@@ -345,26 +342,27 @@ sensor:
 Output of the above configuration.
 ```console
 ...
-[08:51:47][C][uart.idf:159]: UART Bus 1:
-[08:51:47][C][uart.idf:160]:   TX Pin: GPIO27
-[08:51:47][C][uart.idf:161]:   RX Pin: GPIO26
-[08:51:47][C][uart.idf:163]:   RX Buffer Size: 256
-[08:51:47][C][uart.idf:165]:   Baud Rate: 500000 baud
-[08:51:47][C][uart.idf:166]:   Data Bits: 8
-[08:51:47][C][uart.idf:167]:   Parity: NONE
-[08:51:47][C][uart.idf:168]:   Stop bits: 1
-[08:51:47][C][tmc2209:017]: TMC2209:
-[08:51:47][C][tmc2209:020]:   INDEX Pin: GPIO12
-[08:51:47][C][tmc2209:024]:   DIAG Pin: GPIO13
-[08:51:47][C][tmc2209:027]:   RSense: 0.11 Ohm (External)
-[08:51:47][C][tmc2209:028]:   Address: 0x00
-[08:51:47][C][tmc2209:031]:   Detected IC version: 0x21
-[08:51:47][C][tmc2209:036]:   Oscillator frequency: 12000000 Hz
-[08:51:47][C][tmc2209.stepper:036]: TMC2209 Stepper:
-[08:51:47][C][tmc2209.stepper:037]:   ENN Pin: GPIO14
-[08:51:47][C][tmc2209.stepper:038]:   Acceleration: 1000 steps/s^2
-[08:51:47][C][tmc2209.stepper:038]:   Deceleration: 1000 steps/s^2
-[08:51:47][C][tmc2209.stepper:038]:   Max Speed: 500 steps/s
+[00:00:00][C][uart.idf:159]: UART Bus 1:
+[00:00:00][C][uart.idf:160]:   TX Pin: GPIO27
+[00:00:00][C][uart.idf:161]:   RX Pin: GPIO26
+[00:00:00][C][uart.idf:163]:   RX Buffer Size: 256
+[00:00:00][C][uart.idf:165]:   Baud Rate: 115200 baud
+[00:00:00][C][uart.idf:166]:   Data Bits: 8
+[00:00:00][C][uart.idf:167]:   Parity: NONE
+[00:00:00][C][uart.idf:168]:   Stop bits: 1
+[00:00:00][C][tmc2209:017]: TMC2209:
+[00:00:00][C][tmc2209:019]:   DIAG Pin: GPIO13
+[00:00:00][C][tmc2209:020]:   RSense: 0.11 Ohm (External)
+[00:00:00][C][tmc2209:021]:   Address: 0x00
+[00:00:00][C][tmc2209:022]:   Clock frequency: 12000000 Hz
+[00:00:00][C][tmc2209:028]:   Detected IC version: 0x21
+[00:00:00][C][tmc2209:039]:   Overtemperature: prewarning = 120C | shutdown = 143C
+[00:00:00][C][tmc2209.stepper:011]: TMC2209 Stepper:
+[00:00:00][C][tmc2209.stepper:012]:   ENN Pin: GPIO14
+[00:00:00][C][tmc2209.stepper:013]:   INDEX Pin: GPIO12
+[00:00:00][C][tmc2209.stepper:014]:   Acceleration: 1000 steps/s^2
+[00:00:00][C][tmc2209.stepper:014]:   Deceleration: 1000 steps/s^2
+[00:00:00][C][tmc2209.stepper:014]:   Max Speed: 500 steps/s
 ...
 ```
 
@@ -466,6 +464,21 @@ Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-directio
 * https://github.com/slimcdk/esphome-custom-components/tree/master/esphome/components/stepdir
 
 
+## Troubleshooting
+
+### Unable to read IC version. Is the driver powered and wired correctly?
+1. Make sure UART is correctly wired and the 1k Ohm resistor is placed correctly.
+2. Make sure the driver is power on VM / VS (motor supply voltage). Must be between 4.75 and 29V.
+
+### Detected unknown IC version: 0x??
+First generation of TMC2209s have version `0x21`. There is only a single version released as of Q3 2024. If you are seeing version `0x20` that means you have a TMC2208 which is not supported by this component.
+
+### Reading from UART timed out at byte 0!
+Poor signal integrity can cause instability in the UART connection. The component doesn't retry writing/reading if a reading failed. Make sure the connection is reliable for best performance. Try lower baud rates if these only appear occasionally.
+
+### Driver makes "sizzling" noise
+Activation of the driver is delegated to the stepper component to perform. Long wires connected to ENN might pick up interference causing the driver to make a sizzling noise if left floating. A stepper configuration is needed for handling ENN.
+
 ## TODOs
 * Learning resources on how to tune StallGuard etc.
 * Driver error detection on the DIAG pin or UART and event broadcasting.
@@ -474,6 +487,162 @@ Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-directio
 * Driver warning and error trigger events.
 * Handle changes written directly to the driver.
 * Write default register on start?
+* OTTRIM not setting or reading properly
+
+
+## MISC
+
+### Alert events
+All alert events configured for easy copy-pasta.
+```yaml
+tmc2209:
+  id: driver
+  ...
+  on_alert:
+    - if:
+        condition:
+          lambda: return alert == tmc2209::DIAG_TRIGGERED;
+        then:
+          - logger.log: DIAG_TRIGGERED
+    - if:
+        condition:
+          lambda: return alert == tmc2209::STALLED;
+        then:
+          - logger.log: STALLED
+          - stepper.stop: motor
+    - if:
+        condition:
+          lambda: return alert == tmc2209::OVERTEMPERATURE_PREWARNING;
+        then:
+          - logger.log: OVERTEMPERATURE_PREWARNING
+    - if:
+        condition:
+          lambda: return alert == tmc2209::OVERTEMPERATURE_PREWARNING_CLEARED;
+        then:
+          - logger.log: OVERTEMPERATURE_PREWARNING_CLEARED
+    - if:
+        condition:
+          lambda: return alert == tmc2209::OVERTEMPERATURE;
+        then:
+          - logger.log: OVERTEMPERATURE_CLEARED
+    - if:
+        condition:
+          lambda: return alert == tmc2209::TEMPERATURE_ABOVE_120C;
+        then:
+          - logger.log: TEMPERATURE_ABOVE_120C
+    - if:
+        condition:
+          lambda: return alert == tmc2209::TEMPERATURE_BELOW_120C;
+        then:
+          - logger.log: TEMPERATURE_BELOW_120C
+    - if:
+        condition:
+          lambda: return alert == tmc2209::TEMPERATURE_ABOVE_143C;
+        then:
+          - logger.log: TEMPERATURE_ABOVE_143C
+    - if:
+        condition:
+          lambda: return alert == tmc2209::TEMPERATURE_BELOW_143C;
+        then:
+          - logger.log: TEMPERATURE_BELOW_143C
+    - if:
+        condition:
+          lambda: return alert == tmc2209::TEMPERATURE_ABOVE_150C;
+        then:
+          - logger.log: TEMPERATURE_ABOVE_150C
+    - if:
+        condition:
+          lambda: return alert == tmc2209::TEMPERATURE_BELOW_150C;
+        then:
+          - logger.log: TEMPERATURE_BELOW_150C
+    - if:
+        condition:
+          lambda: return alert == tmc2209::TEMPERATURE_ABOVE_157C;
+        then:
+          - logger.log: TEMPERATURE_ABOVE_157C
+    - if:
+        condition:
+          lambda: return alert == tmc2209::TEMPERATURE_BELOW_157C;
+        then:
+          - logger.log: TEMPERATURE_BELOW_157C
+    - if:
+        condition:
+          lambda: return alert == tmc2209::A_OPEN_LOAD;
+        then:
+          - logger.log: A_OPEN_LOAD
+    - if:
+        condition:
+          lambda: return alert == tmc2209::A_OPEN_LOAD_CLEARED;
+        then:
+          - logger.log: A_OPEN_LOAD_CLEARED
+    - if:
+        condition:
+          lambda: return alert == tmc2209::B_OPEN_LOAD;
+        then:
+          - logger.log: B_OPEN_LOAD
+    - if:
+        condition:
+          lambda: return alert == tmc2209::B_OPEN_LOAD_CLEARED;
+        then:
+          - logger.log: B_OPEN_LOAD_CLEARED
+    - if:
+        condition:
+          lambda: return alert == tmc2209::A_OPEN_LOAD;
+        then:
+          - logger.log: A_OPEN_LOAD
+    - if:
+        condition:
+          lambda: return alert == tmc2209::A_OPEN_LOAD_CLEARED;
+        then:
+          - logger.log: A_OPEN_LOAD_CLEARED
+    - if:
+        condition:
+          lambda: return alert == tmc2209::B_OPEN_LOAD;
+        then:
+          - logger.log: B_OPEN_LOAD
+    - if:
+        condition:
+          lambda: return alert == tmc2209::B_OPEN_LOAD_CLEARED;
+        then:
+          - logger.log: B_OPEN_LOAD_CLEARED
+    - if:
+        condition:
+          lambda: return alert == tmc2209::A_LOW_SIDE_SHORT;
+        then:
+          - logger.log: A_LOW_SIDE_SHORT
+    - if:
+        condition:
+          lambda: return alert == tmc2209::A_LOW_SIDE_SHORT_CLEARED;
+        then:
+          - logger.log: A_LOW_SIDE_SHORT_CLEARED
+    - if:
+        condition:
+          lambda: return alert == tmc2209::B_LOW_SIDE_SHORT;
+        then:
+          - logger.log: B_LOW_SIDE_SHORT
+    - if:
+        condition:
+          lambda: return alert == tmc2209::B_LOW_SIDE_SHORT_CLEARED;
+        then:
+          - logger.log: B_LOW_SIDE_SHORT_CLEARED
+    - if:
+        condition:
+          lambda: return alert == tmc2209::A_GROUND_SHORT_CLEARED;
+        then:
+          - logger.log: A_GROUND_SHORT_CLEARED
+    - if:
+        condition:
+          lambda: return alert == tmc2209::B_GROUND_SHORT;
+        then:
+          - logger.log: B_GROUND_SHORT
+    - if:
+        condition:
+          lambda: return alert == tmc2209::B_GROUND_SHORT_CLEARED;
+        then:
+          - logger.log: B_GROUND_SHORT_CLEARED
+```
+
+
 
 [datasheet]: <./docs/TMC2209_datasheet_rev1.09.pdf> "Datasheet rev 1.09"
 

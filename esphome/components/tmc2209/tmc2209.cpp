@@ -19,25 +19,37 @@ void TMC2209::dump_config() {
   LOG_PIN("  DIAG Pin: ", this->diag_pin_);
   ESP_LOGCONFIG(TAG, "  RSense: %.2f Ohm (%s)", this->rsense_, this->use_internal_rsense_ ? "Internal" : "External");
   ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
+  ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz", this->clock_frequency_);
 
   const int8_t icv_ = this->read_ioin_chip_version();
-  ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", icv_);
-  if (std::isnan(icv_)) {
-    ESP_LOGE(TAG, "  Unknown IC version (0x%02X) detected. Is the driver powered and wired correctly?", icv_);
+  if (std::isnan(icv_) || icv_ == 0) {
+    ESP_LOGE(TAG, "  Unable to read IC version. Is the driver powered and wired correctly?");
+  } else if (icv_ == TMC2209_IC_VERSION_33) {
+    ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", icv_);
+  } else {
+    ESP_LOGE(TAG, "  Detected unknown IC version: 0x%02X", icv_);
+  }
+  if (this->is_failed()) {
+    return;
   }
 
-  ESP_LOGCONFIG(TAG, "  Oscillator frequency: %d Hz", this->clock_frequency_);
-}
-
-void TMC2209::set_ottrim(uint8_t ottrim) {
-  if (ottrim > 0b11)
-    ESP_LOGW(TAG, "selected ottrim excceds selectable configuration. ignoring.");
-  else
-    this->ottrim_ = ottrim;
+  uint8_t otpw, ot;
+  std::tie(otpw, ot) = this->unpack_ottrim_values(this->read_ottrim());
+  // auto [otpw, ot] = this->unpack_ottrim_values(this->read_ottrim()); // c++17 required
+  ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot);
 }
 
 void TMC2209::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209...");
+
+  while (!this->is_ready()) {
+  };
+
+  const int8_t icv_ = this->read_ioin_chip_version();
+  if (icv_ != TMC2209_IC_VERSION_33) {
+    this->status_set_error("Failed to communicate with driver");
+    this->mark_failed();
+  }
 
   /* Configure driver for basic usage in ESPHome. This is the GCONF register */
   /* bit: 0 = 0  */ this->write_gconf_iscale_analog(false);
@@ -58,8 +70,8 @@ void TMC2209::setup() {
   this->write_register(TMC2209_CHOPCONF, 0x10000053);
   this->write_register(TMC2209_PWMCONF, 0xC10D0024);
 
-  if (this->ottrim_) {
-    this->write_field(TMC2209_OTTRIM_FIELD, this->ottrim_);
+  if (this->ottrim_.has_value()) {
+    this->write_ottrim(this->ottrim_.value());
   }
 
   this->write_vactual(0);
@@ -92,50 +104,71 @@ void TMC2209::setup_event_handlers() {
       nullptr                                        // fall
   );
 
-  this->otpw_handler_.set_callbacks(                                                   // overtemperature prewarning
-      [this]() { this->on_alert_callback_.call(OVERTEMPERATURE_PREWARNING); },         // rise
-      [this]() { this->on_alert_callback_.call(OVERTEMPERATURE_PREWARNING_CLEARED); }  // fall
-  );
-  this->ot_handler_.set_callbacks(                                          // overtemperature
-      [this]() { this->on_alert_callback_.call(OVERTEMPERATURE); },         // rise
-      [this]() { this->on_alert_callback_.call(OVERTEMPERATURE_CLEARED); }  // fall
-  );
+  this->otpw_handler_.set_callbacks(  // overtemperature prewarning
+      [this]() {
+        this->on_alert_callback_.call(OVERTEMPERATURE_PREWARNING);
+        this->status_set_warning("driver is warning about overheating!");
+      },
+      [this]() {
+        this->on_alert_callback_.call(OVERTEMPERATURE_PREWARNING_CLEARED);
+        this->status_clear_warning();
+      });
+
+  this->ot_handler_.set_callbacks(  // overtemperature
+      [this]() {
+        this->on_alert_callback_.call(OVERTEMPERATURE);
+        this->status_set_error("driver is overheating!");
+      },
+      [this]() {
+        this->on_alert_callback_.call(OVERTEMPERATURE_CLEARED);
+        this->status_clear_error();
+      });
+
   this->t120_handler_.set_callbacks(                                        // t120 flag
       [this]() { this->on_alert_callback_.call(TEMPERATURE_ABOVE_120C); },  // rise
       [this]() { this->on_alert_callback_.call(TEMPERATURE_BELOW_120C); }   // fall
   );
+
   this->t143_handler_.set_callbacks(                                        // t143 flag
       [this]() { this->on_alert_callback_.call(TEMPERATURE_ABOVE_143C); },  // rise
       [this]() { this->on_alert_callback_.call(TEMPERATURE_BELOW_143C); }   // fall
   );
+
   this->t150_handler_.set_callbacks(                                        // t150 flag
       [this]() { this->on_alert_callback_.call(TEMPERATURE_ABOVE_150C); },  // rise
       [this]() { this->on_alert_callback_.call(TEMPERATURE_BELOW_150C); }   // fall
   );
+
   this->t157_handler_.set_callbacks(                                        // t157 flag
       [this]() { this->on_alert_callback_.call(TEMPERATURE_ABOVE_157C); },  // rise
       [this]() { this->on_alert_callback_.call(TEMPERATURE_BELOW_157C); }   // fall
   );
+
   this->olb_handler_.set_callbacks(                                     // olb
       [this]() { this->on_alert_callback_.call(B_OPEN_LOAD); },         // rise
       [this]() { this->on_alert_callback_.call(B_OPEN_LOAD_CLEARED); }  // fall
   );
+
   this->ola_handler_.set_callbacks(                                     // ola
       [this]() { this->on_alert_callback_.call(A_OPEN_LOAD); },         // rise
       [this]() { this->on_alert_callback_.call(A_OPEN_LOAD_CLEARED); }  // fall
   );
+
   this->s2vsb_handler_.set_callbacks(                                        // s2vsb
       [this]() { this->on_alert_callback_.call(B_LOW_SIDE_SHORT); },         // rise
       [this]() { this->on_alert_callback_.call(B_LOW_SIDE_SHORT_CLEARED); }  // fall
   );
+
   this->s2vsa_handler_.set_callbacks(                                        // s2vsa
       [this]() { this->on_alert_callback_.call(A_LOW_SIDE_SHORT); },         // rise
       [this]() { this->on_alert_callback_.call(A_LOW_SIDE_SHORT_CLEARED); }  // fall
   );
+
   this->s2gb_handler_.set_callbacks(                                       // s2gb
       [this]() { this->on_alert_callback_.call(B_GROUND_SHORT); },         // rise
       [this]() { this->on_alert_callback_.call(B_GROUND_SHORT_CLEARED); }  // fall
   );
+
   this->s2ga_handler_.set_callbacks(                                       // s2ga
       [this]() { this->on_alert_callback_.call(A_GROUND_SHORT); },         // rise
       [this]() { this->on_alert_callback_.call(A_GROUND_SHORT_CLEARED); }  // fall
@@ -143,6 +176,10 @@ void TMC2209::setup_event_handlers() {
 }
 
 void TMC2209::loop() {
+  if (this->is_failed()) {
+    return;
+  }
+
   // Emit DIAG event and clear flag if not rasied anymore
   this->diag_handler_.check(this->diag_triggered_);
   if (this->diag_triggered_) {
@@ -155,20 +192,19 @@ void TMC2209::loop() {
 
   // Check driver status
   const uint32_t drv_status = this->read_drv_status();
-  // this->stst_handler_.check(static_cast<const bool>(drv_status >> (31 - 31)));
-  // this->stealth_handler_.check(static_cast<const bool>(drv_status >> (31 - 30)));
-  this->t157_handler_.check(static_cast<bool>(drv_status >> (31 - 11)));
-  this->t150_handler_.check(static_cast<bool>(drv_status >> (31 - 10)));
-  this->t143_handler_.check(static_cast<bool>(drv_status >> (31 - 9)));
-  this->t120_handler_.check(static_cast<bool>(drv_status >> (31 - 8)));
-  this->olb_handler_.check(static_cast<bool>(drv_status >> (31 - 7)));
-  this->ola_handler_.check(static_cast<bool>(drv_status >> (31 - 6)));
-  this->s2vsb_handler_.check(static_cast<bool>(drv_status >> (31 - 5)));
-  this->s2vsa_handler_.check(static_cast<bool>(drv_status >> (31 - 4)));
-  this->s2gb_handler_.check(static_cast<bool>(drv_status >> (31 - 3)));
-  this->s2ga_handler_.check(static_cast<bool>(drv_status >> (31 - 2)));
-  this->ot_handler_.check(static_cast<bool>(drv_status >> (31 - 1)));
-  this->otpw_handler_.check(static_cast<bool>(drv_status >> (31 - 0)));
+
+  this->ot_handler_.check(static_cast<bool>((drv_status >> 1) & 1));
+  this->otpw_handler_.check(static_cast<bool>(drv_status & 1));
+  this->t157_handler_.check(static_cast<bool>((drv_status >> 11) & 1));
+  this->t150_handler_.check(static_cast<bool>((drv_status >> 10) & 1));
+  this->t143_handler_.check(static_cast<bool>((drv_status >> 9) & 1));
+  this->t120_handler_.check(static_cast<bool>((drv_status >> 8) & 1));
+  this->olb_handler_.check(static_cast<bool>((drv_status >> 7) & 1));
+  this->ola_handler_.check(static_cast<bool>((drv_status >> 6) & 1));
+  this->s2vsb_handler_.check(static_cast<bool>((drv_status >> 5) & 1));
+  this->s2vsa_handler_.check(static_cast<bool>((drv_status >> 4) & 1));
+  this->s2gb_handler_.check(static_cast<bool>((drv_status >> 3) & 1));
+  this->s2ga_handler_.check(static_cast<bool>((drv_status >> 2) & 1));
 }
 
 uint16_t TMC2209::get_microsteps() {
@@ -238,6 +274,24 @@ void TMC2209::tpowerdown_ms(uint32_t delay_in_ms) {
 
 uint32_t TMC2209::tpowerdown_ms() { return (this->read_tpowerdown() * 262144) / (this->clock_frequency_ / 1000); };
 
+std::tuple<uint8_t, uint8_t> TMC2209::unpack_ottrim_values(uint8_t ottrim) {
+  switch (ottrim) {
+    case 0b00:
+      return std::make_tuple(120, 143);
+      break;
+    case 0b01:
+      return std::make_tuple(120, 150);
+      break;
+    case 0b10:
+      return std::make_tuple(143, 150);
+      break;
+    case 0b11:
+      return std::make_tuple(143, 157);
+      break;
+  }
+  return std::make_tuple(0, 0);
+}
+
 /***
  * TMC-API wrappers
  *
@@ -247,18 +301,29 @@ extern "C" {
 bool tmc2209_readWriteUART(uint16_t id, uint8_t *data, size_t writeLength, size_t readLength) {
   TMC2209 *comp = components[id];
 
+  optional<bool> ok;
+
   if (writeLength > 0) {
     comp->write_array(data, writeLength);
 
     // chop off transmitted data from the rx buffer and flush due to one-wire uart filling up rx when transmitting
-    comp->read_array(data, writeLength);
+    ok = comp->read_array(data, writeLength);
     comp->flush();
   }
 
   if (readLength > 0) {
-    comp->read_array(data, readLength);
+    ok = comp->read_array(data, readLength);
   }
-  return true;
+
+  // if (!ok.value()) {
+  //   comp->status_set_error(("Failed to communicate with driver"));
+  // } else {
+  //   if (comp->status_has_error()) {
+  //     comp->status_clear_error();
+  //   }
+  // }
+
+  return ok.value_or(false);
 }
 
 uint8_t tmc2209_getNodeAddress(uint16_t id) {
@@ -285,6 +350,7 @@ void TMC2209::write_stallguard_sgthrs(uint8_t threshold) { this->write_register(
 void TMC2209::write_coolstep_tcoolthrs(int32_t threshold) { this->write_register(TMC2209_TCOOLTHRS, threshold); }
 void TMC2209::write_chopconf_mres(uint8_t index) { this->write_field(TMC2209_MRES_FIELD, index); }
 void TMC2209::write_chopconf_intpol(bool enable) { this->write_field(TMC2209_INTPOL_FIELD, enable); }
+void TMC2209::write_ottrim(uint8_t ottrim) { this->write_field(TMC2209_OTTRIM_FIELD, ottrim); }
 void TMC2209::write_chopconf_vsense(bool high_sensitivity) {
   this->write_field(TMC2209_VSENSE_FIELD, high_sensitivity);
 }
@@ -309,6 +375,7 @@ uint8_t TMC2209::read_stallguard_sgthrs() { return this->read_register(TMC2209_S
 uint8_t TMC2209::read_chopconf_mres() { return this->read_field(TMC2209_MRES_FIELD); }
 uint8_t TMC2209::read_tpowerdown() { return this->read_field(TMC2209_TPOWERDOWN_FIELD); }
 uint16_t TMC2209::read_stallguard_sgresult() { return this->read_register(TMC2209_SG_RESULT); }
+uint8_t TMC2209::read_ottrim() { return this->read_field(TMC2209_OTTRIM_FIELD); }
 
 }  // namespace tmc2209
 }  // namespace esphome

@@ -7,10 +7,23 @@ namespace tmc2209 {
 
 static const char *TAG = "tmc2209.stepper";
 
+void TMC2209Stepper::dump_config() {
+  ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
+  LOG_PIN("  ENN Pin: ", this->enn_pin_);
+  LOG_PIN("  INDEX Pin: ", this->index_pin_);
+  LOG_STEPPER(this);
+}
+
 void TMC2209Stepper::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209 Stepper...");
 
+  if (this->parent_->is_failed()) {
+    this->status_set_error("references tmc2209 base failed setup");
+    this->mark_failed();
+  }
+
   this->enn_pin_->setup();
+  this->enable(false);
 
   /* Reconfigure INDEX as it serves another purpose here. */
   // Check mux from figure 15.1 from datasheet rev1.09
@@ -30,13 +43,6 @@ void TMC2209Stepper::setup() {
 
   this->prev_has_reached_target_ = this->has_reached_target();
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper setup done.");
-}
-
-void TMC2209Stepper::dump_config() {
-  ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
-  LOG_PIN("  ENN Pin: ", this->enn_pin_);
-  LOG_PIN("  INDEX Pin: ", this->index_pin_);
-  LOG_STEPPER(this);
 }
 
 void TMC2209Stepper::run_driver_activation_() {

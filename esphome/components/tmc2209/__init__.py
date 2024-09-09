@@ -68,7 +68,7 @@ def _validate_ottrim_selection(config):
     if [ot, otpw] not in valid_ottrim:
         raise cv.Invalid("Selected overtemperature combinations are invalid")
 
-    config[CONF_OTTRIM] = valid_ottrim.index([ot, otpw])
+    config[CONF_OTTRIM] = int(valid_ottrim.index([ot, otpw]))
     return config
 
 
@@ -126,6 +126,8 @@ async def to_code(config):
         await automation.build_automation(trigger, [(DriverEvent, "alert")], conf)
 
     cg.add_library("https://github.com/slimcdk/TMC-API", "3.10.3")
+    cg.add_build_flag("-std=c++17")
+    cg.add_build_flag("-std=gnu++17")
 
 
 def final_validate_config(config):
@@ -136,10 +138,9 @@ def final_validate_config(config):
 
     tmc2209s_count = len(fv.full_config.get()[CONF_TMC2209])
     cg.add_define("TMC2209_NUM_COMPONENTS", tmc2209s_count)
-
-    # TMC-API caching https://github.com/slimcdk/TMC-API/blob/master/tmc/ic/TMC2209/README.md#option-to-use-the-cache-logic-for-write-only-registers
     cg.add_define("TMC2209_ENABLE_TMC_CACHE", tmc2209s_count)
     cg.add_define("TMC2209_CACHE", True)
+    cg.add_define("TMC_API_EXTERNAL_CRC_TABLE", False)
 
 
 FINAL_VALIDATE_SCHEMA = final_validate_config
@@ -185,20 +186,6 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
         template_ = yield cg.templatable(config[CONF_INVERSE_DIRECTION], args, bool)
         cg.add(var.set_inverse_direction(template_))
 
-    if CONF_RMS_CURRENT in config:
-        template_ = yield cg.templatable(config[CONF_RMS_CURRENT], args, float)
-        cg.add(var.set_rms_current(template_))
-
-    if CONF_RMS_CURRENT_HOLD_SCALE in config:
-        template_ = yield cg.templatable(
-            config[CONF_RMS_CURRENT_HOLD_SCALE], args, float
-        )
-        cg.add(var.set_rms_current_hold_scale(template_))
-
-    # if CONF_HOLD_CURRENT_DELAY in config:
-    #     template_ = yield cg.templatable(config[CONF_HOLD_CURRENT_DELAY], args, int)
-    #     cg.add(var.ihold_irun_ihold_delay(template_))
-
     if CONF_MICROSTEPS in config:
         template_ = yield cg.templatable(config[CONF_MICROSTEPS], args, int)
         cg.add(var.set_microsteps(template_))
@@ -214,4 +201,19 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
     if CONF_STALLGUARD_SGTHRS in config:
         template_ = yield cg.templatable(config[CONF_STALLGUARD_SGTHRS], args, int)
         cg.add(var.set_stallguard_sgthrs(template_))
+
+    if CONF_RMS_CURRENT in config:
+        template_ = yield cg.templatable(config[CONF_RMS_CURRENT], args, float)
+        cg.add(var.set_rms_current(template_))
+
+    # if CONF_RMS_CURRENT_HOLD_SCALE in config:
+    #     template_ = yield cg.templatable(
+    #         config[CONF_RMS_CURRENT_HOLD_SCALE], args, float
+    #     )
+    #     cg.add(var.set_rms_current_hold_scale(template_))
+
+    # if CONF_HOLD_CURRENT_DELAY in config:
+    #     template_ = yield cg.templatable(config[CONF_HOLD_CURRENT_DELAY], args, int)
+    #     cg.add(var.ihold_irun_ihold_delay(template_))
+
     yield var

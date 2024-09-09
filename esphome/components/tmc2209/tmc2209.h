@@ -2,10 +2,12 @@
 
 #include <limits>
 #include <string>
+#include <tuple>
+#include <iostream>
 
 #include "esphome/core/helpers.h"
 #include "esphome/core/component.h"
-#include "esphome/core/automation.h"
+// #include "esphome/core/automation.h"
 
 #include "esphome/components/uart/uart.h"
 
@@ -16,6 +18,7 @@ extern "C" {
 namespace esphome {
 namespace tmc2209 {
 
+#define TMC2209_IC_VERSION_33 0x21
 #define DRIVER_STATE_TIMER_NAME "powerdown"
 #define INDEX_FB_CHECK_TIMER_NAME "indexcheck"
 
@@ -108,7 +111,7 @@ class TMC2209 : public Component, public uart::UARTDevice {
     this->use_internal_rsense_ = use_internal;
   };
 
-  void set_ottrim(uint8_t ottrim);
+  void set_ottrim(uint8_t ottrim) { this->ottrim_ = ottrim; };
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void dump_config() override;
@@ -131,6 +134,7 @@ class TMC2209 : public Component, public uart::UARTDevice {
 
   void tpowerdown_ms(uint32_t delay_in_ms);
   uint32_t tpowerdown_ms();
+  std::tuple<uint8_t, uint8_t> unpack_ottrim_values(uint8_t ottrim);
 
   void add_on_alert_callback(std::function<void(DriverEvent)> &&callback) {
     this->on_alert_callback_.add(std::move(callback));
@@ -177,12 +181,15 @@ class TMC2209 : public Component, public uart::UARTDevice {
   void write_tpowerdown(uint8_t delay);
   uint8_t read_tpowerdown();
 
+  void write_ottrim(uint8_t ottrim);
+  uint8_t read_ottrim();
+
  protected:
   InternalGPIOPin *diag_pin_;
 
   uint16_t id_;  // used for tmcapi id index and esphome global component index
-  uint8_t address_{0x00};
-  uint8_t ottrim_;
+  uint8_t address_;
+  optional<uint8_t> ottrim_;
 
   void set_rms_current_();
   float current_scale_to_rms_current_(uint8_t current_scaling);
