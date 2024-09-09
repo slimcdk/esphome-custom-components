@@ -27,11 +27,6 @@ This implementation contains multiple parts: a base component that facilitates s
   - [For pulse train control](#pulse-train-control)
 - [Resources](#resources)
 - [Troubleshooting](#troubleshooting)
-  - [Unable to read IC version](#unable-to-read-ic-version-is-the-driver-powered-and-wired-correctly)
-  - [Detected unknown IC version](#detected-unknown-ic-version-0x)
-  - [Reading from UART timed out](#reading-from-uart-timed-out-at-byte-0)
-
-
 
 ## Config
 
@@ -466,17 +461,17 @@ Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-directio
 
 ## Troubleshooting
 
-### Unable to read IC version. Is the driver powered and wired correctly?
+#### Unable to read IC version. Is the driver powered and wired correctly?
 1. Make sure UART is correctly wired and the 1k Ohm resistor is placed correctly.
 2. Make sure the driver is power on VM / VS (motor supply voltage). Must be between 4.75 and 29V.
 
-### Detected unknown IC version: 0x??
+#### Detected unknown IC version: 0x??
 First generation of TMC2209s have version `0x21`. There is only a single version released as of Q3 2024. If you are seeing version `0x20` that means you have a TMC2208 which is not supported by this component.
 
-### Reading from UART timed out at byte 0!
+#### Reading from UART timed out at byte 0!
 Poor signal integrity can cause instability in the UART connection. The component doesn't retry writing/reading if a reading failed. Make sure the connection is reliable for best performance. Try lower baud rates if these only appear occasionally.
 
-### Driver makes "sizzling" noise
+#### Driver makes "sizzling" noise
 Activation of the driver is delegated to the stepper component to perform. Long wires connected to ENN might pick up interference causing the driver to make a sizzling noise if left floating. A stepper configuration is needed for handling ENN.
 
 ## TODOs
