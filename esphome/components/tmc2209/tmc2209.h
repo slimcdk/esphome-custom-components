@@ -185,7 +185,7 @@ class TMC2209 : public Component, public uart::UARTDevice {
   uint8_t read_ottrim();
 
  protected:
-  InternalGPIOPin *diag_pin_;
+  InternalGPIOPin *diag_pin_{nullptr};
 
   uint16_t id_;  // used for tmcapi id index and esphome global component index
   uint8_t address_;

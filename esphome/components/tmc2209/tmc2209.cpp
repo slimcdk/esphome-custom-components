@@ -82,12 +82,8 @@ void TMC2209::setup() {
   this->diag_isr_store_.pin_triggered_ptr = &this->diag_triggered_;
 #endif
 
-#if !defined(USE_INDEX_PIN) or !defined(USE_DIAG_PIN)
-  // run loop at increased interval
-  this->high_freq_.start();
-#endif
-
   this->setup_event_handlers();
+  this->high_freq_.start();
 
   ESP_LOGCONFIG(TAG, "TMC2209 setup done.");
 }
@@ -181,18 +177,17 @@ void TMC2209::loop() {
   }
 
   // Emit DIAG event and clear flag if not rasied anymore
+#if defined(USE_DIAG_PIN)
   this->diag_handler_.check(this->diag_triggered_);
   if (this->diag_triggered_) {
-#if defined(USE_DIAG_PIN)
     this->diag_triggered_ = this->diag_pin_->digital_read();  // clear or keep flag
-#else
-    this->diag_triggered_ = this->read_ioin_diag();  // clear or keep flag
-#endif
   }
+#else
+  this->diag_triggered_ = this->read_ioin_diag();  // clear or keep flag
+  this->diag_handler_.check(this->diag_triggered_);
+#endif
 
-  // Check driver status
   const uint32_t drv_status = this->read_drv_status();
-
   this->ot_handler_.check(static_cast<bool>((drv_status >> 1) & 1));
   this->otpw_handler_.check(static_cast<bool>(drv_status & 1));
   this->t157_handler_.check(static_cast<bool>((drv_status >> 11) & 1));
