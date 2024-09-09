@@ -4,6 +4,7 @@ from esphome.components import sensor
 from esphome.const import (
     STATE_CLASS_MEASUREMENT,
     DEVICE_CLASS_FREQUENCY,
+    ENTITY_CATEGORY_DIAGNOSTIC,
     UNIT_HERTZ,
     ICON_PULSE,
 )
@@ -24,6 +25,7 @@ CONFIG_SCHEMA = cv.typed_schema(
             unit_of_measurement=UNIT_HERTZ,
             device_class=DEVICE_CLASS_FREQUENCY,
             state_class=STATE_CLASS_MEASUREMENT,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
             icon=ICON_PULSE,
         ).extend(cv.polling_component_schema("10s"))
     },
