@@ -25,7 +25,7 @@ class ActualCurrentSensor : public PollingComponent, public sensor::Sensor, publ
   void dump_config() { LOG_SENSOR(" ", "TMC2209 Actual Current Sensor", this); }
   void update() override {
     const uint8_t acs = this->parent_->read_field(TMC2209_CS_ACTUAL_FIELD);
-    this->publish_state(this->parent_->current_scale_to_rms_current(acs));
+    this->publish_state(this->parent_->current_scale_to_rms_current_mA(acs));
   }
 };
 

@@ -38,12 +38,6 @@ template<typename... Ts> class TMC2209ConfigureAction : public Action<Ts...>, pu
     if (this->microsteps_.has_value())
       this->parent_->set_microsteps(this->microsteps_.value(x...));
 
-    if (this->run_current_.has_value())
-      this->parent_->write_run_current(this->run_current_.value(x...));
-
-    if (this->hold_current_.has_value())
-      this->parent_->write_hold_current(this->hold_current_.value(x...));
-
     if (this->standstill_mode_.has_value())
       this->parent_->write_field(TMC2209_FREEWHEEL_FIELD, this->standstill_mode_.value(x...));
 
@@ -58,6 +52,12 @@ template<typename... Ts> class TMC2209ConfigureAction : public Action<Ts...>, pu
 
     if (this->ihold_.has_value())
       this->parent_->write_field(TMC2209_IHOLD_FIELD, this->ihold_.value(x...));
+
+    if (this->run_current_.has_value())
+      this->parent_->write_run_current(this->run_current_.value(x...));
+
+    if (this->hold_current_.has_value())
+      this->parent_->write_hold_current(this->hold_current_.value(x...));
   }
 };
 

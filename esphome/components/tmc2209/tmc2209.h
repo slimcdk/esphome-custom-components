@@ -11,10 +11,6 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/stepper/stepper.h"
 
-// #if defined(ESP32) && defined(USE_ESP_IDF)
-#include "driver/timer.h"
-// #endif
-
 extern "C" {
 #include <ic/TMC2209/TMC2209.h>
 }
@@ -23,8 +19,6 @@ namespace esphome {
 namespace tmc2209 {
 
 #define TMC2209_IC_VERSION_33 0x21
-#define DRIVER_STATE_TIMER_NAME "powerdown"
-#define INDEX_FB_CHECK_TIMER_NAME "indexcheck"
 
 #define VSENSE_HIGH 0.325f
 #define VSENSE_LOW 0.180f
@@ -130,6 +124,7 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   void setup() override;
   void loop() override;
   void stop() override;
+  void stop(bool disable);
 
   void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; };
   void set_enn_pin(GPIOPin *pin) { this->enn_pin_ = pin; };
@@ -140,27 +135,24 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   void set_vsense(bool set) { this->vsense_ = set; };
   void set_ottrim(uint8_t ottrim) { this->ottrim_ = ottrim; };
 
-  void enable(bool enable);
-
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
 
   float get_motor_load();
+  bool is_stalled();
 
   /* run and hold currents */
   float read_vsense();
-  uint16_t current_scale_to_rms_current(uint8_t cs);
-  uint8_t rms_current_to_current_scale(uint16_t mA);
-
-  void write_run_current(uint16_t mA) {
-    const uint8_t cs = this->rms_current_to_current_scale(mA);
-    this->write_field(TMC2209_IRUN_FIELD, cs);
-  }
-
-  void write_hold_current(uint16_t mA) {
-    const uint8_t cs = this->rms_current_to_current_scale(mA);
-    this->write_field(TMC2209_IHOLD_FIELD, cs);
-  }
+  uint16_t current_scale_to_rms_current_mA(uint8_t cs);
+  uint8_t rms_current_to_current_scale_mA(uint16_t mA);
+  void write_run_current_mA(uint16_t mA);
+  void write_hold_current_mA(uint16_t mA);
+  uint16_t read_run_current_mA();
+  uint16_t read_hold_current_mA();
+  void write_run_current(float A) { this->write_run_current_mA(A2mA(A)); };
+  void write_hold_current(float A) { this->write_hold_current_mA(A2mA(A)); };
+  float read_run_current() { return mA2A(this->read_run_current_mA()); };
+  float read_hold_current() { return mA2A(this->read_hold_current_mA()); };
 
   void set_tpowerdown_ms(uint32_t delay_in_ms);
   uint32_t get_tpowerdown_ms();
@@ -173,13 +165,11 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   // TMC-API wrappers
   uint8_t get_address() { return this->address_; }
 
-  // Write or read a register (all fields)
-  void write_register(uint8_t address, int32_t value) { tmc2209_writeRegister(this->id_, address, value); }
-  int32_t read_register(uint8_t address) { return tmc2209_readRegister(this->id_, address); }
-
-  // Write or read a register field (single field within register)
-  void write_field(RegisterField field, uint32_t value) { tmc2209_fieldWrite(this->id_, field, value); }
-  uint32_t read_field(RegisterField field) { return tmc2209_fieldRead(this->id_, field); }
+  // Write or read a register (all fields) or register field (single field within register)
+  void write_register(uint8_t address, int32_t value);
+  int32_t read_register(uint8_t address);
+  void write_field(RegisterField field, uint32_t value);
+  uint32_t read_field(RegisterField field);
 
  protected:
   uint16_t id_;  // used for tmcapi id index and esphome global component index
@@ -194,14 +184,19 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   bool enn_pin_state_;
 
   ISRStore diag_isr_store_{};
-  bool diag_triggered_{false};
+  bool diag_isr_triggered_{false};
 
   optional<uint8_t> ottrim_;
   optional<float> rsense_;
   optional<bool> vsense_;
 
+  void check_driver_status_();
+
 #if defined(ENABLE_DRIVER_ALERT_EVENTS)
-  EventHandler diag_handler_{};  // Event on DIAG
+  bool monitor_stallguard_{false};
+
+  EventHandler diag_handler_{};     // Event on DIAG
+  EventHandler stalled_handler_{};  // Stalled
   // EventHandler stst_handler_{};     // standstill indicator
   // EventHandler stealth_handler_{};  // StealthChop indicator (0=SpreadCycle mode, 1=StealthChop mode)
   EventHandler otpw_handler_{};   // overtemperature prewarning flag (Selected limit has been reached)
@@ -221,19 +216,10 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   CallbackManager<void(const DriverEvent &event)> on_alert_callback_;
 
 #if defined(USE_UART_CONTROL)
+  bool index_fb_ok_{false};
   IndexPulseStore ips_{};  // index pulse store
-  void check_feedback_();
 #endif
 
-#if defined(USE_PULSE_CONTROL)
-#if defined(ESP32) || defined(USE_ESP_IDF)
-  timer_group_t timer_group_;
-  timer_idx_t timer_idx_;
-  bool init_esp32_timer_();
-#endif
-#endif
-
-  static bool timer_isr(TMC2209 *arg);
   HighFrequencyLoopRequester high_freq_;
   Direction direction_{Direction::NONE};
 };

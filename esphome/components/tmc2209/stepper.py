@@ -50,6 +50,8 @@ CONF_IHOLD = "ihold"
 CONF_IHOLDDELAY = "iholddelay"
 CONF_TPOWERDOWN = "tpowerdown"
 
+CONF_CHECK_DRIVER_INTERVAL = "check_driver_interval"
+
 CONF_DISABLE = "disable"
 CONF_STANDSTILL_MODE = "standstill_mode"
 STANDSTILL_MODE_NORMAL = "normal"
@@ -81,7 +83,30 @@ DEVICE_SCHEMA = cv.Schema(
     }
 )
 
-pt_err_msg = f"{CONF_STEP_PIN} and {CONF_DIR_PIN} must be configured together"
+
+def validate_(config):
+
+    has_index = CONF_INDEX_PIN in config
+    has_step = CONF_STEP_PIN in config
+    has_dir = CONF_DIR_PIN in config
+
+    if not has_index and not has_step and not has_dir:
+        raise EsphomeError(
+            f"A control must be defined! Configure either {CONF_INDEX_PIN} or {CONF_STEP_PIN} and {CONF_DIR_PIN}"
+        )
+
+    if has_index and (has_step or has_dir):
+        raise EsphomeError(
+            f"{CONF_INDEX_PIN} and {CONF_STEP_PIN} or {CONF_DIR_PIN} must not be configured together."
+        )
+
+    if (has_step and not has_dir) or (not has_step and has_dir):
+        raise EsphomeError(
+            f"{CONF_STEP_PIN} and {CONF_DIR_PIN} must be configured together."
+        )
+
+    return config
+
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
@@ -92,15 +117,14 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_ENN_PIN): pins.internal_gpio_output_pin_schema,
             cv.Optional(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
-            cv.Inclusive(
-                CONF_STEP_PIN, "pulstrain", pt_err_msg
-            ): pins.gpio_output_pin_schema,
-            cv.Inclusive(
-                CONF_DIR_PIN, "pulstrain", pt_err_msg
-            ): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_STEP_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_DIR_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_RSENSE): cv.resistance,
             cv.Optional(CONF_VSENSE): cv.boolean,  # default OTP
-            cv.Optional(CONF_OTTRIM): cv.int_range(0, 3),
+            cv.Optional(CONF_OTTRIM): cv.int_range(0, 3),  # default OTP
+            cv.Optional(
+                CONF_CHECK_DRIVER_INTERVAL, default="500ms"
+            ): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_ON_ALERT): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnAlertTrigger),
@@ -111,7 +135,7 @@ CONFIG_SCHEMA = cv.All(
     .extend(uart.UART_DEVICE_SCHEMA)
     .extend(stepper.STEPPER_SCHEMA)
     .extend(cv.COMPONENT_SCHEMA),
-    cv.has_at_most_one_key(CONF_INDEX_PIN, CONF_STEP_PIN),
+    validate_,
 )
 
 
@@ -129,41 +153,39 @@ async def to_code(config):
     index_pin = config.get(CONF_INDEX_PIN, None)
     dir_pin = config.get(CONF_DIR_PIN, None)
     step_pin = config.get(CONF_STEP_PIN, None)
-
-    if index_pin is None and step_pin is None:
-        raise EsphomeError(
-            f"A control must be defined! Configure either {CONF_INDEX_PIN} or {CONF_STEP_PIN} and {CONF_DIR_PIN}"
-        )
+    alert_triggers = config.get(CONF_ON_ALERT, [])
 
     if enn_pin is not None:
         cg.add(var.set_enn_pin(await cg.gpio_pin_expression(enn_pin)))
 
     if diag_pin is not None:
-        cg.add(var.set_diag_pin(await cg.gpio_pin_expression(diag_pin)))
         cg.add_define("USE_DIAG_PIN")
+        cg.add(var.set_diag_pin(await cg.gpio_pin_expression(diag_pin)))
 
     if index_pin is not None:
-        cg.add(var.set_index_pin(await cg.gpio_pin_expression(index_pin)))
         cg.add_define("USE_UART_CONTROL")
+        cg.add(var.set_index_pin(await cg.gpio_pin_expression(index_pin)))
 
     if step_pin is not None and dir_pin is not None:
+        cg.add_define("USE_PULSE_CONTROL")
         cg.add(var.set_step_pin(await cg.gpio_pin_expression(step_pin)))
         cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
-        cg.add_define("USE_PULSE_CONTROL")
 
     if (rsense := config.get(CONF_RSENSE, None)) is not None:
         cg.add(var.set_rsense(rsense))
 
-    if (vsense := config.get(CONF_VSENSE, None)) is not None:
-        cg.add(var.set_vsense(vsense))
+    cg.add(var.set_vsense(config.get(CONF_VSENSE)))
 
     if (ottrim := config.get(CONF_OTTRIM, None)) is not None:
         cg.add(var.set_ottrim(ottrim))
 
-    for conf in config.get(CONF_ON_ALERT, []):
+    if len(alert_triggers) > 0:
         cg.add_define("ENABLE_DRIVER_ALERT_EVENTS")
-        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-        await automation.build_automation(trigger, [(DriverEvent, "alert")], conf)
+        for conf in alert_triggers:
+            trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+            await automation.build_automation(trigger, [(DriverEvent, "alert")], conf)
+
+    cg.add_define("CHECK_DRIVER_INTERVAL", config[CONF_CHECK_DRIVER_INTERVAL])
 
     cg.add_library("https://github.com/slimcdk/TMC-API", "3.10.3")
     cg.add_build_flag("-std=c++17")
@@ -266,13 +288,14 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
     cv.Schema(
         {
             cv.GenerateID(): cv.use_id(TMC2209),
-            cv.Optional(CONF_DISABLE): cv.boolean,
+            cv.Optional(CONF_DISABLE, default=False): cv.boolean,
         }
     ),
 )
 def tmc2209_stop_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     yield cg.register_parented(var, config[CONF_ID])
+    cg.add(var.set_disable(config[CONF_DISABLE]))
 
 
 def final_validate_config(config):

@@ -1,14 +1,10 @@
 # TMC2209
 
-> [!CAUTION]
-*This is still active development so expect some things to change.*
-
-ESPHome component to control a stepper motor using an ADI (formerly Trinamic) TMC2209 stepper motor driver over UART. Technical information can be found in the [section 1.2.1][datasheet].
-
-This implementation can control the stepper purely over serial and through stepping pulses.
+ESPHome component to interact with a TMC2209 stepper motor driver over UART and regular step/dir. Technical information can be found in the [section 1.2.1][datasheet].
 
 > [!IMPORTANT]
 *Only a single `tmc2209` instance (device) per UART config is currently supported by ESPHome. Multiple drivers require multiple UART connections.*
+
 
 # Table of contents
 
@@ -38,14 +34,11 @@ Import the component(s).
 ```yaml
 external_components:
   - source: github://slimcdk/esphome-custom-components
-    components: [ tmc2209 ]
+    components: [ tmc2209, stepper ]
 ```
 ---
 
 Configuration of [UART Bus][uart-component].
-
-> [!IMPORTANT]
-**TX and RX must be provided**
 
 > [!CAUTION]
 **A lot is happening over serial and low baud rates might cause warnings about the component taking too long. Use something like 115200 or higher.**
@@ -54,7 +47,7 @@ Configuration of [UART Bus][uart-component].
 uart:
   tx_pin: REPLACEME
   rx_pin: REPLACEME
-  baud_rate: 115200 # 9600 -> 500k
+  baud_rate: 512000 # 9600 -> 500k
 ```
 > [!NOTE]
 *TMC2209 will auto-detect baud rates from 9600 to 500k with the internal clock/oscillator. An external clock/oscillator is needed for baud rates higher than 500k.*
@@ -62,12 +55,12 @@ uart:
 
 ### Stepper configuration
 
-The stepper can be controlled in two ways.
+>[!NOTE]
+*The stepper can be controlled in two ways.*
 
-#### Using serial (UART)
-Accuracy is slightly reduced in favor of tight timings and high-frequency stepping pulses. Pulse generation is unaffected by ESPHome's handling of other components or main thread execution. This means that the host microcontroller (e.g., ESP32) running ESPHome doesn't provide the step generation, but it is handled internally by the driver. Highly recommended for use with high microstep interpolation or true silent operation.
 
-Relevant info can be found in [section 1.3][datasheet].
+#### Control position using serial (UART)
+Accuracy is slightly reduced for tighter timing and high-frequency pulse generation, which is handled internally by the driver rather than the ESPHome microcontroller. This ensures consistent pulse generation without interference from other components, making it ideal for high microstep interpolation or silent operation. Relevant info can be found in [section 1.3][datasheet].
 
 >[!NOTE]
 *The provided accuracy is often precise enough, but it depends on speeds and how often the component can write to the driver.*
@@ -76,8 +69,8 @@ Relevant info can be found in [section 1.3][datasheet].
 *Configure `index_pin` and not `step_pin` and `dir_pin` for this method.*
 
 
-#### Using traditional stepping pulses and direction
-Stepping pulses are handled by the main thread but utilize [increased execution frequency functionality][highfrequencylooprequester] to generate pulses as fast as possible. Pulses are therefore limited to whenever the ESP can generate a pulse, and any timing inconsistencies become audible when the motor runs.
+#### Control position using traditional stepping pulses and direction
+Stepping pulses are handled by the main thread but utilize [increased execution frequency functionality][highfrequencylooprequester] to generate pulses as fast as possible. Pulses are therefore limited to whenever the ESP can generate a pulse, and any timing inconsistencies may cause erratic motor noise or operational issues when running the motor.
 
 >[!NOTE]
 *More components take up more resources slowing the main thread.*
@@ -106,7 +99,7 @@ stepper:
     step_pin: REPLACEME
     dir_pin: REPLACEME
 
-    rsense: 110 mOhm
+    rsense: REPLACEME
     vsense: False
     ottrim: 0
     clock_frequency: 12MHz
@@ -130,11 +123,11 @@ stepper:
 
 * `dir_pin` (*Optional*, [Output Pin Schema][config-pin]): Controls direction of the motor.
 
-* `rsense` (*Optional*, resistance): Motor current sense resistors. Varies from ~75 to 1000 mOhm. Consult [section 8][datasheet] for a lookup table.
+* `rsense` (*Optional*, resistance): Motor current sense resistors. Often varies from ~75 to 1000 mOhm. The actual value for your board can be found in the documentation.
 
-* `vsense` (*Optional*, boolean): Driver uses smaller (<1/4 W) RSense resistors.
+* `vsense` (*Optional*, boolean): Driver uses smaller (<1/4 W) RSense resistors. Defaults to false.
 
-* `ottrim` (*Optional*, int): Limits for warning and shutdown temperatures. Default is OTP which is factory configuration of 120C for prewarning and 143C for overtemperature (shutdown). See below table for values.
+* `ottrim` (*Optional*, int): Limits for warning and shutdown temperatures. Default is OTP. OTP is 0 from factory. See below table for values.
   <table>
     <thead>
       <tr><th>OTTRIM</th><th>Prewarning</th><th>Shutdown</th></tr>
@@ -147,15 +140,12 @@ stepper:
     </tbody>
   </table>
 
-  >[!NOTE] Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning and `ENN` has been toggled.
-
-  >[!WARNING]
-  *Configuring `overtemperature` has no effect at the moment as there is an issue with updating the register field on the driver. It will however still monitor temperatures and emit alert events and the driver will also shutdown when temperature is too high*
+  >[!NOTE]
+  > Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning and `ENN` has been toggled.
 
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
 
 * All other from [Base Stepper Component][base-stepper-component]
-
 
 
 ## Automation
@@ -163,16 +153,17 @@ stepper:
 ### `on_alert`
 An alert event is fired whenever a driver warning or error is detected. For instance when the motor stalls. This event can be used for sensorless homing. Works both with control over serial (UART) and with stepping and direction pulses.
 ```yaml
-tmc2209:
-  id: driver
-  ...
-  on_alert:
-    - if:
-        condition:
-          lambda: return alert == tmc2209::STALLED;
-        then:
-          - logger.log: "Motor stalled!"
-          - stepper.stop: motor
+stepper:
+  - platform: tmc2209
+    id: driver
+    ...
+    on_alert:
+      - if:
+          condition:
+            lambda: return alert == tmc2209::STALLED;
+          then:
+            - logger.log: "Motor stalled!"
+            - stepper.stop: driver
 ```
 > <small>[All events in an example config](#alert-events)</small>
 
@@ -242,13 +233,16 @@ esphome:
 * `hold_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IHOLD based on RSense according to [section 9][datasheet].
 
 * `standstill_mode` (*Optional*, [templatable][config-templatable]): Standstill mode for when movement stops. Default is OTP. Available modes are:
-  * `normal`: Actively breaks the motor
-  * `freewheeling`: `ihold` or/and `hold_current` must be 0 for true freewheeling. Otherwise it will act as breaking.
-  * `short_coil_ls`:
-  * `short_coil_hs`:
+  * `normal`: Actively breaks the motor.
+  * `freewheeling`: `ihold` and/or `hold_current` must be 0 for true freewheeling. Higher IHOLD enforces high currents thus harder braking effect.
+  * `short_coil_ls`: Similar to `freewheeling`, but with motor coils shorted to low side voltage.
+  * `short_coil_hs`: Similar to `freewheeling`, but with motor coils shorted to high side voltage.
 
 >[!NOTE]
-*See [section 1.7][datasheet] for *
+*Registers and fields on the driver persist through an ESPHome device reboot, so previously written states may remain active*
+
+*See [section 1.7][datasheet] for visiual graphs of IRUN, TPOWERDOWN and IHOLDDELAY and IHOLD*
+
 
 ### Sensors
 
@@ -280,7 +274,7 @@ sensor:
 ```yaml
 external_components:
   - source: github://slimcdk/esphome-custom-components
-    components: [tmc2209]
+    components: [ tmc2209, stepper ]
 
 # esp32 or esp8266 config..
 
@@ -315,7 +309,7 @@ stepper:
     acceleration: 1000 steps/s^2
     deceleration: 1000 steps/s^2
     rsense: 110 mOhm
-    vsense: True
+    vsense: False
     ottrim: 0
     diag_pin: 41
     index_pin: 42
@@ -462,7 +456,7 @@ number:
 
 button:
 
-    // Write value 3 to MRES register field. 2**3 = 8
+    // Write value 3 to MRES register field. 2**3 = microstepping of 8
   - platform: template
     name: Set microstepping to 8
     on_press:
@@ -478,13 +472,13 @@ Guides to wire ESPHome supported MCU to a TMC2209 driver for either only UART co
 
 Wiring for [UART control](#using-serial-uart). `DIAG` is optional but recommended for reliability.
 
-<img src="./docs/uart-wiring.svg" alt="UART wiring" width="100%" />
+<img src="./docs/uart-wiring.svg" alt="UART wiring" style="background-color:white; border: 10px solid white" width="100%" />
 
 
 ### Pulse train control
 Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-direction).
 
-<img src="./docs/sd-wiring.svg" alt="STEP/DIR wiring" width="100%" />
+<img src="./docs/sd-wiring.svg" alt="STEP/DIR wiring" style="background-color:white; border: 10px solid white" width="100%" />
 
 
 > [!IMPORTANT]

@@ -1,10 +1,5 @@
 #include "tmc2209.h"
 
-// #if defined(ESP32) || defined(USE_ESP_IDF)
-#include "driver/timer.h"
-#include "esp_err.h"
-// #endif
-
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
 
@@ -42,10 +37,45 @@ extern "C" uint8_t tmc2209_getNodeAddress(uint16_t id) {
   TMC2209 *comp = components[id];
   return comp->get_address();
 }
+
+void TMC2209::write_register(uint8_t address, int32_t value) {
+  if (this->is_failed()) {
+    ESP_LOGE(TAG, "driver failed at some point.");
+    return;
+  }
+  tmc2209_writeRegister(this->id_, address, value);
+}
+
+int32_t TMC2209::read_register(uint8_t address) {
+  if (this->is_failed()) {
+    ESP_LOGE(TAG, "driver failed at some point.");
+    return 0;
+  }
+  return tmc2209_readRegister(this->id_, address);
+}
+
+void TMC2209::write_field(RegisterField field, uint32_t value) {
+  if (this->is_failed()) {
+    ESP_LOGE(TAG, "driver failed at some point.");
+    return;
+  }
+  tmc2209_fieldWrite(this->id_, field, value);
+}
+
+uint32_t TMC2209::read_field(RegisterField field) {
+  if (this->is_failed()) {
+    ESP_LOGE(TAG, "driver failed at some point.");
+    return 0;
+  }
+  return tmc2209_fieldRead(this->id_, field);
+}
+
 /** End of TMC-API wrappers **/
 
 void TMC2209::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209 Stepper...");
+
+  this->high_freq_.start();
 
   if (this->enn_pin_ != nullptr) {
     this->enn_pin_->setup();
@@ -108,17 +138,21 @@ void TMC2209::setup() {
 
 #if defined(ENABLE_DRIVER_ALERT_EVENTS)
 #if defined(USE_DIAG_PIN)
+  // dont bother configuring diag pin as it is only used for driver alerts
   this->diag_pin_->setup();
   this->diag_pin_->attach_interrupt(ISRStore::pin_isr, &this->diag_isr_store_, gpio::INTERRUPT_RISING_EDGE);
-  this->diag_isr_store_.pin_triggered_ptr = &this->diag_triggered_;
+  this->diag_isr_store_.pin_triggered_ptr = &this->diag_isr_triggered_;
+
+  this->diag_handler_.set_callbacks(                                     // DIAG
+      [this]() { this->on_alert_callback_.call(DIAG_TRIGGERED); },       // rise
+      [this]() { this->on_alert_callback_.call(DIAG_TRIGGER_CLEARED); }  // fall
+  );
+#else
+  // poll driver every x time to check for errors
+  this->set_interval(CHECK_DRIVER_INTERVAL, [this] { this->check_driver_status_(); });
 #endif
 
-  this->diag_handler_.set_callbacks(  // DIAG
-      [this]() {
-        this->on_alert_callback_.call(DIAG_TRIGGERED);
-        this->on_alert_callback_.call(STALLED);
-      },
-      [this]() { this->on_alert_callback_.call(DIAG_TRIGGER_CLEARED); });
+  this->stalled_handler_.set_on_rise_callback([this]() { this->on_alert_callback_.call(STALLED); });  // stalled
 
   this->otpw_handler_.set_callbacks(  // overtemperature prewarning
       [this]() {
@@ -194,10 +228,175 @@ void TMC2209::setup() {
       [this]() { this->on_alert_callback_.call(CP_UNDERVOLTAGE); },         // rise
       [this]() { this->on_alert_callback_.call(CP_UNDERVOLTAGE_CLEARED); }  // fall
   );
+
 #endif
 
-  this->high_freq_.start();
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper setup done.");
+}
+
+void TMC2209::check_driver_status_() {
+#if defined(ENABLE_DRIVER_ALERT_EVENTS)
+  const uint32_t drv_status = this->read_register(TMC2209_DRV_STATUS);
+  this->ot_handler_.check(static_cast<bool>((drv_status >> 1) & 1));
+  this->otpw_handler_.check(static_cast<bool>(drv_status & 1));
+  this->t157_handler_.check(static_cast<bool>((drv_status >> 11) & 1));
+  this->t150_handler_.check(static_cast<bool>((drv_status >> 10) & 1));
+  this->t143_handler_.check(static_cast<bool>((drv_status >> 9) & 1));
+  this->t120_handler_.check(static_cast<bool>((drv_status >> 8) & 1));
+  this->olb_handler_.check(static_cast<bool>((drv_status >> 7) & 1));
+  this->ola_handler_.check(static_cast<bool>((drv_status >> 6) & 1));
+  this->s2vsb_handler_.check(static_cast<bool>((drv_status >> 5) & 1));
+  this->s2vsa_handler_.check(static_cast<bool>((drv_status >> 4) & 1));
+  this->s2gb_handler_.check(static_cast<bool>((drv_status >> 3) & 1));
+  this->s2ga_handler_.check(static_cast<bool>((drv_status >> 2) & 1));
+  this->uvcp_handler_.check(this->read_field(TMC2209_UV_CP_FIELD));
+#endif
+}
+
+void TMC2209::loop() {
+  /** Alert events **/
+#if defined(ENABLE_DRIVER_ALERT_EVENTS)
+  if (this->current_speed_ == this->max_speed_) {
+    this->stalled_handler_.check(this->is_stalled());
+  }
+#if defined(USE_DIAG_PIN)
+  if (this->diag_isr_triggered_) {
+    this->diag_handler_.check(this->diag_isr_triggered_);
+    this->stalled_handler_.check(this->is_stalled());
+    this->check_driver_status_();
+    this->diag_isr_triggered_ = this->diag_pin_->digital_read();
+  }
+#endif
+#endif
+  /** */
+
+  /** Serial control handling **/
+#if defined(USE_UART_CONTROL)
+  // Compute and set speed and direction to move the motor in
+  const int32_t to_target = (this->target_position - this->current_position);
+  this->direction_ = (to_target != 0 ? (Direction) (to_target / abs(to_target)) : Direction::NONE);  // yield 1, -1 or 0
+
+  this->calculate_speed_(micros());
+  // -2.8 magically to synchronizes feedback with set velocity
+  const uint32_t velocity = ((int8_t) this->direction_) * this->current_speed_ * -2.8;
+  if (this->read_field(TMC2209_VACTUAL_FIELD) != velocity) {
+    this->write_field(TMC2209_VACTUAL_FIELD, velocity);
+  }
+
+#endif
+  /** */
+
+/** Pulse train handling **/
+#if defined(USE_PULSE_CONTROL)
+  // Compute and set speed and direction to move the motor in
+  this->direction_ = (Direction) this->should_step_();
+  if (this->direction_ != Direction::NONE) {
+    this->dir_pin_->digital_write(this->direction_ == Direction::CLOCKWISE);
+    delayMicroseconds(1);
+    this->step_pin_->digital_write(true);
+    delayMicroseconds(1);
+    this->step_pin_->digital_write(false);
+  }
+#endif
+  /** */
+}
+
+bool TMC2209::is_stalled() {
+  const auto sgthrs = this->read_register(TMC2209_SGTHRS);
+  const auto sgresult = this->read_register(TMC2209_SG_RESULT);
+  return (2 * sgthrs) > sgresult;
+}
+
+uint16_t TMC2209::get_microsteps() {
+  const uint8_t mres = this->read_field(TMC2209_MRES_FIELD);
+  return 256 >> mres;
+}
+
+void TMC2209::set_microsteps(uint16_t ms) {
+  for (uint8_t mres = 8; mres > 0; mres--)
+    if ((256 >> mres) == ms)
+      return this->write_field(TMC2209_MRES_FIELD, mres);
+}
+
+float TMC2209::get_motor_load() {
+  const uint16_t result = this->read_register(TMC2209_SG_RESULT);
+  return (510.0 - (float) result) / (510.0 - this->read_register(TMC2209_SGTHRS) * 2.0);
+}
+
+float TMC2209::read_vsense() { return (this->read_field(TMC2209_VSENSE_FIELD) ? VSENSE_LOW : VSENSE_HIGH); }
+
+uint16_t TMC2209::current_scale_to_rms_current_mA(uint8_t cs) {
+  cs = clamp<uint8_t>(cs, 0, 31);
+  if (cs == 0)
+    return 0;
+  return (cs + 1) / 32.0f * this->read_vsense() / (this->rsense_.value_or(0) + 0.02f) * (1 / sqrtf(2)) * 1000.0f;
+}
+
+uint8_t TMC2209::rms_current_to_current_scale_mA(uint16_t mA) {
+  if (mA == 0) {
+    return 0;
+  }
+  const uint8_t cs = 32.0f * sqrtf(2) * mA2A(mA) * ((this->rsense_.value_or(0) + 0.02f) / this->read_vsense()) - 1.0f;
+  return clamp<uint8_t>(cs, 0, 31);
+}
+
+void TMC2209::write_run_current_mA(uint16_t mA) {
+  const uint8_t cs = this->rms_current_to_current_scale_mA(mA);
+  this->write_field(TMC2209_IRUN_FIELD, cs);
+}
+
+uint16_t TMC2209::read_run_current_mA() {
+  const uint8_t cs = this->read_field(TMC2209_IRUN_FIELD);
+  return this->current_scale_to_rms_current_mA(cs);
+}
+
+void TMC2209::write_hold_current_mA(uint16_t mA) {
+  const uint8_t cs = this->rms_current_to_current_scale_mA(mA);
+  this->write_field(TMC2209_IHOLD_FIELD, cs);
+}
+
+uint16_t TMC2209::read_hold_current_mA() {
+  const uint8_t cs = this->read_field(TMC2209_IHOLD_FIELD);
+  return this->current_scale_to_rms_current_mA(cs);
+}
+
+void TMC2209::set_tpowerdown_ms(uint32_t delay_in_ms) {
+  auto tpowerdown = ((float) delay_in_ms / 262144.0) * ((float) this->clock_frequency_ / 1000.0);
+  this->write_field(TMC2209_TPOWERDOWN_FIELD, tpowerdown);
+};
+
+uint32_t TMC2209::get_tpowerdown_ms() {
+  return (this->read_field(TMC2209_TPOWERDOWN_FIELD) * 262144.0) / (this->clock_frequency_ / 1000.0);
+};
+
+std::tuple<uint8_t, uint8_t> TMC2209::unpack_ottrim_values(uint8_t ottrim) {
+  switch (ottrim) {
+    case 0b00:
+      return std::make_tuple(120, 143);
+    case 0b01:
+      return std::make_tuple(120, 150);
+    case 0b10:
+      return std::make_tuple(143, 150);
+    case 0b11:
+      return std::make_tuple(143, 157);
+  }
+  return std::make_tuple(0, 0);
+}
+
+void TMC2209::stop() {
+  stepper::Stepper::stop();
+  this->direction_ = Direction::NONE;
+  this->write_field(TMC2209_VACTUAL_FIELD, 0);
+}
+
+void TMC2209::stop(bool disable) {
+  this->stop();
+
+  if (disable && this->enn_pin_) {
+    this->enn_pin_->digital_write(true);  // disables the driver
+  } else if (this->enn_pin_ == nullptr) {
+    ESP_LOGW(TAG, "enn_pin is not defined and disable has no additional effect");
+  }
 }
 
 void TMC2209::dump_config() {
@@ -210,6 +409,7 @@ void TMC2209::dump_config() {
 #else
   ESP_LOGE(TAG, "No control method defined!");
 #endif
+  LOG_STEPPER(this);
 
   LOG_PIN("  ENN Pin: ", this->enn_pin_);
   LOG_PIN("  DIAG Pin: ", this->diag_pin_);
@@ -218,7 +418,7 @@ void TMC2209::dump_config() {
   LOG_PIN("  DIR Pin: ", this->dir_pin_);
   ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
 
-  // Version
+  // Read IC version
   const int8_t icv_ = this->read_field(TMC2209_VERSION_FIELD);
   if (std::isnan(icv_) || icv_ == 0) {
     ESP_LOGE(TAG, "  Unable to read IC version. Is the driver powered and wired correctly?");
@@ -231,6 +431,7 @@ void TMC2209::dump_config() {
   auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(TMC2209_OTTRIM_FIELD));  // c++17 required
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot);
   ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz", this->clock_frequency_);
+  ESP_LOGCONFIG(TAG, "  Driver status poll interval: %dms", CHECK_DRIVER_INTERVAL);
 
   ESP_LOGCONFIG(TAG, "  Register dump:");
   ESP_LOGCONFIG(TAG, "    GCONF: 0x%X", this->read_register(TMC2209_GCONF));
@@ -257,170 +458,7 @@ void TMC2209::dump_config() {
   ESP_LOGCONFIG(TAG, "    PWMCONF: 0x%X", this->read_register(TMC2209_PWMCONF));
   ESP_LOGCONFIG(TAG, "    PWMSCALE: 0x%X", this->read_register(TMC2209_PWMSCALE));
   ESP_LOGCONFIG(TAG, "    PWM_AUTO: 0x%X", this->read_register(TMC2209_PWM_AUTO));
-
-  LOG_STEPPER(this);
 }
-
-void TMC2209::loop() {
-#if defined(USE_UART_CONTROL)
-  // Compute and set speed and direction to move the motor in
-  const int32_t to_target = (this->target_position - this->current_position);
-  this->direction_ = (to_target != 0 ? (Direction) (to_target / abs(to_target)) : Direction::NONE);  // yield 1, -1 or 0
-  this->calculate_speed_(micros());
-
-  // -2.8 inverts direction and scales stepping to match specified. Magic number
-  this->write_field(TMC2209_VACTUAL_FIELD, (-2.8 * this->direction_) * (int32_t) this->current_speed_);
-  this->check_feedback_();
-#endif
-
-  if (this->is_failed())
-    return;
-
-#if defined(ENABLE_DRIVER_ALERT_EVENTS)
-    // Emit DIAG event and clear flag if not rasied anymore
-#if defined(USE_DIAG_PIN)
-  this->diag_handler_.check(this->diag_triggered_);
-  if (this->diag_triggered_) {
-    this->diag_triggered_ = this->diag_pin_->digital_read();  // clear or keep flag
-  }
-#else
-  this->diag_triggered_ = this->read_field(TMC2209_DIAG_FIELD);  // clear or keep flag
-  this->diag_handler_.check(this->diag_triggered_);
-#endif
-
-  const uint32_t drv_status = this->read_register(TMC2209_DRV_STATUS);
-  this->ot_handler_.check(static_cast<bool>((drv_status >> 1) & 1));
-  this->otpw_handler_.check(static_cast<bool>(drv_status & 1));
-  this->t157_handler_.check(static_cast<bool>((drv_status >> 11) & 1));
-  this->t150_handler_.check(static_cast<bool>((drv_status >> 10) & 1));
-  this->t143_handler_.check(static_cast<bool>((drv_status >> 9) & 1));
-  this->t120_handler_.check(static_cast<bool>((drv_status >> 8) & 1));
-  this->olb_handler_.check(static_cast<bool>((drv_status >> 7) & 1));
-  this->ola_handler_.check(static_cast<bool>((drv_status >> 6) & 1));
-  this->s2vsb_handler_.check(static_cast<bool>((drv_status >> 5) & 1));
-  this->s2vsa_handler_.check(static_cast<bool>((drv_status >> 4) & 1));
-  this->s2gb_handler_.check(static_cast<bool>((drv_status >> 3) & 1));
-  this->s2ga_handler_.check(static_cast<bool>((drv_status >> 2) & 1));
-
-  this->uvcp_handler_.check(this->read_field(TMC2209_UV_CP_FIELD));
-#endif
-
-#if defined(USE_PULSE_CONTROL)
-  bool at_target = this->has_reached_target();
-  if (this->enn_pin_ != nullptr) {
-    bool sleep_rising_edge = !enn_pin_state_ & !at_target;
-    this->enn_pin_->digital_write(!at_target);
-    this->enn_pin_state_ = !at_target;
-    if (sleep_rising_edge) {
-      delayMicroseconds(1000);
-    }
-  }
-  if (at_target) {
-    this->high_freq_.stop();
-  } else {
-    this->high_freq_.start();
-  }
-
-  Direction dir = (Direction) this->should_step_();
-  if (dir == Direction::NONE)
-    return;
-
-  this->dir_pin_->digital_write(dir == Direction::CLOCKWISE);
-  delayMicroseconds(5);
-  this->step_pin_->digital_write(true);
-  delayMicroseconds(5);
-  this->step_pin_->digital_write(false);
-#endif
-}
-
-uint16_t TMC2209::get_microsteps() {
-  const uint8_t mres = this->read_field(TMC2209_MRES_FIELD);
-  return 256 >> mres;
-}
-
-void TMC2209::set_microsteps(uint16_t ms) {
-  for (uint8_t mres = 8; mres > 0; mres--)
-    if ((256 >> mres) == ms)
-      return this->write_field(TMC2209_MRES_FIELD, mres);
-}
-
-float TMC2209::get_motor_load() {
-  const uint16_t result = this->read_register(TMC2209_SG_RESULT);
-  return (510.0 - (float) result) / (510.0 - this->read_register(TMC2209_SGTHRS) * 2.0);
-}
-
-float TMC2209::read_vsense() { return (this->read_field(TMC2209_VSENSE_FIELD) ? VSENSE_LOW : VSENSE_HIGH); }
-
-uint16_t TMC2209::current_scale_to_rms_current(uint8_t cs) {
-  cs = clamp<uint8_t>(cs, 0, 31);
-  return (cs + 1) / 32.0f * this->read_vsense() / (this->rsense_.value_or(0) + 0.02f) * (1 / sqrtf(2)) * 1000.0f;
-}
-
-uint8_t TMC2209::rms_current_to_current_scale(uint16_t mA) {
-  if (mA == 0) {
-    return 0;
-  }
-  const uint8_t cs = 32.0f * sqrtf(2) * mA2A(mA) * ((this->rsense_.value_or(0) + 0.02f) / this->read_vsense()) - 1.0f;
-  return clamp<uint8_t>(cs, 0, 31);
-}
-
-void TMC2209::set_tpowerdown_ms(uint32_t delay_in_ms) {
-  auto tpowerdown = ((float) delay_in_ms / 262144.0) * ((float) this->clock_frequency_ / 1000.0);
-  this->write_field(TMC2209_TPOWERDOWN_FIELD, tpowerdown);
-};
-
-uint32_t TMC2209::get_tpowerdown_ms() {
-  return (this->read_field(TMC2209_TPOWERDOWN_FIELD) * 262144.0) / (this->clock_frequency_ / 1000.0);
-};
-
-std::tuple<uint8_t, uint8_t> TMC2209::unpack_ottrim_values(uint8_t ottrim) {
-  switch (ottrim) {
-    case 0b00:
-      return std::make_tuple(120, 143);
-    case 0b01:
-      return std::make_tuple(120, 150);
-    case 0b10:
-      return std::make_tuple(143, 150);
-    case 0b11:
-      return std::make_tuple(143, 157);
-  }
-  return std::make_tuple(0, 0);
-}
-
-#if defined(USE_UART_CONTROL)
-void TMC2209::check_feedback_() {
-  // Detect missing index feedback
-  if (this->direction_ == Direction::NONE && !this->has_reached_target()) {
-    ESP_LOGD(TAG, "Started moving towards %d from %d", this->target_position, this->current_position);
-    const int32_t starting_from = this->current_position;
-    this->set_timeout(INDEX_FB_CHECK_TIMER_NAME, 1000, [this, starting_from]() {
-      if (starting_from == this->current_position) {
-        ESP_LOGE(TAG, "No stepping feedback received. Is your index-pin wired correctly?");
-        this->status_set_error("faulty index feedback");
-        this->mark_failed();
-        this->stop();
-      } else {
-        ESP_LOGD(TAG, "Received stepping feedback.");
-      }
-    });
-  } else {
-    if (this->direction_ != Direction::NONE && this->has_reached_target()) {
-      ESP_LOGD(TAG, "Stopped moving at %d", this->current_position);
-      this->cancel_timeout(INDEX_FB_CHECK_TIMER_NAME);
-    }
-  }
-}
-#endif
-
-void TMC2209::stop() {
-  stepper::Stepper::stop();
-  this->direction_ = Direction::NONE;
-}
-
-void TMC2209::enable(bool enable) {
-  this->stop();
-  this->enn_pin_->digital_write(!enable);
-};
 
 }  // namespace tmc2209
 }  // namespace esphome
