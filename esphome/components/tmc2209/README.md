@@ -61,9 +61,9 @@ uart:
 > [!CAUTION]
 ***A lot is happening over serial and low baud rates might cause warnings about the component taking too long. Use something like 115200 or higher.***
 
-* `tx_pin` (*Optional*, [Output Pin Schema][config-pin]): This is the ESPHome device's transmit pin. This should be connected through a 1k Ohm resistor to `PDN_UART` on the TMC2209.
+* `tx_pin` (**Required**, [Output Pin Schema][config-pin]): This is the ESPHome device's transmit pin. This should be connected through a 1k Ohm resistor to `PDN_UART` on the TMC2209.
 
-* `rx_pin` (*Optional*, [Input Pin Schema][config-pin]): This is the ESPHome device's receive pin. This should be connected directly to `PDN_UART` on the TMC2209.
+* `rx_pin` (**Required**, [Input Pin Schema][config-pin]): This is the ESPHome device's receive pin. This should be connected directly to `PDN_UART` on the TMC2209.
 
 > [!NOTE]
 *`tx_pin` and `rx_pin` can be bridged with a 1k Ohm resistor with `rx_pin` directly connected to `PDN_UART`*
