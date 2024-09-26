@@ -123,8 +123,12 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   void dump_config() override;
   void setup() override;
   void loop() override;
+  void set_target(int32_t steps);
   void stop() override;
   void stop(bool disable);
+
+  void enable(bool enable);
+  bool is_enabled() { return !this->enn_pin_state_; };
 
   void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; };
   void set_enn_pin(GPIOPin *pin) { this->enn_pin_ = pin; };

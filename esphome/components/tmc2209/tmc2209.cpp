@@ -77,17 +77,17 @@ void TMC2209::setup() {
 
   this->high_freq_.start();
 
-  if (this->enn_pin_ != nullptr) {
-    this->enn_pin_->setup();
-    this->enn_pin_->digital_write(false);
-  }
-
   while (!this->is_ready()) {
   };
 
   if (!this->read_field(TMC2209_VERSION_FIELD)) {
     this->status_set_error("Failed to communicate with driver");
     this->mark_failed();
+  }
+
+  if (this->enn_pin_ != nullptr) {
+    this->enn_pin_->setup();
+    this->enable(true);
   }
 
   this->write_field(TMC2209_VACTUAL_FIELD, 0);
@@ -147,10 +147,10 @@ void TMC2209::setup() {
       [this]() { this->on_alert_callback_.call(DIAG_TRIGGERED); },       // rise
       [this]() { this->on_alert_callback_.call(DIAG_TRIGGER_CLEARED); }  // fall
   );
-#endif
-
+#else
   // poll driver every x time to check for errors
   this->set_interval(POLL_STATUS_INTERVAL, [this] { this->check_driver_status_(); });
+#endif
 
   this->stalled_handler_.set_on_rise_callback([this]() { this->on_alert_callback_.call(STALLED); });  // stalled
 
@@ -264,6 +264,8 @@ void TMC2209::loop() {
     this->diag_handler_.check(this->diag_isr_triggered_);
     this->stalled_handler_.check(this->is_stalled());
     this->check_driver_status_();
+
+    // keep polling status as long as this DIAG is up
     this->diag_isr_triggered_ = this->diag_pin_->digital_read();
   }
 #endif
@@ -383,19 +385,35 @@ std::tuple<uint8_t, uint8_t> TMC2209::unpack_ottrim_values(uint8_t ottrim) {
   return std::make_tuple(0, 0);
 }
 
+void TMC2209::set_target(int32_t steps) {
+  if (this->enn_pin_ != nullptr) {
+    this->enable(true);
+  }
+
+  stepper::Stepper::set_target(steps);
+}
+
 void TMC2209::stop() {
   stepper::Stepper::stop();
   this->direction_ = Direction::NONE;
+
+#if defined(USE_UART_CONTROL)
   this->write_field(TMC2209_VACTUAL_FIELD, 0);
+#endif
 }
 
-void TMC2209::stop(bool disable) {
-  this->stop();
+void TMC2209::enable(bool enable) {
+  if (!enable) {
+    this->stop();
+  }
 
-  if (disable && this->enn_pin_) {
-    this->enn_pin_->digital_write(true);  // disables the driver
-  } else if (this->enn_pin_ == nullptr) {
-    ESP_LOGW(TAG, "enn_pin is not defined and disable has no additional effect");
+  if (this->enn_pin_ == nullptr) {
+    return ESP_LOGW(TAG, "enn_pin is not configured and setting enable/disable has no effect");
+  }
+
+  if (this->enn_pin_state_ != !enable) {
+    this->enn_pin_state_ = !enable;
+    this->enn_pin_->digital_write(this->enn_pin_state_);
   }
 }
 
@@ -417,6 +435,7 @@ void TMC2209::dump_config() {
   LOG_PIN("  STEP Pin: ", this->step_pin_);
   LOG_PIN("  DIR Pin: ", this->dir_pin_);
   ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
+  ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps());
 
   // Read IC version
   const int8_t icv_ = this->read_field(TMC2209_VERSION_FIELD);

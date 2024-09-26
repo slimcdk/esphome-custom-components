@@ -94,7 +94,7 @@ async def register_stepper(var, config):
 @automation.register_action(
     "stepper.set_target",
     SetTargetAction,
-    cv.Schema(
+    automation.maybe_simple_id(
         {
             cv.Required(CONF_ID): cv.use_id(Stepper),
             cv.Required(CONF_TARGET): cv.templatable(cv.int_),
@@ -112,7 +112,7 @@ async def stepper_set_target_to_code(config, action_id, template_arg, args):
 @automation.register_action(
     "stepper.report_position",
     ReportPositionAction,
-    cv.Schema(
+    automation.maybe_simple_id(
         {
             cv.Required(CONF_ID): cv.use_id(Stepper),
             cv.Required(CONF_POSITION): cv.templatable(cv.int_),
@@ -130,7 +130,7 @@ async def stepper_report_position_to_code(config, action_id, template_arg, args)
 @automation.register_action(
     "stepper.set_speed",
     SetSpeedAction,
-    cv.Schema(
+    automation.maybe_simple_id(
         {
             cv.Required(CONF_ID): cv.use_id(Stepper),
             cv.Required(CONF_SPEED): cv.templatable(validate_speed),
@@ -148,7 +148,7 @@ async def stepper_set_speed_to_code(config, action_id, template_arg, args):
 @automation.register_action(
     "stepper.set_acceleration",
     SetAccelerationAction,
-    cv.Schema(
+    automation.maybe_simple_id(
         {
             cv.Required(CONF_ID): cv.use_id(Stepper),
             cv.Required(CONF_ACCELERATION): cv.templatable(validate_acceleration),
@@ -166,7 +166,7 @@ async def stepper_set_acceleration_to_code(config, action_id, template_arg, args
 @automation.register_action(
     "stepper.set_deceleration",
     SetDecelerationAction,
-    cv.Schema(
+    automation.maybe_simple_id(
         {
             cv.Required(CONF_ID): cv.use_id(Stepper),
             cv.Required(CONF_DECELERATION): cv.templatable(validate_acceleration),
@@ -184,7 +184,7 @@ async def stepper_set_deceleration_to_code(config, action_id, template_arg, args
 @automation.register_action(
     "stepper.stop",
     StopAction,
-    automation.maybe_simple_id(cv.Schema({cv.Required(CONF_ID): cv.use_id(Stepper)})),
+    automation.maybe_simple_id({cv.Required(CONF_ID): cv.use_id(Stepper)}),
 )
 async def stepper_stop_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])

@@ -3,7 +3,7 @@ import esphome.config_validation as cv
 import esphome.final_validate as fv
 from esphome import automation, pins
 from esphome.core import EsphomeError
-from esphome.components import uart, stepper, output
+from esphome.components import uart, stepper
 from esphome.automation import maybe_simple_id
 from esphome.const import (
     CONF_TRIGGER_ID,
@@ -12,7 +12,6 @@ from esphome.const import (
     CONF_STEP_PIN,
     CONF_DIR_PIN,
     CONF_PLATFORM,
-    CONF_OUTPUT,
 )
 
 CODEOWNERS = ["@slimcdk"]
@@ -20,6 +19,9 @@ CODEOWNERS = ["@slimcdk"]
 CONF_STEPPER = "stepper"
 CONF_TMC2209 = "tmc2209"
 CONF_TMC2209_ID = "tmc2209_id"
+
+CONF_ENABLE = "enable"
+CONF_DISABLE = "disable"
 
 CONF_ENN_PIN = "enn_pin"
 CONF_DIAG_PIN = "diag_pin"
@@ -30,6 +32,7 @@ CONF_CLOCK_FREQUENCY = "clock_frequency"
 CONF_RSENSE = "rsense"  # sense resistors
 CONF_VSENSE = "vsense"  # set if rsense resistors are 1/4 W
 CONF_OTTRIM = "ottrim"
+CONF_POLL_STATUS_INTERVAL = "poll_status_interval"
 
 CONF_ON_ALERT = "on_alert"
 
@@ -50,9 +53,6 @@ CONF_IHOLD = "ihold"
 CONF_IHOLDDELAY = "iholddelay"
 CONF_TPOWERDOWN = "tpowerdown"
 
-CONF_POLL_STATUS_INTERVAL = "poll_status_interval"
-
-CONF_DISABLE = "disable"
 CONF_STANDSTILL_MODE = "standstill_mode"
 STANDSTILL_MODE_NORMAL = "normal"
 STANDSTILL_MODE_FREEWHEELING = "freewheeling"
@@ -69,10 +69,9 @@ STANDSTILL_MODES = {
 tmc2209_ns = cg.esphome_ns.namespace("tmc2209")
 TMC2209 = tmc2209_ns.class_("TMC2209", cg.Component, uart.UARTDevice, stepper.Stepper)
 
-StepperStopAction = tmc2209_ns.class_("TMC2209StopAction", automation.Action)
-OnAlertTrigger = tmc2209_ns.class_("TMC2209OnAlertTrigger", automation.Trigger)
-ConfigureAction = tmc2209_ns.class_("TMC2209ConfigureAction", automation.Action)
-StopAction = tmc2209_ns.class_("TMC2209StopAction", automation.Action)
+OnAlertTrigger = tmc2209_ns.class_("OnAlertTrigger", automation.Trigger)
+ConfigureAction = tmc2209_ns.class_("ConfigureAction", automation.Action)
+ActivationAction = tmc2209_ns.class_("ActivationAction", automation.Action)
 
 DriverEvent = tmc2209_ns.enum("DriverEvent")
 
@@ -283,19 +282,27 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
 
 
 @automation.register_action(
-    "tmc2209.stop",
-    StopAction,
-    cv.Schema(
-        {
-            cv.GenerateID(): cv.use_id(TMC2209),
-            cv.Optional(CONF_DISABLE, default=False): cv.boolean,
-        }
-    ),
+    "tmc2209.enable",
+    ActivationAction,
+    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209)}),
 )
-def tmc2209_stop_to_code(config, action_id, template_arg, args):
+def tmc2209_enable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     yield cg.register_parented(var, config[CONF_ID])
-    cg.add(var.set_disable(config[CONF_DISABLE]))
+    cg.add(var.set_activate(True))
+    return var
+
+
+@automation.register_action(
+    "tmc2209.disable",
+    ActivationAction,
+    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209)}),
+)
+def tmc2209_disable_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
+    cg.add(var.set_activate(False))
+    return var
 
 
 def final_validate_config(config):

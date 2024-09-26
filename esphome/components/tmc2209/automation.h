@@ -7,7 +7,7 @@
 namespace esphome {
 namespace tmc2209 {
 
-template<typename... Ts> class TMC2209ConfigureAction : public Action<Ts...>, public Parented<TMC2209> {
+template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Parented<TMC2209> {
  public:
   TEMPLATABLE_VALUE(bool, inverse_direction)
   TEMPLATABLE_VALUE(int, microsteps)
@@ -61,20 +61,19 @@ template<typename... Ts> class TMC2209ConfigureAction : public Action<Ts...>, pu
   }
 };
 
-template<typename... Ts> class TMC2209StopAction : public Action<Ts...>, public Parented<TMC2209> {
- public:
-  TEMPLATABLE_VALUE(bool, disable)
+template<typename... Ts> class ActivationAction : public Action<Ts...>, public Parented<TMC2209> {
+  TEMPLATABLE_VALUE(bool, activate)
 
   void play(Ts... x) override {
-    if (this->disable_.has_value()) {
-      this->parent_->stop(this->disable_.value(x...));
+    if (this->activate_.has_value()) {
+      this->parent_->enable(this->activate_.value(x...));
     }
   }
 };
 
-class TMC2209OnAlertTrigger : public Trigger<DriverEvent> {
+class OnAlertTrigger : public Trigger<DriverEvent> {
  public:
-  explicit TMC2209OnAlertTrigger(TMC2209 *parent) {
+  explicit OnAlertTrigger(TMC2209 *parent) {
     parent->add_on_alert_callback([this](DriverEvent event) { this->trigger(event); });
   }
 };

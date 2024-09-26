@@ -96,8 +96,7 @@ Stepping pulses are handled by the main thread but utilize [increased execution 
 > *More components take up more resources slowing the main thread.*
 
 > [!IMPORTANT]
-*Configure `step_pin` and `dir_pin` and not `index_pin` for this method.*
-
+*Configure `step_pin` and `dir_pin` and not `index_pin` for this method. Stay below 8 microstepping for best performance.*
 
 
 ####
@@ -116,7 +115,7 @@ stepper:
     vsense: False                 # optional, default is False
     ottrim: 0                     # optional, default is OTP
     clock_frequency: 12MHz        # optional, default is 12MHz
-    poll_status_interval: 500ms   # optional, default is 500ms
+    poll_status_interval: 500ms   # optional, default is 500ms and has no effect if diag_pin is set
 
     max_speed: 500 steps/s
     acceleration: 2500 steps/s^2  # optional, default is INF (no soft acceleration)
@@ -128,7 +127,7 @@ stepper:
 
 * `enn_pin` (*Optional*, [Output Pin Schema][config-pin]): Enable not input pin for the driver.
 > [!NOTE]
-*Not used unless specified in `tmc2209.stop`. For freewheeling on stop/standstill set `standstill_mode` to `freewheeling` and `ihold` to 0 in [`tmc2209.configure`](#tmc2209configure-action).*
+*Only used with [`tmc2209.enable`](#tmc2209enable-action) and [`tmc2209.disable`](#tmc2209disable-action). Freewheeling on stop/standstill can be done by setting `standstill_mode` to `freewheeling` and `ihold` to 0 with [`tmc2209.configure`](#tmc2209configure-action) and set disable to false / leave empty.*
 
 * `diag_pin` (*Optional*, [Input Pin Schema][config-pin]): Driver error signaling from the driver.
 
@@ -159,7 +158,7 @@ stepper:
 
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
 
-* `poll_status_interval` (*Optional*, [Time][config-time]): Interval to poll driver for fault indicators like overtemperature, open load, short etc. Default is 500ms intervals. An immediate poll is issued if `diag_pin` is used and it signals an issue. ***This does not set detection interval for stall***.
+* `poll_status_interval` (*Optional*, [Time][config-time]): Interval to poll driver for fault indicators like overtemperature, open load, short etc (***This does not set detection interval for stall***). Default is 500ms. This has no effect if `diag_pin` is configured.
 
 * All other from [Base Stepper Component][base-stepper-component]
 
@@ -228,7 +227,7 @@ esphome:
         iholddelay: 0
 ```
 
-* `id` (**Required**, ID): Reference to the stepper tmc2209 (base, not stepper) component. Not needed if a single TMC2209 is configured.
+* `id` (**Required**, ID): Reference to the stepper tmc2209 (base, not stepper) component. Can be left out if only a single TMC2209 is configured.
 
 * `microsteps` (*Optional*, int, [templatable][config-templatable]): Microstepping. Possible values are `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`.
 
@@ -264,19 +263,31 @@ esphome:
 *See [section 1.7][datasheet] for visiual graphs of IRUN, TPOWERDOWN and IHOLDDELAY and IHOLD*
 
 
-### `tmc2209.stop` Action
-Example of configuring the driver. For instance on boot.
+### `tmc2209.enable` Action
+
+Enables driver using `enn_pin` if set.
+
 ```yaml
-esphome:
-  ...
-  on_boot:
-    - tmc2209.stop:
-        disable: False
+on_...:
+  - tmc2209.enable: driver
 ```
+* `id` (**Required**, ID): Reference to the stepper tmc2209 (base, not stepper) component. Can be left out if only a single TMC2209 is configured.
 
-* `id` (**Required**, ID): Reference to the stepper tmc2209 (base, not stepper) component. Not needed if a single TMC2209 is configured.
 
-* `disable` (*Optional*, bool, [templatable][config-templatable]): Disable driver with `enn_pin` if set. Will auto enable when starting to move. Often not needed.
+### `tmc2209.disable` Action
+
+Disables driver using `enn_pin` if set.
+
+```yaml
+on_...:
+  - tmc2209.disable: driver
+```
+* `id` (**Required**, ID): Reference to the stepper tmc2209 (base, not stepper) component. Can be left out if only a single TMC2209 is configured.
+
+> [!NOTE]
+*Driver will be automatically be enabled if new target is issued. This action stops any active step generation.*
+
+
 
 ### Sensors
 
@@ -429,14 +440,14 @@ button:
     on_press:
       - stepper.set_target:
           id: driver
-          target: !lambda return id(driver).current_position +1000;
+          target: !lambda return id(driver)->current_position +1000;
 
   - platform: template
     name: 1000 Steps backward
     on_press:
       - stepper.set_target:
           id: driver
-          target: !lambda return id(driver).current_position -1000;
+          target: !lambda return id(driver)->current_position -1000;
 
 number:
   - platform: template
