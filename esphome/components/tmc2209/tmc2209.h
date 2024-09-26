@@ -7,9 +7,9 @@
 
 #include "esphome/core/helpers.h"
 #include "esphome/core/component.h"
-// #include "esphome/core/automation.h"
-
+#include "esphome/core/automation.h"
 #include "esphome/components/uart/uart.h"
+#include "esphome/components/stepper/stepper.h"
 
 extern "C" {
 #include <ic/TMC2209/TMC2209.h>
@@ -19,16 +19,17 @@ namespace esphome {
 namespace tmc2209 {
 
 #define TMC2209_IC_VERSION_33 0x21
-#define DRIVER_STATE_TIMER_NAME "powerdown"
-#define INDEX_FB_CHECK_TIMER_NAME "indexcheck"
+
+#define VSENSE_HIGH 0.325f
+#define VSENSE_LOW 0.180f
+
+#define mA2A(mA) ((float) mA / 1000.0)
+#define A2mA(A) (uint16_t)(A * 1000)
 
 enum DriverEvent {
-
   DIAG_TRIGGERED,
+  DIAG_TRIGGER_CLEARED,
   STALLED,
-  // CHARGPUMP_UNDERVOLTAGE,
-  // SHORT_CIRCUIT,
-
   TEMPERATURE_NORMAL,
   OVERTEMPERATURE_PREWARNING,
   OVERTEMPERATURE_PREWARNING_CLEARED,
@@ -54,12 +55,27 @@ enum DriverEvent {
   A_GROUND_SHORT_CLEARED,
   B_GROUND_SHORT,
   B_GROUND_SHORT_CLEARED,
+  CP_UNDERVOLTAGE,
+  CP_UNDERVOLTAGE_CLEARED
 };
 
 class TMC2209;  // forwared declare
 
 static TMC2209 *components[TMC2209_NUM_COMPONENTS];
 static uint16_t component_index = 0;
+
+enum Direction : int8_t {
+  CLOCKWISE = -1,     // Moving one direction
+  NONE = 0,           // Not moving
+  ANTICLOCKWISE = 1,  // Moving the other direction
+};
+
+struct IndexPulseStore {
+  int32_t *current_position_ptr{nullptr};
+  int32_t *target_position_ptr{nullptr};
+  Direction *direction_ptr{nullptr};
+  static void IRAM_ATTR HOT pulse_isr(IndexPulseStore *arg) { (*(arg->current_position_ptr)) += *(arg->direction_ptr); }
+};
 
 struct ISRStore {
   bool *pin_triggered_ptr{nullptr};
@@ -99,41 +115,51 @@ class EventHandler {
   std::function<void()> callback_fall_;
 };
 
-class TMC2209 : public Component, public uart::UARTDevice {
+class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevice {
  public:
   TMC2209(uint8_t address, uint32_t clock_frequency);
-  friend class TMC2209Stepper;
-
-  void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; };
-
-  void set_rsense(float resistance = 0, bool use_internal = false) {
-    this->rsense_ = resistance;
-    this->use_internal_rsense_ = use_internal;
-  };
-
-  void set_ottrim(uint8_t ottrim) { this->ottrim_ = ottrim; };
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void dump_config() override;
   void setup() override;
   void loop() override;
+  void set_target(int32_t steps);
+  void stop() override;
+  void stop(bool disable);
 
-  uint8_t get_address() { return this->address_; }
+  void enable(bool enable);
+  bool is_enabled() { return !this->enn_pin_state_; };
+
+  void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; };
+  void set_enn_pin(GPIOPin *pin) { this->enn_pin_ = pin; };
+  void set_step_pin(GPIOPin *pin) { this->step_pin_ = pin; };
+  void set_dir_pin(GPIOPin *pin) { this->dir_pin_ = pin; };
+  void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; };
+  void set_rsense(float resistance) { this->rsense_ = resistance; };
+  void set_vsense(bool set) { this->vsense_ = set; };
+  void set_ottrim(uint8_t ottrim) { this->ottrim_ = ottrim; };
 
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
 
-  void set_rms_current(float A);
-  float get_rms_current();
-  void rms_current_hold_scale(float scale);
-  float rms_current_hold_scale();
   float get_motor_load();
+  bool is_stalled();
 
-  void ihold_irun_ihold_delay_ms(uint32_t delay_in_ms);
-  uint32_t ihold_irun_ihold_delay_ms();
+  /* run and hold currents */
+  float read_vsense();
+  uint16_t current_scale_to_rms_current_mA(uint8_t cs);
+  uint8_t rms_current_to_current_scale_mA(uint16_t mA);
+  void write_run_current_mA(uint16_t mA);
+  void write_hold_current_mA(uint16_t mA);
+  uint16_t read_run_current_mA();
+  uint16_t read_hold_current_mA();
+  void write_run_current(float A) { this->write_run_current_mA(A2mA(A)); };
+  void write_hold_current(float A) { this->write_hold_current_mA(A2mA(A)); };
+  float read_run_current() { return mA2A(this->read_run_current_mA()); };
+  float read_hold_current() { return mA2A(this->read_hold_current_mA()); };
 
-  void tpowerdown_ms(uint32_t delay_in_ms);
-  uint32_t tpowerdown_ms();
+  void set_tpowerdown_ms(uint32_t delay_in_ms);
+  uint32_t get_tpowerdown_ms();
   std::tuple<uint8_t, uint8_t> unpack_ottrim_values(uint8_t ottrim);
 
   void add_on_alert_callback(std::function<void(DriverEvent)> &&callback) {
@@ -141,74 +167,40 @@ class TMC2209 : public Component, public uart::UARTDevice {
   }
 
   // TMC-API wrappers
-  // Write or read a register (all fields)
-  void write_register(uint8_t address, int32_t value) { tmc2209_writeRegister(this->id_, address, value); }
-  int32_t read_register(uint8_t address) { return tmc2209_readRegister(this->id_, address); }
+  uint8_t get_address() { return this->address_; }
 
-  // Write or read a register field (single field within register)
-  void write_field(RegisterField field, uint32_t value) { tmc2209_fieldWrite(this->id_, field, value); }
-  uint32_t read_field(RegisterField field) { return tmc2209_fieldRead(this->id_, field); }
-
-  void write_gconf_iscale_analog(bool use_vref);
-  void write_gconf_internal_rsense(bool internal);
-  void write_gconf_en_spreadcycle(bool enable);
-  void write_gconf_shaft(bool inverse);
-  void write_gconf_index_otpw(bool use_otpw);
-  void write_gconf_index_step(bool enable);
-  void write_gconf_pdn_disable(bool disable);
-  void write_gconf_mstep_reg_select(bool use);
-  void write_chopconf_mres(uint8_t index);
-  uint8_t read_chopconf_mres();
-  void write_gconf_multistep_filt(bool enable);
-  void write_gconf_test_mode(bool enable);
-  uint32_t read_drv_status();
-  bool read_gconf_index_otpw();
-  bool read_ioin_diag();
-  int8_t read_ioin_chip_version();
-  void write_coolstep_tcoolthrs(int32_t threshold);
-  void write_chopconf_intpol(bool enable);
-  void write_chopconf_vsense(bool high_sensitivity);
-  bool read_chopconf_vsense();
-  void write_stallguard_sgthrs(uint8_t threshold);
-  uint8_t read_stallguard_sgthrs();
-  uint16_t read_stallguard_sgresult();
-  void write_vactual(int32_t velocity);
-  void write_ihold_irun_ihold(uint8_t current);
-  void write_ihold_irun_irun(uint8_t current);
-  uint8_t read_ihold_irun_irun();
-  void write_ihold_irun_ihold_delay(uint8_t clock_cycle_factor);
-  uint8_t read_ihold_irun_ihold_delay();
-  void write_tpowerdown(uint8_t delay);
-  uint8_t read_tpowerdown();
-
-  void write_ottrim(uint8_t ottrim);
-  uint8_t read_ottrim();
+  // Write or read a register (all fields) or register field (single field within register)
+  void write_register(uint8_t address, int32_t value);
+  int32_t read_register(uint8_t address);
+  void write_field(RegisterField field, uint32_t value);
+  uint32_t read_field(RegisterField field);
 
  protected:
-  InternalGPIOPin *diag_pin_{nullptr};
-
   uint16_t id_;  // used for tmcapi id index and esphome global component index
   uint8_t address_;
-  optional<uint8_t> ottrim_;
-
-  void set_rms_current_();
-  float current_scale_to_rms_current_(uint8_t current_scaling);
-
-  bool use_internal_rsense_;
-  float rsense_;
   const uint32_t clock_frequency_;
 
-  float rms_current_{std::numeric_limits<float>::max()};
-  float rms_current_hold_scale_{1.0};
+  InternalGPIOPin *diag_pin_{nullptr};
+  InternalGPIOPin *index_pin_{nullptr};
+  GPIOPin *step_pin_{nullptr};
+  GPIOPin *dir_pin_{nullptr};
+  GPIOPin *enn_pin_{nullptr};
+  bool enn_pin_state_;
 
   ISRStore diag_isr_store_{};
-  bool diag_triggered_{false};
+  bool diag_isr_triggered_{false};
 
-  /* Driver event handlers */
-  void setup_event_handlers();
-  void handle_diag_rise_event();
+  optional<uint8_t> ottrim_;
+  optional<float> rsense_;
+  optional<bool> vsense_;
 
-  EventHandler diag_handler_{};  // Event on DIAG
+  void check_driver_status_();
+
+#if defined(ENABLE_DRIVER_ALERT_EVENTS)
+  bool monitor_stallguard_{false};
+
+  EventHandler diag_handler_{};     // Event on DIAG
+  EventHandler stalled_handler_{};  // Stalled
   // EventHandler stst_handler_{};     // standstill indicator
   // EventHandler stealth_handler_{};  // StealthChop indicator (0=SpreadCycle mode, 1=StealthChop mode)
   EventHandler otpw_handler_{};   // overtemperature prewarning flag (Selected limit has been reached)
@@ -223,10 +215,17 @@ class TMC2209 : public Component, public uart::UARTDevice {
   EventHandler s2vsa_handler_{};  // low side short indicator phase A
   EventHandler s2gb_handler_{};   // short to ground indicator phase B
   EventHandler s2ga_handler_{};   // short to ground indicator phase A
-  /* */
-
+  EventHandler uvcp_handler_{};   // Charge pump undervoltage
+#endif
   CallbackManager<void(const DriverEvent &event)> on_alert_callback_;
+
+#if defined(USE_UART_CONTROL)
+  bool index_fb_ok_{false};
+  IndexPulseStore ips_{};  // index pulse store
+#endif
+
   HighFrequencyLoopRequester high_freq_;
+  Direction direction_{Direction::NONE};
 };
 
 }  // namespace tmc2209
