@@ -1,6 +1,15 @@
 # TMC2209
 
-ESPHome component to interact with a TMC2209 stepper motor driver over UART and regular step/dir. Technical information can be found in the [section 1.2.1][datasheet].
+ESPHome component to interact with a TMC2209 stepper motor driver over UART and regular step/dir.
+
+
+<p align="center">
+  <img src="./docs/trinamic-bob-module.jpg" alt="Trinamic BOB" width="19%" />
+  <img src="./docs/silentstepstick-module.jpg" alt="SilentStepStick" width="19%" />
+  <img src="./docs/bigtreetech-module.webp" alt="BigTreeTech" width="19%" />
+  <img src="./docs/fysetc-module.webp" alt="Fysetc" width="19%" />
+  <img src="./docs/grobo-module.jpg" alt="GRobotronics" width="19%" />
+</p>
 
 > [!IMPORTANT]
 *Only a single `tmc2209` instance (device) per UART config is currently supported by ESPHome. Multiple drivers require multiple UART connections.*
@@ -38,10 +47,7 @@ external_components:
 ```
 ---
 
-Configuration of [UART Bus][uart-component].
-
-> [!CAUTION]
-**A lot is happening over serial and low baud rates might cause warnings about the component taking too long. Use something like 115200 or higher.**
+### Configuration of [UART Bus][uart-component].
 
 ```yaml
 uart:
@@ -49,37 +55,49 @@ uart:
   rx_pin: REPLACEME
   baud_rate: 512000 # 9600 -> 500k
 ```
+
+* `baud_rate` (**Required**, int): The baud rate of the UART bus. TMC2209 will auto-detect baud rates from 9600 to 500k with the internal clock/oscillator. An external clock/oscillator is needed for baud rates higher than 500k.
+
+> [!CAUTION]
+**A lot is happening over serial and low baud rates might cause warnings about the component taking too long. Use something like 115200 or higher.**
+
+* `tx_pin` (*Optional*, [Output Pin Schema][config-pin]): This is the ESPHome device's transmit pin. This should be connected through a 1k Ohm resistor to `PDN_UART` on the TMC2209.
+
+* `rx_pin` (*Optional*, [Input Pin Schema][config-pin]): This is the ESPHome device's receive pin. This should be connected directly to `PDN_UART` on the TMC2209.
+
 > [!NOTE]
-*TMC2209 will auto-detect baud rates from 9600 to 500k with the internal clock/oscillator. An external clock/oscillator is needed for baud rates higher than 500k.*
+*`tx_pin` and `rx_pin` can be bridged with a 1k Ohm resistor with `rx_pin` directly connected to `PDN_UART`*
+
+> [!IMPORTANT]
+*Avoid selecting a UART which is utilized for other purposes. For instance boot log as the TMC2209 will try to interpret the output.*
+
 ---
 
 ### Stepper configuration
 
->[!NOTE]
-*The stepper can be controlled in two ways.*
+> *The stepper can be controlled in two ways. See [section 1.3][datasheet] for technical information.*
 
 
 #### Control position using serial (UART)
+
 Accuracy is slightly reduced for tighter timing and high-frequency pulse generation, which is handled internally by the driver rather than the ESPHome microcontroller. This ensures consistent pulse generation without interference from other components, making it ideal for high microstep interpolation or silent operation. Relevant info can be found in [section 1.3][datasheet].
 
->[!NOTE]
-*The provided accuracy is often precise enough, but it depends on speeds and how often the component can write to the driver.*
+> *The provided accuracy is often precise enough, but it depends on speeds and how often the component can write to the driver.*
 
->[!IMPORTANT]
+> [!IMPORTANT]
 *Configure `index_pin` and not `step_pin` and `dir_pin` for this method.*
 
 
+
 #### Control position using traditional stepping pulses and direction
+
 Stepping pulses are handled by the main thread but utilize [increased execution frequency functionality][highfrequencylooprequester] to generate pulses as fast as possible. Pulses are therefore limited to whenever the ESP can generate a pulse, and any timing inconsistencies may cause erratic motor noise or operational issues when running the motor.
 
->[!NOTE]
-*More components take up more resources slowing the main thread.*
+> *More components take up more resources slowing the main thread.*
 
->[!IMPORTANT]
+> [!IMPORTANT]
 *Configure `step_pin` and `dir_pin` and not `index_pin` for this method.*
 
->[!CAUTION]
-*Current timing in step generation is very instable and cuases the driver to provide unreliable stallguard feedback and stepping inconsistencies*
 
 
 ####
@@ -88,34 +106,31 @@ Stepping pulses are handled by the main thread but utilize [increased execution 
 stepper:
   - platform: tmc2209
     id: driver
-    address: 0x00
-    enn_pin: REPLACEME
-    diag_pin: REPLACEME # highly recommended to set
-
-    # configure this pin if you intend to use the internal pulse generation of the TMC2209
-    index_pin: REPLACEME
-
-    # configure these pins if you intend to have ESPHome generate the stepping pulses
-    step_pin: REPLACEME
-    dir_pin: REPLACEME
-
-    rsense: REPLACEME
-    vsense: False
-    ottrim: 0
-    clock_frequency: 12MHz
+    address: 0x00                 # optional, default is 0x00
+    enn_pin: REPLACEME            # optional, mostly not needed
+    diag_pin: REPLACEME           # optional, but highly recommended to set
+    index_pin: REPLACEME          # optional, unless using uart control
+    step_pin: REPLACEME           # optional, unless using step/dir control
+    dir_pin: REPLACEME            # optional, unless using step/dir control
+    rsense: REPLACEME             # optional, check resistor on board
+    vsense: False                 # optional, default is False
+    ottrim: 0                     # optional, default is OTP
+    clock_frequency: 12MHz        # optional, default is 12MHz
+    poll_status_interval: 500ms   # optional, default is 500ms
 
     max_speed: 500 steps/s
-    acceleration: 1000 steps/s^2
-    deceleration: 1000 steps/s^2
+    acceleration: 2500 steps/s^2  # optional, default is INF (no soft acceleration)
+    deceleration: 2500 steps/s^2  # optional, default is INF (no soft deceleration)
 ```
 * `id` (**Required**, [ID][config-id]): Specify the ID of the stepper so that you can control it.
 
 * `address` (*Optional*, hex): UART address of the IC. Configured by setting MS1_AD0 or MS2_AD1 high or low. Default is `0x00`.
 
-* `enn_pin` (*Optional*, [Output Pin Schema][config-pin]): Enable not input pin for the driver. No need for manual inverted config as inverted logic is handled internally.
+* `enn_pin` (*Optional*, [Output Pin Schema][config-pin]): Enable not input pin for the driver.
+> [!NOTE]
+*Not used unless specified in `tmc2209.stop`. For freewheeling on stop/standstill set `standstill_mode` to `freewheeling` and `ihold` to 0 in [`tmc2209.configure`](#tmc2209configure-action).*
 
 * `diag_pin` (*Optional*, [Input Pin Schema][config-pin]): Driver error signaling from the driver.
-  >If not defined, the less reliable detection over UART will be used instead.
 
 * `index_pin` (*Optional*, [Input Pin Schema][config-pin]): Serves as stepping feedback from the internal step pulse generator.
 
@@ -140,10 +155,12 @@ stepper:
     </tbody>
   </table>
 
-  >[!NOTE]
-  > Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning and `ENN` has been toggled.
+  > [!NOTE]
+  > Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning.
 
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
+
+* `poll_status_interval` (*Optional*, [Time][config-time]): Interval to poll driver for fault indicators like overtemperature, open load, short etc. Default is 500ms intervals. An immediate poll is issued if `diag_pin` is used and it signals an issue. ***This does not set detection interval for stall***.
 
 * All other from [Base Stepper Component][base-stepper-component]
 
@@ -165,7 +182,7 @@ stepper:
             - logger.log: "Motor stalled!"
             - stepper.stop: driver
 ```
-> <small>[All events in an example config](#alert-events)</small>
+> <small>All events in an [example config](#alert-events)  for easy copy/paste</small>
 
 #### Current supported alert events
 
@@ -187,7 +204,7 @@ Most alerts is signaling that the driver is in a given state. The majority of al
   * `B_GROUND_SHORT` | `B_GROUND_SHORT_CLEARED` Short to ground indicator phase B.
   * `CP_UNDERVOLTAGE` | `CP_UNDERVOLTAGE_CLEARED` Undervoltage on chargepump input.
 
->[!NOTE]
+> [!NOTE]
 *`STALLED` is the event you would want for sensorless homing*
 
 ## Actions
@@ -208,7 +225,7 @@ esphome:
         iholddelay: 0
 ```
 
-* `id` (**Required**, ID): Reference to the stepper tmc2209 (base, not stepper) component.
+* `id` (**Required**, ID): Reference to the stepper tmc2209 (base, not stepper) component. Not needed if a single TMC2209 is configured.
 
 * `microsteps` (*Optional*, int, [templatable][config-templatable]): Microstepping. Possible values are `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`.
 
@@ -216,7 +233,7 @@ esphome:
 
 * `tcool_threshold` (*Optional*, int, [templatable][config-templatable]): Value for the COOLSTEP TCOOL threshold.
 
-* `stallguard_threshold` (*Optional*, int, [templatable][config-templatable]): Value for the StallGuard2 threshold.
+* `stallguard_threshold` (*Optional*, int, [templatable][config-templatable]): Value for the StallGuard4 threshold.
 
 * `interpolation` (*Optional*, bool, [templatable][config-templatable]): The actual microstep resolution (MRES) becomes extrapolated to 256 microsteps for the smoothest motor operation.
 
@@ -238,27 +255,49 @@ esphome:
   * `short_coil_ls`: Similar to `freewheeling`, but with motor coils shorted to low side voltage.
   * `short_coil_hs`: Similar to `freewheeling`, but with motor coils shorted to high side voltage.
 
->[!NOTE]
+> [!NOTE]
 *Registers and fields on the driver persist through an ESPHome device reboot, so previously written states may remain active*
 
 *See [section 1.7][datasheet] for visiual graphs of IRUN, TPOWERDOWN and IHOLDDELAY and IHOLD*
 
 
+### `tmc2209.stop` Action
+Example of configuring the driver. For instance on boot.
+```yaml
+esphome:
+  ...
+  on_boot:
+    - tmc2209.stop:
+        disable: False
+```
+
+* `id` (**Required**, ID): Reference to the stepper tmc2209 (base, not stepper) component. Not needed if a single TMC2209 is configured.
+
+* `disable` (*Optional*, bool, [templatable][config-templatable]): Disable driver with `enn_pin` if set. Will auto enable when starting to move. Often not needed.
+
 ### Sensors
 
 Some metrics from the driver is exposed as a ready-to-use sensor component.
+
+> [!IMPORTANT]
+*Only intended for diagnostic purposes*
 
 ```yaml
 sensor:
   - platform: tmc2209
     type: stallguard_result
     name: Driver stallguard
-    update_interval: 1s
+    update_interval: 250ms
 
   - platform: tmc2209
     type: motor_load
     name: Motor load
-    update_interval: 100ms
+    update_interval: 250ms
+
+  - platform: tmc2209
+    type: actual_current
+    name: Actual current
+    update_interval: 250ms
 ```
 * `tmc2209_id` (*Optional*, [ID][config-id]): Manually specify the ID of the `stepper.tmc2209` you want to use this sensor.
 
@@ -268,6 +307,61 @@ sensor:
   * `actual_current` Active current setting. Either IRUN or IHOLD value.
 
 * All other from [Sensor][base-sensor-component]
+
+
+
+### Sensorless homing
+
+Example config with logic of "homing" the motor against a mechanical hard-stop.
+
+```yaml
+esphome:
+  ...
+  on_boot:
+    - button.press: home # home right after boot
+
+globals:
+  - id: has_homed
+    type: bool
+    initial_value: "true"
+    restore_value: no
+
+stepper:
+  - platform: tmc2209
+    id: driver
+    ...
+    on_alert:
+      - if:
+          condition:
+            lambda: return alert == tmc2209::STALLED;
+          then:
+            - logger.log: "Motor stalled!"
+            - stepper.stop: driver
+            - if:
+                condition:
+                  lambda: return !id(has_homed);
+                then:
+                  - stepper.report_position:
+                      id: driver
+                      position: 0
+                  - globals.set:
+                      id: has_homed
+                      value: "true"
+                  - logger.log: "Home position set"
+
+button:
+  - platform: template
+    name: Home
+    on_press:
+      - logger.log: "Going home!"
+      - globals.set:
+          id: has_homed
+          value: "false"
+      - stepper.set_target:
+          id: driver
+          target: -9999999
+```
+
 
 
 ## Example config
@@ -305,14 +399,14 @@ uart:
 stepper:
   - platform: tmc2209
     id: driver
-    max_speed: 500 steps/s
-    acceleration: 1000 steps/s^2
-    deceleration: 1000 steps/s^2
+    max_speed: 800 steps/s
+    acceleration: 7500 steps/s^2
+    deceleration: 7500 steps/s^2
     rsense: 110 mOhm
     vsense: False
     ottrim: 0
-    diag_pin: 41
     index_pin: 42
+    diag_pin: 41
     on_alert:
       - if:
           condition:
@@ -358,48 +452,49 @@ sensor:
   - platform: tmc2209
     type: motor_load
     name: Motor load
-    update_interval: 100ms
+    update_interval: 250ms
 ```
 
-Output of the above configuration.
+Output of above configuration. Registers could differ due to OTP.
 ```console
 ...
-[00:00:00][C][tmc2209:204]: TMC2209 Stepper:
-[00:00:00][C][tmc2209:207]:   Control: UART with feedback
-[00:00:00][C][tmc2209:215]:   DIAG Pin: GPIO41
-[00:00:00][C][tmc2209:216]:   INDEX Pin: GPIO42
-[00:00:00][C][tmc2209:219]:   Address: 0x00
-[00:00:00][C][tmc2209:226]:   Detected IC version: 0x21
-[00:00:00][C][tmc2209:232]:   Overtemperature: prewarning = 120C | shutdown = 143C
-[00:00:00][C][tmc2209:233]:   Clock frequency: 12000000 Hz
-[00:00:00][C][tmc2209:235]:   Register dump:
-[00:00:00][C][tmc2209:236]:     GCONF: 0xE0
-[00:00:00][C][tmc2209:237]:     GSTAT: 0x1
-[00:00:00][C][tmc2209:238]:     IFCNT: 0xF2
-[00:00:00][C][tmc2209:239]:     SLAVECONF: 0x0
-[00:00:00][C][tmc2209:240]:     OTP_PROG: 0x0
-[00:00:00][C][tmc2209:241]:     OTP_READ: 0xA
-[00:00:00][C][tmc2209:242]:     IOIN: 0x21000240
-[00:00:00][C][tmc2209:243]:     FACTORY_CONF: 0xA
-[00:00:00][C][tmc2209:244]:     IHOLD_IRUN: 0x0
-[00:00:00][C][tmc2209:245]:     TPOWERDOWN: 0x0
-[00:00:00][C][tmc2209:246]:     TSTEP: 0xFFFFF
-[00:00:00][C][tmc2209:247]:     TPWMTHRS: 0x0
-[00:00:00][C][tmc2209:248]:     TCOOLTHRS: 0x190
-[00:00:00][C][tmc2209:249]:     VACTUAL: 0x0
-[00:00:00][C][tmc2209:250]:     SGTHRS: 0x32
-[00:00:00][C][tmc2209:251]:     SG_RESULT: 0x0
-[00:00:00][C][tmc2209:252]:     COOLCONF: 0x0
-[00:00:00][C][tmc2209:253]:     MSCNT: 0x10
-[00:00:00][C][tmc2209:254]:     MSCURACT: 0xF60018
-[00:00:00][C][tmc2209:255]:     CHOPCONF: 0x15030053
-[00:00:00][C][tmc2209:256]:     DRV_STATUS: 0xC0000000
-[00:00:00][C][tmc2209:257]:     PWMCONF: 0xC81D0E24
-[00:00:00][C][tmc2209:258]:     PWMSCALE: 0x180019
-[00:00:00][C][tmc2209:259]:     PWM_AUTO: 0xE0024
-[00:00:00][C][tmc2209:261]:   Acceleration: 1000 steps/s^2
-[00:00:00][C][tmc2209:261]:   Deceleration: 1000 steps/s^2
-[00:00:00][C][tmc2209:261]:   Max Speed: 500 steps/s
+[00:00:00][C][tmc2209:403]: TMC2209 Stepper:
+[00:00:00][C][tmc2209:406]:   Control: UART with feedback
+[00:00:00][C][tmc2209:412]:   Acceleration: 7500 steps/s^2
+[00:00:00][C][tmc2209:412]:   Deceleration: 7500 steps/s^2
+[00:00:00][C][tmc2209:412]:   Max Speed: 800 steps/s
+[00:00:00][C][tmc2209:415]:   DIAG Pin: GPIO41
+[00:00:00][C][tmc2209:416]:   INDEX Pin: GPIO42
+[00:00:00][C][tmc2209:419]:   Address: 0x00
+[00:00:00][C][tmc2209:426]:   Detected IC version: 0x21
+[00:00:00][C][tmc2209:432]:   Overtemperature: prewarning = 120C | shutdown = 143C
+[00:00:00][C][tmc2209:433]:   Clock frequency: 12000000 Hz
+[00:00:00][C][tmc2209:434]:   Driver status poll interval: 500ms
+[00:00:00][C][tmc2209:436]:   Register dump:
+[00:00:00][C][tmc2209:437]:     GCONF: 0xE0
+[00:00:00][C][tmc2209:438]:     GSTAT: 0x1
+[00:00:00][C][tmc2209:439]:     IFCNT: 0x1A
+[00:00:00][C][tmc2209:440]:     SLAVECONF: 0x0
+[00:00:00][C][tmc2209:441]:     OTP_PROG: 0x0
+[00:00:00][C][tmc2209:442]:     OTP_READ: 0xA
+[00:00:00][C][tmc2209:443]:     IOIN: 0x21000240
+[00:00:00][C][tmc2209:444]:     FACTORY_CONF: 0xA
+[00:00:00][C][tmc2209:445]:     IHOLD_IRUN: 0xD00
+[00:00:00][C][tmc2209:446]:     TPOWERDOWN: 0x0
+[00:00:00][C][tmc2209:447]:     TSTEP: 0xFFFFF
+[00:00:00][C][tmc2209:448]:     TPWMTHRS: 0x0
+[00:00:00][C][tmc2209:449]:     TCOOLTHRS: 0x190
+[00:00:00][C][tmc2209:450]:     VACTUAL: 0x0
+[00:00:00][C][tmc2209:451]:     SGTHRS: 0x32
+[00:00:00][C][tmc2209:452]:     SG_RESULT: 0x0
+[00:00:00][C][tmc2209:453]:     COOLCONF: 0x0
+[00:00:00][C][tmc2209:454]:     MSCNT: 0x10
+[00:00:00][C][tmc2209:455]:     MSCURACT: 0xF60018
+[00:00:00][C][tmc2209:456]:     CHOPCONF: 0x15010053
+[00:00:00][C][tmc2209:457]:     DRV_STATUS: 0xC0000000
+[00:00:00][C][tmc2209:458]:     PWMCONF: 0xC81D0E24
+[00:00:00][C][tmc2209:459]:     PWMSCALE: 0x160017
+[00:00:00][C][tmc2209:460]:     PWM_AUTO: 0xE0024
 ...
 ```
 
@@ -438,7 +533,6 @@ sensor:
     lambda: return id(driver)->read_field(TMC2209_MRES_FIELD);
 
 
-
 number:
 
     // Write value to stallguard threshold register
@@ -451,7 +545,6 @@ number:
     lambda: return id(driver)->read_register(TMC2209_SGTHRS);
     set_action:
       - lambda: id(driver)->write_register(TMC2209_SGTHRS, x);
-
 
 
 button:
@@ -472,32 +565,34 @@ Guides to wire ESPHome supported MCU to a TMC2209 driver for either only UART co
 
 Wiring for [UART control](#using-serial-uart). `DIAG` is optional but recommended for reliability.
 
-<img src="./docs/uart-wiring.svg" alt="UART wiring" style="background-color:white; border: 10px solid white" width="100%" />
+<img src="./docs/uart-wiring.svg" alt="UART wiring" style="border: 10px solid white" width="100%" />
 
 
 ### Pulse train control
 Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-direction).
 
-<img src="./docs/sd-wiring.svg" alt="STEP/DIR wiring" style="background-color:white; border: 10px solid white" width="100%" />
+<img src="./docs/sd-wiring.svg" alt="STEP/DIR wiring" style="border: 10px solid white" width="100%" />
 
 
 > [!IMPORTANT]
 > Most drivers come as breakout modules and connections can often be labeled slightly differently. `PDN_UART` was often not labeled, as serial communication was rarly used in the early days, but is apparent on nearly all new modules.
 
 
-#### Examples of modules
-<p align="center">
-  <img src="./docs/trinamic-bob-module.jpg" alt="Trinamic BOB" width="19%" />
-  <img src="./docs/silentstepstick-module.jpg" alt="SilentStepStick" width="19%" />
-  <img src="./docs/bigtreetech-module.webp" alt="BigTreeTech" width="19%" />
-  <img src="./docs/fysetc-module.webp" alt="Fysetc" width="19%" />
-  <img src="./docs/grobo-module.jpg" alt="GRobotronics" width="19%" />
-</p>
-
-
 ## Resources
-* https://esphome.io/components/uart
-* https://esphome.io/components/stepper
+
+### Parameterization of StallGuard2™ & CoolStep™
+Article by [Bernhard Dwersteg](https://www.analog.com/en/resources/app-notes/an-002.html#author) \
+https://www.analog.com/en/resources/app-notes/an-002.html
+
+### Parameterization of StallGuard2™ & CoolStep™
+Article by [Bernhard Dwersteg](https://www.analog.com/en/resources/app-notes/an-001.html#author) \
+https://www.analog.com/en/resources/app-notes/an-001.html
+
+### Choosing stepper motors
+https://docs.duet3d.com/User_manual/Connecting_hardware/Motors_choosing
+
+### Other
+* https://www.analog.com/en/products/tmc2209.html
 
 
 ## Troubleshooting
@@ -513,7 +608,10 @@ First generation of TMC2209s have version `0x21`. There is only a single version
 Poor signal integrity can cause instability in the UART connection. The component doesn't retry writing/reading if a reading failed. Make sure the connection is reliable for best performance. Try lower baud rates if these only appear occasionally.
 
 #### Driver makes "sizzling" noise
-Activation of the driver is delegated to the stepper component to perform. Long wires connected to ENN might pick up interference causing the driver to make a sizzling noise if left floating. A stepper configuration is needed for handling ENN.
+Long wires connected to ENN might pick up interference causing the driver to make a sizzling noise if left floating.
+
+
+
 
 ## TODOs
 * Learning resources on how to tune StallGuard etc.
@@ -694,6 +792,7 @@ stepper:
 [config-id]: <https://esphome.io/guides/configuration-types#config-id> "ESPHome ID Config Schema"
 [config-pin]: <https://esphome.io/guides/configuration-types#config-pin-schema> "ESPHome Pin Config Schema"
 [config-templatable]: <https://esphome.io/automations/templates#config-templatable> "Templatable configuration"
+[config-time]: <https://esphome.io/guides/configuration-types#config-time> "ESPHome Time Config Schema"
 [uart-component]: <https://esphome.io/components/uart.html> "ESPHome UART Config"
 [base-stepper-component]: <https://esphome.io/components/stepper/#base-stepper-configuration> "ESPHome Base Stepper Component"
 [base-sensor-component]: <https://esphome.io/components/sensor/#config-sensor> "ESPHome Base Sensor Component"

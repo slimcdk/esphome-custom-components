@@ -147,10 +147,10 @@ void TMC2209::setup() {
       [this]() { this->on_alert_callback_.call(DIAG_TRIGGERED); },       // rise
       [this]() { this->on_alert_callback_.call(DIAG_TRIGGER_CLEARED); }  // fall
   );
-#else
-  // poll driver every x time to check for errors
-  this->set_interval(CHECK_DRIVER_INTERVAL, [this] { this->check_driver_status_(); });
 #endif
+
+  // poll driver every x time to check for errors
+  this->set_interval(POLL_STATUS_INTERVAL, [this] { this->check_driver_status_(); });
 
   this->stalled_handler_.set_on_rise_callback([this]() { this->on_alert_callback_.call(STALLED); });  // stalled
 
@@ -292,9 +292,9 @@ void TMC2209::loop() {
   this->direction_ = (Direction) this->should_step_();
   if (this->direction_ != Direction::NONE) {
     this->dir_pin_->digital_write(this->direction_ == Direction::CLOCKWISE);
-    delayMicroseconds(1);
+    delayMicroseconds(5);
     this->step_pin_->digital_write(true);
-    delayMicroseconds(1);
+    delayMicroseconds(5);
     this->step_pin_->digital_write(false);
   }
 #endif
@@ -431,7 +431,7 @@ void TMC2209::dump_config() {
   auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(TMC2209_OTTRIM_FIELD));  // c++17 required
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot);
   ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz", this->clock_frequency_);
-  ESP_LOGCONFIG(TAG, "  Driver status poll interval: %dms", CHECK_DRIVER_INTERVAL);
+  ESP_LOGCONFIG(TAG, "  Driver status poll interval: %dms", POLL_STATUS_INTERVAL);
 
   ESP_LOGCONFIG(TAG, "  Register dump:");
   ESP_LOGCONFIG(TAG, "    GCONF: 0x%X", this->read_register(TMC2209_GCONF));

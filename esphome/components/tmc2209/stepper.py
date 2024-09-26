@@ -50,7 +50,7 @@ CONF_IHOLD = "ihold"
 CONF_IHOLDDELAY = "iholddelay"
 CONF_TPOWERDOWN = "tpowerdown"
 
-CONF_CHECK_DRIVER_INTERVAL = "check_driver_interval"
+CONF_POLL_STATUS_INTERVAL = "poll_status_interval"
 
 CONF_DISABLE = "disable"
 CONF_STANDSTILL_MODE = "standstill_mode"
@@ -123,7 +123,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_VSENSE): cv.boolean,  # default OTP
             cv.Optional(CONF_OTTRIM): cv.int_range(0, 3),  # default OTP
             cv.Optional(
-                CONF_CHECK_DRIVER_INTERVAL, default="500ms"
+                CONF_POLL_STATUS_INTERVAL, default="500ms"
             ): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_ON_ALERT): automation.validate_automation(
                 {
@@ -185,7 +185,7 @@ async def to_code(config):
             trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
             await automation.build_automation(trigger, [(DriverEvent, "alert")], conf)
 
-    cg.add_define("CHECK_DRIVER_INTERVAL", config[CONF_CHECK_DRIVER_INTERVAL])
+    cg.add_define("POLL_STATUS_INTERVAL", config[CONF_POLL_STATUS_INTERVAL])
 
     cg.add_library("https://github.com/slimcdk/TMC-API", "3.10.3")
     cg.add_build_flag("-std=c++17")
