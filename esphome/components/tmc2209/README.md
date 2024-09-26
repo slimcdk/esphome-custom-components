@@ -59,7 +59,7 @@ uart:
 * `baud_rate` (**Required**, int): The baud rate of the UART bus. TMC2209 will auto-detect baud rates from 9600 to 500k with the internal clock/oscillator. An external clock/oscillator is needed for baud rates higher than 500k.
 
 > [!CAUTION]
-**A lot is happening over serial and low baud rates might cause warnings about the component taking too long. Use something like 115200 or higher.**
+***A lot is happening over serial and low baud rates might cause warnings about the component taking too long. Use something like 115200 or higher.***
 
 * `tx_pin` (*Optional*, [Output Pin Schema][config-pin]): This is the ESPHome device's transmit pin. This should be connected through a 1k Ohm resistor to `PDN_UART` on the TMC2209.
 
@@ -78,7 +78,7 @@ uart:
 > *The stepper can be controlled in two ways. See [section 1.3][datasheet] for technical information.*
 
 
-#### Control position using serial (UART)
+#### Control the position using serial (UART)
 
 Accuracy is slightly reduced for tighter timing and high-frequency pulse generation, which is handled internally by the driver rather than the ESPHome microcontroller. This ensures consistent pulse generation without interference from other components, making it ideal for high microstep interpolation or silent operation. Relevant info can be found in [section 1.3][datasheet].
 
@@ -89,7 +89,7 @@ Accuracy is slightly reduced for tighter timing and high-frequency pulse generat
 
 
 
-#### Control position using traditional stepping pulses and direction
+#### Control the position using traditional stepping pulses and direction
 
 Stepping pulses are handled by the main thread but utilize [increased execution frequency functionality][highfrequencylooprequester] to generate pulses as fast as possible. Pulses are therefore limited to whenever the ESP can generate a pulse, and any timing inconsistencies may cause erratic motor noise or operational issues when running the motor.
 
@@ -155,8 +155,7 @@ stepper:
     </tbody>
   </table>
 
-  > [!NOTE]
-  > Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning.
+  > *Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning.*
 
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
 
@@ -184,14 +183,14 @@ stepper:
 ```
 > <small>All events in an [example config](#alert-events)  for easy copy/paste</small>
 
-#### Current supported alert events
+#### Currently supported alert events
 
 Most alerts is signaling that the driver is in a given state. The majority of alert events also has a `CLEARED` or similar counterpart signaling that the driver is now not in the given state anymore.
 
   * `DIAG_TRIGGERED` DIAG output is triggered. Primarily driver errors.
-  * `STALLED` StallGuard result crossed StallGuard threshold and motor is considered stalled.
+  * `STALLED` Motor is considered stalled when SG_RESULT crosses SGTHRS. Check below for more.
   * `OVERTEMPERATURE_PREWARNING` | `OVERTEMPERATURE_PREWARNING_CLEARED` Driver is warning about increasing temperature.
-  * `OVERTEMPERATURE` | `OVERTEMPERATURE_CLEARED` Driver is at critial high temperature and is shutting down.
+  * `OVERTEMPERATURE` | `OVERTEMPERATURE_CLEARED` Driver is at critical high temperature and is shutting down.
   * `TEMPERATURE_ABOVE_120C` | `TEMPERATURE_BELOW_120C` Temperature is higher or lower than 120C.
   * `TEMPERATURE_ABOVE_143C` | `TEMPERATURE_BELOW_143C` Temperature is higher or lower than 143C.
   * `TEMPERATURE_ABOVE_150C` | `TEMPERATURE_BELOW_150C` Temperature is higher or lower than 150C.
@@ -205,7 +204,11 @@ Most alerts is signaling that the driver is in a given state. The majority of al
   * `CP_UNDERVOLTAGE` | `CP_UNDERVOLTAGE_CLEARED` Undervoltage on chargepump input.
 
 > [!NOTE]
-*`STALLED` is the event you would want for sensorless homing*
+*`STALLED` is the event you would want for sensorless homing. Check the [sensorless homing example](#sensorless-homing)*.
+
+> [!IMPORTANT]
+*Stall monitoring becomes enabled when the motor has a velocity equal to the configured max speed. Since this component/setup is expected to be an open loop system, the velocity is estimated from max speed, acceleration and deceleration and not the actual velocity of the motor. This applies to both UART and pulse control.*
+
 
 ## Actions
 
@@ -504,7 +507,7 @@ Output of above configuration. Registers could differ due to OTP.
 
 Writing to and reading from registers and register fields from the driver can easily be done with the help of preexisting [helper definitions][tmcapi-tmc2209-hwa] from the underlying TMC-API. A description of the register map can be found under [section 5][datasheet].
 > [!IMPORTANT]
-**The `tmc2209` component holds a mirror in memory of the values written to the driver. This means write-only registers can still be read with below methods provided they have been written already.**
+***The `tmc2209` component holds a mirror in memory of the values written to the driver. This means write-only registers can still be read with below methods provided they have been written already.***
 >
 >*Definitions ending in `_MASK` or `_SHIFT` should not be used.*
 
@@ -515,7 +518,7 @@ The `tmc2209` base component exposes four methods:
 * `uint32_t read_field(RegisterField field)` read a register field.
 
 > [!CAUTION]
-> Overwriting some registers may cause instability in the ESPHome component.
+*Overwriting some registers may cause instability in the ESPHome component.*
 
 
 Example usage in lambdas
@@ -563,7 +566,7 @@ Guides to wire ESPHome supported MCU to a TMC2209 driver for either only UART co
 
 ### UART Control
 
-Wiring for [UART control](#using-serial-uart). `DIAG` is optional but recommended for reliability.
+Wiring for [UART control](#using-serial-uart)
 
 <img src="./docs/uart-wiring.svg" alt="UART wiring" style="border: 10px solid white" width="100%" />
 
@@ -575,7 +578,7 @@ Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-directio
 
 
 > [!IMPORTANT]
-> Most drivers come as breakout modules and connections can often be labeled slightly differently. `PDN_UART` was often not labeled, as serial communication was rarly used in the early days, but is apparent on nearly all new modules.
+*Most drivers come as breakout modules and connections can often be labeled slightly differently. `PDN_UART` was often not labeled, as serial communication was rarly used in the early days, but is apparent on nearly all new modules.*
 
 
 ## Resources
