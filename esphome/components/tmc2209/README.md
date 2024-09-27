@@ -34,14 +34,8 @@ ESPHome component to interact with a TMC2209 stepper motor driver over UART and 
   - [UART Control Wiring](#uart-control-wiring)
   - [Pulse Control Wiring](#pulse-control-wiring)
 - [Resources](#resources)
-  - [Parameterization of spreadCycle™](#parameterization-of-spreadcycletm)
-  - [Parameterization of StallGuard2™ & CoolStep™](#parameterization-of-stallguard2tm--coolsteptm)
-  - [Choosing Stepper Motors](#choosing-stepper-motors)
-  - [Additional Resources](#additional-resources)
 - [Troubleshooting](#troubleshooting)
-  - [IC Version Issues](#ic-version-issues)
-  - [UART Timeouts](#uart-timeouts)
-  - [Driver Noise Issues](#driver-noise-issues)
+
 
 
 ## Config
