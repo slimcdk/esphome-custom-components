@@ -421,9 +421,9 @@ void TMC2209::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
 
 #if defined(USE_UART_CONTROL)
-  ESP_LOGCONFIG(TAG, "  Control: UART with feedback");
+  ESP_LOGCONFIG(TAG, "  Control: Serial with feedback");
 #elif defined(USE_PULSE_CONTROL)
-  ESP_LOGCONFIG(TAG, "  Control: Pulse train");
+  ESP_LOGCONFIG(TAG, "  Control: Pulse");
 #else
   ESP_LOGE(TAG, "No control method defined!");
 #endif
