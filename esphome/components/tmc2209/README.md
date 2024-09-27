@@ -17,24 +17,34 @@ ESPHome component to interact with a TMC2209 stepper motor driver over UART and 
 
 # Table of contents
 
+# Table of contents
+
 - [Config](#config)
-  - [UART Setup](#uart-bus-configuration)
-  - [TMC2209 Base Configuration](#base-configuration)
-  - [Stepper Control](#the-stepper-can-be-controlled-in-two-ways)
-    - [Serial (UART)](#using-serial-uart)
-    - [Pulse Train](#using-traditional-stepping-pulses-and-direction)
+  - [UART Setup](#uart-setup)
+  - [Stepper Configuration](#stepper-configuration)
+    - [Control via UART](#control-via-uart)
+    - [Control via pulses](#control-via-pulse-train)
 - [Automation](#automation)
-  - [Alert Events](#current-supported-alert-events)
+  - [Alert Events](#alert-events)
 - [Actions](#actions)
-  - [`tmc2209.configure`](#tmc2209configure-action)
-- [Driver sensors](#sensors)
-- [Example Config](#example-config)
+  - [`tmc2209.configure` Action](#tmc2209configure-action)
+  - [`tmc2209.enable` Action](#tmc2209enable-action)
+  - [`tmc2209.disable` Action](#tmc2209disable-action)
+- [Driver Sensors](#driver-sensors)
+- [Examples](#example-config)
 - [Advanced](#advanced)
 - [Wiring](#wiring)
-  - [For UART control](#uart-control)
-  - [For pulse train control](#pulse-train-control)
+  - [UART Control Wiring](#uart-control-wiring)
+  - [Pulse Control Wiring](#pulse-control-wiring)
 - [Resources](#resources)
+  - [Parameterization of spreadCycle™](#parameterization-of-spreadcycletm)
+  - [Parameterization of StallGuard2™ & CoolStep™](#parameterization-of-stallguard2tm--coolsteptm)
+  - [Choosing Stepper Motors](#choosing-stepper-motors)
+  - [Additional Resources](#additional-resources)
 - [Troubleshooting](#troubleshooting)
+  - [IC Version Issues](#ic-version-issues)
+  - [UART Timeouts](#uart-timeouts)
+  - [Driver Noise Issues](#driver-noise-issues)
 
 
 ## Config
@@ -61,12 +71,9 @@ uart:
 > [!CAUTION]
 ***A lot is happening over serial and low baud rates might cause warnings about the component taking too long. Use something like 115200 or higher.***
 
-* `tx_pin` (**Required**, [Output Pin Schema][config-pin]): This is the ESPHome device's transmit pin. This should be connected through a 1k Ohm resistor to `PDN_UART` on the TMC2209.
+* `tx_pin` (*Optional*, [Output Pin Schema][config-pin]): This is the ESPHome device's transmit pin. This should be connected through a 1k Ohm resistor to `PDN_UART` on the TMC2209.
 
-* `rx_pin` (**Required**, [Input Pin Schema][config-pin]): This is the ESPHome device's receive pin. This should be connected directly to `PDN_UART` on the TMC2209.
-
-> [!NOTE]
-*`tx_pin` and `rx_pin` can be bridged with a 1k Ohm resistor with `rx_pin` directly connected to `PDN_UART`*
+* `rx_pin` (*Optional*, [Input Pin Schema][config-pin]): This is the ESPHome device's receive pin. This should be connected directly to `PDN_UART` on the TMC2209.
 
 > [!IMPORTANT]
 *Avoid selecting a UART which is utilized for other purposes. For instance boot log as the TMC2209 will try to interpret the output.*
@@ -154,7 +161,7 @@ stepper:
     </tbody>
   </table>
 
-  > *Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning.*
+    > *Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning.*
 
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
 
@@ -227,7 +234,7 @@ esphome:
         iholddelay: 0
 ```
 
-* `id` (**Required**, ID): Reference to the stepper tmc2209 (base, not stepper) component. Can be left out if only a single TMC2209 is configured.
+* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
 * `microsteps` (*Optional*, int, [templatable][config-templatable]): Microstepping. Possible values are `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`.
 
@@ -265,27 +272,31 @@ esphome:
 
 ### `tmc2209.enable` Action
 
-Enables driver using `enn_pin` if set.
+Enables driver on ENN. 
 
 ```yaml
 on_...:
   - tmc2209.enable: driver
 ```
-* `id` (**Required**, ID): Reference to the stepper tmc2209 (base, not stepper) component. Can be left out if only a single TMC2209 is configured.
+* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+
+> [!IMPORTANT]
+*This action has no effect if `enn_pin` isn't set.*
+
 
 
 ### `tmc2209.disable` Action
 
-Disables driver using `enn_pin` if set.
+Disables driver on ENN. *Stop* is also called.
 
 ```yaml
 on_...:
   - tmc2209.disable: driver
 ```
-* `id` (**Required**, ID): Reference to the stepper tmc2209 (base, not stepper) component. Can be left out if only a single TMC2209 is configured.
+* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
-> [!NOTE]
-*Driver will be automatically be enabled if new target is issued. This action stops any active step generation.*
+> [!IMPORTANT]
+*This action has no effect on ENN if `enn_pin` isn't set.* *Driver will be automatically be enabled if new target is issued.*
 
 
 
@@ -472,43 +483,44 @@ sensor:
 Output of above configuration. Registers could differ due to OTP.
 ```console
 ...
-[00:00:00][C][tmc2209:403]: TMC2209 Stepper:
-[00:00:00][C][tmc2209:406]:   Control: UART with feedback
-[00:00:00][C][tmc2209:412]:   Acceleration: 7500 steps/s^2
-[00:00:00][C][tmc2209:412]:   Deceleration: 7500 steps/s^2
-[00:00:00][C][tmc2209:412]:   Max Speed: 800 steps/s
-[00:00:00][C][tmc2209:415]:   DIAG Pin: GPIO41
-[00:00:00][C][tmc2209:416]:   INDEX Pin: GPIO42
-[00:00:00][C][tmc2209:419]:   Address: 0x00
-[00:00:00][C][tmc2209:426]:   Detected IC version: 0x21
-[00:00:00][C][tmc2209:432]:   Overtemperature: prewarning = 120C | shutdown = 143C
-[00:00:00][C][tmc2209:433]:   Clock frequency: 12000000 Hz
-[00:00:00][C][tmc2209:434]:   Driver status poll interval: 500ms
-[00:00:00][C][tmc2209:436]:   Register dump:
-[00:00:00][C][tmc2209:437]:     GCONF: 0xE0
-[00:00:00][C][tmc2209:438]:     GSTAT: 0x1
-[00:00:00][C][tmc2209:439]:     IFCNT: 0x1A
-[00:00:00][C][tmc2209:440]:     SLAVECONF: 0x0
-[00:00:00][C][tmc2209:441]:     OTP_PROG: 0x0
-[00:00:00][C][tmc2209:442]:     OTP_READ: 0xA
-[00:00:00][C][tmc2209:443]:     IOIN: 0x21000240
-[00:00:00][C][tmc2209:444]:     FACTORY_CONF: 0xA
-[00:00:00][C][tmc2209:445]:     IHOLD_IRUN: 0xD00
-[00:00:00][C][tmc2209:446]:     TPOWERDOWN: 0x0
-[00:00:00][C][tmc2209:447]:     TSTEP: 0xFFFFF
-[00:00:00][C][tmc2209:448]:     TPWMTHRS: 0x0
-[00:00:00][C][tmc2209:449]:     TCOOLTHRS: 0x190
-[00:00:00][C][tmc2209:450]:     VACTUAL: 0x0
-[00:00:00][C][tmc2209:451]:     SGTHRS: 0x32
-[00:00:00][C][tmc2209:452]:     SG_RESULT: 0x0
-[00:00:00][C][tmc2209:453]:     COOLCONF: 0x0
-[00:00:00][C][tmc2209:454]:     MSCNT: 0x10
-[00:00:00][C][tmc2209:455]:     MSCURACT: 0xF60018
-[00:00:00][C][tmc2209:456]:     CHOPCONF: 0x15010053
-[00:00:00][C][tmc2209:457]:     DRV_STATUS: 0xC0000000
-[00:00:00][C][tmc2209:458]:     PWMCONF: 0xC81D0E24
-[00:00:00][C][tmc2209:459]:     PWMSCALE: 0x160017
-[00:00:00][C][tmc2209:460]:     PWM_AUTO: 0xE0024
+[00:00:00][C][tmc2209:421]: TMC2209 Stepper:
+[00:00:00][C][tmc2209:424]:   Control: Serial with feedback
+[00:00:00][C][tmc2209:430]:   Acceleration: 500 steps/s^2
+[00:00:00][C][tmc2209:430]:   Deceleration: 500 steps/s^2
+[00:00:00][C][tmc2209:430]:   Max Speed: 800 steps/s
+[00:00:00][C][tmc2209:432]:   ENN Pin: GPIO38
+[00:00:00][C][tmc2209:434]:   INDEX Pin: GPIO42
+[00:00:00][C][tmc2209:437]:   Address: 0x00
+[00:00:00][C][tmc2209:438]:   Microsteps: 2
+[00:00:00][C][tmc2209:445]:   Detected IC version: 0x21
+[00:00:00][C][tmc2209:451]:   Overtemperature: prewarning = 120C | shutdown = 143C
+[00:00:00][C][tmc2209:452]:   Clock frequency: 12000000 Hz
+[00:00:00][C][tmc2209:453]:   Driver status poll interval: 1000ms
+[00:00:00][C][tmc2209:455]:   Register dump:
+[00:00:00][C][tmc2209:456]:     GCONF: 0xE0
+[00:00:00][C][tmc2209:457]:     GSTAT: 0x1
+[00:00:00][C][tmc2209:458]:     IFCNT: 0x18
+[00:00:00][C][tmc2209:459]:     SLAVECONF: 0x0
+[00:00:00][C][tmc2209:460]:     OTP_PROG: 0x0
+[00:00:00][C][tmc2209:461]:     OTP_READ: 0xA
+[00:00:00][C][tmc2209:462]:     IOIN: 0x21000240
+[00:00:00][C][tmc2209:463]:     FACTORY_CONF: 0xA
+[00:00:00][C][tmc2209:464]:     IHOLD_IRUN: 0x1000
+[00:00:00][C][tmc2209:465]:     TPOWERDOWN: 0x0
+[00:00:00][C][tmc2209:466]:     TSTEP: 0xFFFFF
+[00:00:00][C][tmc2209:467]:     TPWMTHRS: 0x0
+[00:00:00][C][tmc2209:468]:     TCOOLTHRS: 0x0
+[00:00:00][C][tmc2209:469]:     VACTUAL: 0x0
+[00:00:00][C][tmc2209:470]:     SGTHRS: 0x32
+[00:00:00][C][tmc2209:471]:     SG_RESULT: 0x0
+[00:00:00][C][tmc2209:472]:     COOLCONF: 0x0
+[00:00:00][C][tmc2209:473]:     MSCNT: 0x40
+[00:00:00][C][tmc2209:474]:     MSCURACT: 0xE4005F
+[00:00:00][C][tmc2209:475]:     CHOPCONF: 0x17010053
+[00:00:00][C][tmc2209:476]:     DRV_STATUS: 0xC0000000
+[00:00:00][C][tmc2209:477]:     PWMCONF: 0xC80D0E24
+[00:00:00][C][tmc2209:478]:     PWMSCALE: 0x180019
+[00:00:00][C][tmc2209:479]:     PWM_AUTO: 0xE002F
 ...
 ```
 
@@ -573,17 +585,16 @@ button:
 
 
 ## Wiring
-Guides to wire ESPHome supported MCU to a TMC2209 driver for either only UART control or pulse train control.
+Guides to wire ESPHome supported MCU to a TMC2209 driver for either only UART control or pulse control.
 
 ### UART Control
-
-Wiring for [UART control](#using-serial-uart)
+Wiring for [UART control](#control-the-position-using-traditional-stepping-pulses-and-direction)
 
 <img src="./docs/uart-wiring.svg" alt="UART wiring" style="border: 10px solid white" width="100%" />
 
 
-### Pulse train control
-Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-direction).
+### Pulse control
+Wiring for [Pulse control](#control-the-position-using-serial-uart).
 
 <img src="./docs/sd-wiring.svg" alt="STEP/DIR wiring" style="border: 10px solid white" width="100%" />
 
@@ -594,19 +605,21 @@ Wiring for [Pulse Train control](#using-traditional-stepping-pulses-and-directio
 
 ## Resources
 
+### Parameterization of spreadCycle™
+Article by [Bernhard Dwersteg](https://www.analog.com/en/resources/app-notes/an-001.html#author) \
+https://www.analog.com/en/resources/app-notes/an-001.html
+
 ### Parameterization of StallGuard2™ & CoolStep™
 Article by [Bernhard Dwersteg](https://www.analog.com/en/resources/app-notes/an-002.html#author) \
 https://www.analog.com/en/resources/app-notes/an-002.html
-
-### Parameterization of StallGuard2™ & CoolStep™
-Article by [Bernhard Dwersteg](https://www.analog.com/en/resources/app-notes/an-001.html#author) \
-https://www.analog.com/en/resources/app-notes/an-001.html
 
 ### Choosing stepper motors
 https://docs.duet3d.com/User_manual/Connecting_hardware/Motors_choosing
 
 ### Other
 * https://www.analog.com/en/products/tmc2209.html
+* https://www.programming-electronics-diy.xyz/2023/12/tmc2209-stepper-driver-module-tutorial.html
+
 
 
 ## Troubleshooting
@@ -626,12 +639,8 @@ Long wires connected to ENN might pick up interference causing the driver to mak
 
 
 
-
 ## TODOs
-* Learning resources on how to tune StallGuard etc.
-* Driver error detection on the DIAG pin or UART and event broadcasting.
 * Reconfigure driver if driver was power cycled.
-* Driver warning and error trigger events.
 * OTTRIM not setting or reading properly
 * Generate step pulses outside of main loop
 
