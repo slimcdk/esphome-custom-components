@@ -16,9 +16,6 @@ ESPHome component to interact with a TMC2209 stepper motor driver over UART and 
 
 
 # Table of contents
-
-# Table of contents
-
 - [Config](#config)
   - [UART Setup](#uart-setup)
   - [Stepper Configuration](#stepper-configuration)
