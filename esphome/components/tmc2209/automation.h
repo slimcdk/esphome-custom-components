@@ -1,8 +1,7 @@
 #pragma once
 
-#include "esphome/core/automation.h"
-
 #include "tmc2209.h"
+#include "esphome/core/automation.h"
 
 namespace esphome {
 namespace tmc2209 {
@@ -21,6 +20,7 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
   TEMPLATABLE_VALUE(uint8_t, ihold)
   TEMPLATABLE_VALUE(int, iholddelay)
   TEMPLATABLE_VALUE(int, tpowerdown)
+  TEMPLATABLE_VALUE(bool, enable_spreadcycle)
 
   void play(Ts... x) override {
     if (this->inverse_direction_.has_value())
@@ -38,9 +38,12 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
     if (this->microsteps_.has_value())
       this->parent_->set_microsteps(this->microsteps_.value(x...));
 
-    if (this->standstill_mode_.has_value())
+    if (this->standstill_mode_.has_value()) {
+      if (this->parent_->read_field(TMC2209_EN_SPREADCYCLE_FIELD)) {
+        ESP_LOGW(TAG, "standstill modes are only possible with StealthChop enabled.");
+      }
       this->parent_->write_field(TMC2209_FREEWHEEL_FIELD, this->standstill_mode_.value(x...));
-
+    }
     if (this->iholddelay_.has_value())
       this->parent_->write_field(TMC2209_IHOLDDELAY_FIELD, this->iholddelay_.value(x...));
 
@@ -58,6 +61,10 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
 
     if (this->hold_current_.has_value())
       this->parent_->write_hold_current(this->hold_current_.value(x...));
+
+    if (this->enable_spreadcycle_.has_value()) {
+      this->parent_->write_field(TMC2209_EN_SPREADCYCLE_FIELD, this->enable_spreadcycle_.value(x...));
+    }
   }
 };
 

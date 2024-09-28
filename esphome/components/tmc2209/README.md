@@ -124,8 +124,8 @@ stepper:
 * `address` (*Optional*, hex): UART address of the IC. Configured by setting MS1_AD0 or MS2_AD1 high or low. Default is `0x00`.
 
 * `enn_pin` (*Optional*, [Output Pin Schema][config-pin]): Enable not input pin for the driver.
-> [!NOTE]
-*Only used with [`tmc2209.enable`](#tmc2209enable-action) and [`tmc2209.disable`](#tmc2209disable-action). Freewheeling on stop/standstill can be done by setting `standstill_mode` to `freewheeling` and `ihold` to 0 with [`tmc2209.configure`](#tmc2209configure-action) and set disable to false / leave empty.*
+> [!IMPORTANT]
+*Driver can't be enabled if ENN is left floating. Either configure it if it's actually connected or wire it to GND*
 
 * `diag_pin` (*Optional*, [Input Pin Schema][config-pin]): Driver error signaling from the driver.
 
@@ -135,9 +135,9 @@ stepper:
 
 * `dir_pin` (*Optional*, [Output Pin Schema][config-pin]): Controls direction of the motor.
 
-* `rsense` (*Optional*, resistance): Motor current sense resistors. Often varies from ~75 to 1000 mOhm. The actual value for your board can be found in the documentation.
+* `rsense` (*Optional*, resistance): Motor current sense resistors. Often varies from ~75 to 1000 mOhm. The actual value for your board can be found in the documentation. Leave empty to enable internal sensing using RDSon (170 mOhm). *Don't leave empty if your board has external sense resistors!*
 
-* `vsense` (*Optional*, boolean): Driver uses smaller (<1/4 W) RSense resistors. Defaults to false.
+* `vsense` (*Optional*, boolean): Limit driver to ~55% power if driver uses smaller (<1/4 W) RSense resistors. Defaults to false.
 
 * `ottrim` (*Optional*, int): Limits for warning and shutdown temperatures. Default is OTP. OTP is 0 from factory. See below table for values.
   <table>
@@ -255,6 +255,9 @@ esphome:
   * `short_coil_ls`: Similar to `freewheeling`, but with motor coils shorted to low side voltage.
   * `short_coil_hs`: Similar to `freewheeling`, but with motor coils shorted to high side voltage.
 
+* `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `Frue` allows use of StealthChop. Defaults to OTP.
+
+
 > [!NOTE]
 *Registers and fields on the driver persist through an ESPHome device reboot, so previously written states may remain active*
 
@@ -263,7 +266,7 @@ esphome:
 
 ### `tmc2209.enable` Action
 
-Enables driver on ENN. 
+Enables driver on ENN.
 
 ```yaml
 on_...:

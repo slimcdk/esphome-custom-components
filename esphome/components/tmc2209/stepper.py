@@ -30,7 +30,8 @@ CONF_INDEX_PIN = "index_pin"
 CONF_CLOCK_FREQUENCY = "clock_frequency"
 
 CONF_RSENSE = "rsense"  # sense resistors
-CONF_VSENSE = "vsense"  # set if rsense resistors are 1/4 W
+CONF_INTERNAL_RSENSE = "internal_rsense"  # use rdson to sense
+CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
 CONF_OTTRIM = "ottrim"
 CONF_POLL_STATUS_INTERVAL = "poll_status_interval"
 
@@ -52,6 +53,7 @@ CONF_IRUN = "irun"
 CONF_IHOLD = "ihold"
 CONF_IHOLDDELAY = "iholddelay"
 CONF_TPOWERDOWN = "tpowerdown"
+CONF_ENABLE_SPREADCYCLE = "enable_spreadcycle"
 
 CONF_STANDSTILL_MODE = "standstill_mode"
 STANDSTILL_MODE_NORMAL = "normal"
@@ -170,13 +172,14 @@ async def to_code(config):
         cg.add(var.set_step_pin(await cg.gpio_pin_expression(step_pin)))
         cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
 
-    if (rsense := config.get(CONF_RSENSE, None)) is not None:
-        cg.add(var.set_rsense(rsense))
+    if (vsense := config.get(CONF_VSENSE, None)) is not None:
+        cg.add_define("VSENSE", vsense)
 
-    cg.add(var.set_vsense(config.get(CONF_VSENSE)))
+    cg.add_define("INTERNAL_RSENSE", CONF_RSENSE not in config)
+    cg.add_define("RSENSE", config.get(CONF_RSENSE, 0.170))
 
     if (ottrim := config.get(CONF_OTTRIM, None)) is not None:
-        cg.add(var.set_ottrim(ottrim))
+        cg.add_define("OTTRIM", ottrim)
 
     if len(alert_triggers) > 0:
         cg.add_define("ENABLE_DRIVER_ALERT_EVENTS")
@@ -223,6 +226,7 @@ async def to_code(config):
             cv.Optional(CONF_STANDSTILL_MODE): cv.enum(STANDSTILL_MODES),
             cv.Optional(CONF_IHOLDDELAY): cv.int_range(0, 15),
             cv.Optional(CONF_TPOWERDOWN): cv.int_range(0, 255),
+            cv.Optional(CONF_ENABLE_SPREADCYCLE): cv.boolean,
         }
     ),
 )
@@ -277,6 +281,10 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
     if (tpowerdown := config.get(CONF_TPOWERDOWN, None)) is not None:
         template_ = yield cg.templatable(tpowerdown, args, float)
         cg.add(var.set_tpowerdown(template_))
+
+    if (en_spreadcycle := config.get(CONF_ENABLE_SPREADCYCLE, None)) is not None:
+        template_ = yield cg.templatable(en_spreadcycle, args, bool)
+        cg.add(var.set_enable_spreadcycle(template_))
 
     yield var
 

@@ -6,7 +6,7 @@
 namespace esphome {
 namespace tmc2209 {
 
-static const char *TAG = "tmc2209";
+// static const char *TAG = "tmc2209";
 
 TMC2209::TMC2209(uint8_t address, uint32_t clock_frequency) : address_(address), clock_frequency_(clock_frequency) {
   this->id_ = component_index++;
@@ -85,19 +85,13 @@ void TMC2209::setup() {
     this->mark_failed();
   }
 
-  if (this->enn_pin_ != nullptr) {
-    this->enn_pin_->setup();
-    this->enable(true);
-  }
-
-  this->write_field(TMC2209_VACTUAL_FIELD, 0);
-  this->write_field(TMC2209_I_SCALE_ANALOG_FIELD, false);
-  this->write_field(TMC2209_INTERNAL_RSENSE_FIELD, false);
-  this->write_field(TMC2209_EN_SPREADCYCLE_FIELD, false);
-  this->write_field(TMC2209_SHAFT_FIELD, false);
-  this->write_field(TMC2209_INDEX_OTPW_FIELD, true);
-  this->write_field(TMC2209_INDEX_STEP_FIELD, false);
   this->write_field(TMC2209_PDN_DISABLE_FIELD, true);
+  this->write_field(TMC2209_VACTUAL_FIELD, 0);
+  this->write_field(TMC2209_INTERNAL_RSENSE_FIELD, INTERNAL_RSENSE);
+  this->write_field(TMC2209_I_SCALE_ANALOG_FIELD, false);
+  this->write_field(TMC2209_SHAFT_FIELD, false);
+  // this->write_field(TMC2209_INDEX_OTPW_FIELD, true);
+  // this->write_field(TMC2209_INDEX_STEP_FIELD, false);
   this->write_field(TMC2209_MSTEP_REG_SELECT_FIELD, true);
   this->write_field(TMC2209_MULTISTEP_FILT_FIELD, false);
   this->write_field(TMC2209_TEST_MODE_FIELD, false);
@@ -120,21 +114,24 @@ void TMC2209::setup() {
 #endif
 
 #if defined(USE_PULSE_CONTROL)
+
+  // TODO: Test if below is beneficial to have
+  // this->write_field(TMC2209_MULTISTEP_FILT_FIELD, false);
+  // this->write_field(TMC2209_DEDGE_FIELD, true);
+
   this->step_pin_->setup();
   this->step_pin_->digital_write(false);
   this->dir_pin_->setup();
   this->dir_pin_->digital_write(false);
 #endif
 
-  // vsense
-  if (this->vsense_.has_value())
-    this->write_field(TMC2209_VSENSE_FIELD, this->vsense_.value());
-  this->vsense_ = this->read_field(TMC2209_VSENSE_FIELD);
+#if defined(VSENSE)
+  this->write_field(TMC2209_VSENSE_FIELD, VSENSE);
+#endif
 
-  // ottrim
-  if (this->ottrim_.has_value())
-    this->write_field(TMC2209_OTTRIM_FIELD, this->ottrim_.value());
-  this->ottrim_ = this->read_field(TMC2209_OTTRIM_FIELD);
+#if defined(OTTRIM)
+  this->write_field(TMC2209_OTTRIM_FIELD, OTTRIM);
+#endif
 
 #if defined(ENABLE_DRIVER_ALERT_EVENTS)
 #if defined(USE_DIAG_PIN)
@@ -228,6 +225,11 @@ void TMC2209::setup() {
       [this]() { this->on_alert_callback_.call(CP_UNDERVOLTAGE); },         // rise
       [this]() { this->on_alert_callback_.call(CP_UNDERVOLTAGE_CLEARED); }  // fall
   );
+
+  if (this->enn_pin_ != nullptr) {
+    this->enn_pin_->setup();
+    this->enable(true);
+  }
 
 #endif
 
@@ -331,14 +333,14 @@ uint16_t TMC2209::current_scale_to_rms_current_mA(uint8_t cs) {
   cs = clamp<uint8_t>(cs, 0, 31);
   if (cs == 0)
     return 0;
-  return (cs + 1) / 32.0f * this->read_vsense() / (this->rsense_.value_or(0) + 0.02f) * (1 / sqrtf(2)) * 1000.0f;
+  return (cs + 1) / 32.0f * this->read_vsense() / (RSENSE + 0.02f) * (1 / sqrtf(2)) * 1000.0f;
 }
 
 uint8_t TMC2209::rms_current_to_current_scale_mA(uint16_t mA) {
   if (mA == 0) {
     return 0;
   }
-  const uint8_t cs = 32.0f * sqrtf(2) * mA2A(mA) * ((this->rsense_.value_or(0) + 0.02f) / this->read_vsense()) - 1.0f;
+  const uint8_t cs = 32.0f * sqrtf(2) * mA2A(mA) * ((RSENSE + 0.02f) / this->read_vsense()) - 1.0f;
   return clamp<uint8_t>(cs, 0, 31);
 }
 
@@ -429,14 +431,6 @@ void TMC2209::dump_config() {
 #endif
   LOG_STEPPER(this);
 
-  LOG_PIN("  ENN Pin: ", this->enn_pin_);
-  LOG_PIN("  DIAG Pin: ", this->diag_pin_);
-  LOG_PIN("  INDEX Pin: ", this->index_pin_);
-  LOG_PIN("  STEP Pin: ", this->step_pin_);
-  LOG_PIN("  DIR Pin: ", this->dir_pin_);
-  ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
-  ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps());
-
   // Read IC version
   const int8_t icv_ = this->read_field(TMC2209_VERSION_FIELD);
   if (std::isnan(icv_) || icv_ == 0) {
@@ -447,36 +441,58 @@ void TMC2209::dump_config() {
     ESP_LOGE(TAG, "  Detected unknown IC version: 0x%02X", icv_);
   }
 
+  LOG_PIN("  ENN Pin: ", this->enn_pin_);
+  LOG_PIN("  DIAG Pin: ", this->diag_pin_);
+  LOG_PIN("  INDEX Pin: ", this->index_pin_);
+  LOG_PIN("  STEP Pin: ", this->step_pin_);
+  LOG_PIN("  DIR Pin: ", this->dir_pin_);
+  ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
+  ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps());
+
+  // RSense and VSense (current sensing)
+  if (this->read_field(TMC2209_INTERNAL_RSENSE_FIELD)) {
+    ESP_LOGCONFIG(TAG, "  RSense: %.3f Ohm (internal RDSon value)", RSENSE);
+  } else {
+    ESP_LOGCONFIG(TAG, "  RSense: %.3f Ohm (external sense resistors)", RSENSE);
+    if (this->read_field(TMC2209_VSENSE_FIELD)) {
+      ESP_LOGCONFIG(TAG, "    Configured for low heat dissipation (vsense = true)");
+    } else {
+      ESP_LOGCONFIG(TAG, "    Configured for high heat dissipation (vsense = false)");
+    }
+  }
+
   auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(TMC2209_OTTRIM_FIELD));  // c++17 required
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot);
   ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz", this->clock_frequency_);
-  ESP_LOGCONFIG(TAG, "  Driver status poll interval: %dms", POLL_STATUS_INTERVAL);
+  if (this->diag_pin_ != nullptr) {
+    ESP_LOGCONFIG(TAG, "  Driver status poll interval: %dms", POLL_STATUS_INTERVAL);
+  }
 
   ESP_LOGCONFIG(TAG, "  Register dump:");
-  ESP_LOGCONFIG(TAG, "    GCONF: 0x%X", this->read_register(TMC2209_GCONF));
-  ESP_LOGCONFIG(TAG, "    GSTAT: 0x%X", this->read_register(TMC2209_GSTAT));
-  ESP_LOGCONFIG(TAG, "    IFCNT: 0x%X", this->read_register(TMC2209_IFCNT));
-  ESP_LOGCONFIG(TAG, "    SLAVECONF: 0x%X", this->read_register(TMC2209_SLAVECONF));
-  ESP_LOGCONFIG(TAG, "    OTP_PROG: 0x%X", this->read_register(TMC2209_OTP_PROG));
-  ESP_LOGCONFIG(TAG, "    OTP_READ: 0x%X", this->read_register(TMC2209_OTP_READ));
-  ESP_LOGCONFIG(TAG, "    IOIN: 0x%X", this->read_register(TMC2209_IOIN));
-  ESP_LOGCONFIG(TAG, "    FACTORY_CONF: 0x%X", this->read_register(TMC2209_FACTORY_CONF));
-  ESP_LOGCONFIG(TAG, "    IHOLD_IRUN: 0x%X", this->read_register(TMC2209_IHOLD_IRUN));
-  ESP_LOGCONFIG(TAG, "    TPOWERDOWN: 0x%X", this->read_register(TMC2209_TPOWERDOWN));
-  ESP_LOGCONFIG(TAG, "    TSTEP: 0x%X", this->read_register(TMC2209_TSTEP));
-  ESP_LOGCONFIG(TAG, "    TPWMTHRS: 0x%X", this->read_register(TMC2209_TPWMTHRS));
-  ESP_LOGCONFIG(TAG, "    TCOOLTHRS: 0x%X", this->read_register(TMC2209_TCOOLTHRS));
-  ESP_LOGCONFIG(TAG, "    VACTUAL: 0x%X", this->read_register(TMC2209_VACTUAL));
-  ESP_LOGCONFIG(TAG, "    SGTHRS: 0x%X", this->read_register(TMC2209_SGTHRS));
-  ESP_LOGCONFIG(TAG, "    SG_RESULT: 0x%X", this->read_register(TMC2209_SG_RESULT));
-  ESP_LOGCONFIG(TAG, "    COOLCONF: 0x%X", this->read_register(TMC2209_COOLCONF));
-  ESP_LOGCONFIG(TAG, "    MSCNT: 0x%X", this->read_register(TMC2209_MSCNT));
-  ESP_LOGCONFIG(TAG, "    MSCURACT: 0x%X", this->read_register(TMC2209_MSCURACT));
-  ESP_LOGCONFIG(TAG, "    CHOPCONF: 0x%X", this->read_register(TMC2209_CHOPCONF));
-  ESP_LOGCONFIG(TAG, "    DRV_STATUS: 0x%X", this->read_register(TMC2209_DRV_STATUS));
-  ESP_LOGCONFIG(TAG, "    PWMCONF: 0x%X", this->read_register(TMC2209_PWMCONF));
-  ESP_LOGCONFIG(TAG, "    PWMSCALE: 0x%X", this->read_register(TMC2209_PWMSCALE));
-  ESP_LOGCONFIG(TAG, "    PWM_AUTO: 0x%X", this->read_register(TMC2209_PWM_AUTO));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "GCONF:", this->read_register(TMC2209_GCONF));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "GSTAT:", this->read_register(TMC2209_GSTAT));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "IFCNT:", this->read_register(TMC2209_IFCNT));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "SLAVECONF:", this->read_register(TMC2209_SLAVECONF));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "OTP_PROG:", this->read_register(TMC2209_OTP_PROG));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "OTP_READ:", this->read_register(TMC2209_OTP_READ));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "IOIN:", this->read_register(TMC2209_IOIN));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "FACTORY_CONF:", this->read_register(TMC2209_FACTORY_CONF));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "IHOLD_IRUN:", this->read_register(TMC2209_IHOLD_IRUN));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TPOWERDOWN:", this->read_register(TMC2209_TPOWERDOWN));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TSTEP:", this->read_register(TMC2209_TSTEP));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TPWMTHRS:", this->read_register(TMC2209_TPWMTHRS));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TCOOLTHRS:", this->read_register(TMC2209_TCOOLTHRS));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "VACTUAL:", this->read_register(TMC2209_VACTUAL));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "SGTHRS:", this->read_register(TMC2209_SGTHRS));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "SG_RESULT:", this->read_register(TMC2209_SG_RESULT));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "COOLCONF:", this->read_register(TMC2209_COOLCONF));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "MSCNT:", this->read_register(TMC2209_MSCNT));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "MSCURACT:", this->read_register(TMC2209_MSCURACT));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "CHOPCONF:", this->read_register(TMC2209_CHOPCONF));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "DRV_STATUS:", this->read_register(TMC2209_DRV_STATUS));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWMCONF:", this->read_register(TMC2209_PWMCONF));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWMSCALE:", this->read_register(TMC2209_PWMSCALE));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWM_AUTO:", this->read_register(TMC2209_PWM_AUTO));
 }
 
 }  // namespace tmc2209

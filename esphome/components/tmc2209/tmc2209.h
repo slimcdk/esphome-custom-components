@@ -18,6 +18,8 @@ extern "C" {
 namespace esphome {
 namespace tmc2209 {
 
+static const char *TAG = "tmc2209";
+
 #define TMC2209_IC_VERSION_33 0x21
 
 #define VSENSE_HIGH 0.325f
@@ -135,9 +137,6 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   void set_step_pin(GPIOPin *pin) { this->step_pin_ = pin; };
   void set_dir_pin(GPIOPin *pin) { this->dir_pin_ = pin; };
   void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; };
-  void set_rsense(float resistance) { this->rsense_ = resistance; };
-  void set_vsense(bool set) { this->vsense_ = set; };
-  void set_ottrim(uint8_t ottrim) { this->ottrim_ = ottrim; };
 
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
@@ -189,10 +188,6 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
 
   ISRStore diag_isr_store_{};
   bool diag_isr_triggered_{false};
-
-  optional<uint8_t> ottrim_;
-  optional<float> rsense_;
-  optional<bool> vsense_;
 
   void check_driver_status_();
 
