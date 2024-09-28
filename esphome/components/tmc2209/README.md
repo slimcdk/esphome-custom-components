@@ -137,7 +137,7 @@ stepper:
 
 * `rsense` (*Optional*, resistance): Motor current sense resistors. Often varies from ~75 to 1000 mOhm. The actual value for your board can be found in the documentation. Leave empty to enable internal sensing using RDSon (170 mOhm). *Don't leave empty if your board has external sense resistors!*
 
-* `vsense` (*Optional*, boolean): Limit driver to ~55% power if driver uses smaller (<1/4 W) RSense resistors. Defaults to false.
+* `vsense` (*Optional*, boolean): Reduce currents/power to ~55% if smaller (<1/4 W) RSense resistors are used. Defaults to false.
 
 * `ottrim` (*Optional*, int): Limits for warning and shutdown temperatures. Default is OTP. OTP is 0 from factory. See below table for values.
   <table>
@@ -255,7 +255,7 @@ esphome:
   * `short_coil_ls`: Similar to `freewheeling`, but with motor coils shorted to low side voltage.
   * `short_coil_hs`: Similar to `freewheeling`, but with motor coils shorted to high side voltage.
 
-* `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `Frue` allows use of StealthChop. Defaults to OTP.
+* `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `False` allows use of StealthChop. Defaults to OTP.
 
 
 > [!NOTE]
