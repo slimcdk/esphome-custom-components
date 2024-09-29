@@ -204,7 +204,7 @@ Most alerts is signaling that the driver is in a given state. The majority of al
 *`STALLED` is the event you would want for sensorless homing. Check the [sensorless homing example](#sensorless-homing)*.
 
 > [!IMPORTANT]
-*Stall monitoring becomes enabled when the motor has a velocity equal to the configured max speed. Since this component/setup is expected to be an open loop system, the velocity is estimated from max speed, acceleration and deceleration and not the actual velocity of the motor. This applies to both UART and pulse control.*
+*Stall monitoring becomes enabled when the motor has a velocity equal to half of the configured max speed. Since this component/setup is expected to be an open loop system, the velocity is estimated from max speed, acceleration and deceleration and not the actual velocity of the motor. This applies to both UART and pulse control.*
 
 
 ## Actions

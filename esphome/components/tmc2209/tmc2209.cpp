@@ -257,7 +257,7 @@ void TMC2209::check_driver_status_() {
 void TMC2209::loop() {
   /** Alert events **/
 #if defined(ENABLE_DRIVER_ALERT_EVENTS)
-  if (this->current_speed_ == this->max_speed_) {
+  if (this->current_speed_ >= this->max_speed_ / 2) {
     this->stalled_handler_.check(this->is_stalled());
   }
 #if defined(USE_DIAG_PIN)
