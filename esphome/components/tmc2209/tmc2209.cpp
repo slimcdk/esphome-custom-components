@@ -226,12 +226,12 @@ void TMC2209::setup() {
       [this]() { this->on_alert_callback_.call(CP_UNDERVOLTAGE_CLEARED); }  // fall
   );
 
+#endif
+
   if (this->enn_pin_ != nullptr) {
     this->enn_pin_->setup();
     this->enable(true);
   }
-
-#endif
 
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper setup done.");
 }
