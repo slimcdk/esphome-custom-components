@@ -71,7 +71,6 @@ uint32_t TMC2209::read_field(RegisterField field) {
 }
 
 /** End of TMC-API wrappers **/
-
 void TMC2209::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209 Stepper...");
 
@@ -106,7 +105,6 @@ void TMC2209::setup() {
   // Check mux from figure 15.1 from datasheet rev1.09
   this->write_field(TMC2209_INDEX_STEP_FIELD, true);
   this->write_field(TMC2209_INDEX_OTPW_FIELD, false);
-  this->ips_.target_position_ptr = &this->target_position;
   this->ips_.current_position_ptr = &this->current_position;
   this->ips_.direction_ptr = &this->direction_;
   this->index_pin_->setup();
@@ -236,8 +234,9 @@ void TMC2209::setup() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper setup done.");
 }
 
-void TMC2209::check_driver_status_() {
 #if defined(ENABLE_DRIVER_ALERT_EVENTS)
+
+void TMC2209::check_driver_status_() {
   const uint32_t drv_status = this->read_register(TMC2209_DRV_STATUS);
   this->ot_handler_.check(static_cast<bool>((drv_status >> 1) & 1));
   this->otpw_handler_.check(static_cast<bool>(drv_status & 1));
@@ -252,8 +251,8 @@ void TMC2209::check_driver_status_() {
   this->s2gb_handler_.check(static_cast<bool>((drv_status >> 3) & 1));
   this->s2ga_handler_.check(static_cast<bool>((drv_status >> 2) & 1));
   this->uvcp_handler_.check(this->read_field(TMC2209_UV_CP_FIELD));
-#endif
 }
+#endif
 
 void TMC2209::loop() {
   /** Alert events **/

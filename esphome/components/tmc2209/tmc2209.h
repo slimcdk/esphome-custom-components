@@ -74,7 +74,6 @@ enum Direction : int8_t {
 
 struct IndexPulseStore {
   int32_t *current_position_ptr{nullptr};
-  int32_t *target_position_ptr{nullptr};
   Direction *direction_ptr{nullptr};
   static void IRAM_ATTR HOT pulse_isr(IndexPulseStore *arg) { (*(arg->current_position_ptr)) += *(arg->direction_ptr); }
 };
@@ -86,7 +85,7 @@ struct ISRStore {
 
 class EventHandler {
  public:
-  EventHandler() = default;
+  EventHandler(bool initial_state = false) : prev_(initial_state) {}
 
   void set_on_rise_callback(std::function<void()> &&callback) { this->callback_rise_ = std::move(callback); }
   void set_on_fall_callback(std::function<void()> &&callback) { this->callback_fall_ = std::move(callback); }
@@ -112,7 +111,7 @@ class EventHandler {
   }
 
  private:
-  bool prev_{false};
+  bool prev_;
   std::function<void()> callback_rise_;
   std::function<void()> callback_fall_;
 };
@@ -127,7 +126,6 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   void loop() override;
   void set_target(int32_t steps);
   void stop() override;
-  void stop(bool disable);
 
   void enable(bool enable);
   bool is_enabled() { return !this->enn_pin_state_; };
@@ -186,16 +184,18 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   GPIOPin *enn_pin_{nullptr};
   bool enn_pin_state_;
 
+#if defined(USE_DIAG_PIN)
   ISRStore diag_isr_store_{};
   bool diag_isr_triggered_{false};
+#endif
 
-  void check_driver_status_();
+  CallbackManager<void(const DriverEvent &event)> on_alert_callback_;
 
 #if defined(ENABLE_DRIVER_ALERT_EVENTS)
-  bool monitor_stallguard_{false};
+  void check_driver_status_();
 
-  EventHandler diag_handler_{};     // Event on DIAG
-  EventHandler stalled_handler_{};  // Stalled
+  EventHandler diag_handler_{};         // Event on DIAG
+  EventHandler stalled_handler_{true};  // Stalled. Initial state is true so that first startup doesn't trigger
   // EventHandler stst_handler_{};     // standstill indicator
   // EventHandler stealth_handler_{};  // StealthChop indicator (0=SpreadCycle mode, 1=StealthChop mode)
   EventHandler otpw_handler_{};   // overtemperature prewarning flag (Selected limit has been reached)
@@ -212,10 +212,8 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   EventHandler s2ga_handler_{};   // short to ground indicator phase A
   EventHandler uvcp_handler_{};   // Charge pump undervoltage
 #endif
-  CallbackManager<void(const DriverEvent &event)> on_alert_callback_;
 
 #if defined(USE_UART_CONTROL)
-  bool index_fb_ok_{false};
   IndexPulseStore ips_{};  // index pulse store
 #endif
 
