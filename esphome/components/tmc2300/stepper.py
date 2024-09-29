@@ -1,208 +1,277 @@
-from esphome import automation, pins
-from esphome.components import uart, stepper
+import esphome.codegen as cg
 import esphome.config_validation as cv
 import esphome.final_validate as fv
-import esphome.codegen as cg
-
-from esphome.const import  CONF_ID, CONF_ADDRESS, CONF_TRIGGER_ID, CONF_PLATFORM
+from esphome import automation, pins
+from esphome.core import EsphomeError
+from esphome.components import uart, stepper
+from esphome.automation import maybe_simple_id
+from esphome.const import (
+    CONF_TRIGGER_ID,
+    CONF_ADDRESS,
+    CONF_ID,
+    CONF_PLATFORM,
+)
 
 CODEOWNERS = ["@slimcdk"]
-
-DEPENDENCIES = ["uart"]
 
 CONF_STEPPER = "stepper"
 CONF_TMC2300 = "tmc2300"
 CONF_TMC2300_ID = "tmc2300_id"
 
+CONF_ENABLE = "enable"
+CONF_DISABLE = "disable"
+
 CONF_ENN_PIN = "enn_pin"
 CONF_DIAG_PIN = "diag_pin"
-CONF_VIO_NSTDBY_PIN = "standby_pin"
 
-CONF_RSENSE = "rsense"
-CONF_INTERNAL_RSENSE = "internal_rsense"
+CONF_CLOCK_FREQUENCY = "clock_frequency"
+
+CONF_RSENSE = "rsense"  # sense resistors
+CONF_INTERNAL_RSENSE = "internal_rsense"  # use rdson to sense
+CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
+CONF_POLL_STATUS_INTERVAL = "poll_status_interval"
+
+CONF_ON_ALERT = "on_alert"
 
 CONF_INVERSE_DIRECTION = "inverse_direction"
-
 CONF_VELOCITY = "velocity"
+CONF_MICROSTEPS = "microsteps"  # CHOPCONF.mres
+CONF_INTERPOLATION = "interpolation"  # CHOPCONF.intpol
 
 CONF_VACTUAL = "vactual"
-CONF_MICROSTEPS = "microsteps"
-CONF_COOLSTEP_TCOOLTHRS = "coolstep_tcoolthrs"
-CONF_STALLGUARD_SGTHRS = "stallguard_sgthrs"
 
-CONF_RMS_CURRENT = "rms_current"
-CONF_RMS_CURRENT_HOLD_SCALE = "rms_current_hold_scale"
+CONF_COOLSTEP_TCOOL_THRESHOLD = "tcool_threshold"
+CONF_STALLGUARD_THRESHOLD = "stallguard_threshold"
 
-CONF_HOLD_CURRENT_DELAY = "hold_current_delay"
-CONF_POWER_DOWN_DELAY = "power_down_delay"
-CONF_TSTEP = "tstep"
-CONF_TPWMTHRS = "tpwmthrs"
-CONF_RSENSE = "rsense"
-CONF_INTERNAL_RSENSE = "internal_rsense"
+CONF_RUN_CURRENT = "run_current"  # translates to IRUN
+CONF_HOLD_CURRENT = "hold_current"  # translates to IHOLD
+CONF_IRUN = "irun"
+CONF_IHOLD = "ihold"
+CONF_IHOLDDELAY = "iholddelay"
+CONF_TPOWERDOWN = "tpowerdown"
 
-CONF_COOLCONF_SEIMIN = "coolstep_seimin"
-CONF_COOLCONF_SEDN1 = "coolstep_sedn1"
-CONF_COOLCONF_SEDN0 = "coolstep_sedn0"
-CONF_COOLCONF_SEDN1 = "coolstep_sedn1"
-CONF_COOLCONF_SEMAX3 = "coolstep_semax3"
-CONF_COOLCONF_SEMAX2 = "coolstep_semax2"
-CONF_COOLCONF_SEMAX1 = "coolstep_semax1"
-CONF_COOLCONF_SEMAX0 = "coolstep_semax0"
-CONF_COOLCONF_SEUP1 = "coolstep_seup1"
-CONF_COOLCONF_SEUP0 = "coolstep_seup0"
-CONF_COOLCONF_SEMIN3 = "coolstep_semin3"
-CONF_COOLCONF_SEMIN2 = "coolstep_semin2"
-CONF_COOLCONF_SEMIN1 = "coolstep_semin1"
-CONF_COOLCONF_SEMIN0 = "coolstep_semin0"
+CONF_STANDSTILL_MODE = "standstill_mode"
+STANDSTILL_MODE_NORMAL = "normal"
+STANDSTILL_MODE_FREEWHEELING = "freewheeling"
+STANDSTILL_MODE_COIL_SHORT_LS = "short_coil_ls"
+STANDSTILL_MODE_COIL_SHORT_HS = "short_coil_hs"
+
+STANDSTILL_MODES = {
+    STANDSTILL_MODE_NORMAL: 0,
+    STANDSTILL_MODE_FREEWHEELING: 1,
+    STANDSTILL_MODE_COIL_SHORT_LS: 2,
+    STANDSTILL_MODE_COIL_SHORT_HS: 3,
+}
+
+tmc2300_ns = cg.esphome_ns.namespace("tmc2300")
+TMC2300 = tmc2300_ns.class_("TMC2300", cg.Component, uart.UARTDevice, stepper.Stepper)
+
+OnAlertTrigger = tmc2300_ns.class_("OnAlertTrigger", automation.Trigger)
+ConfigureAction = tmc2300_ns.class_("ConfigureAction", automation.Action)
+ActivationAction = tmc2300_ns.class_("ActivationAction", automation.Action)
+
+DriverEvent = tmc2300_ns.enum("DriverEvent")
 
 
-CONF_ON_STALL = "on_stall"
+DEVICE_SCHEMA = cv.Schema(
+    {
+        cv.GenerateID(CONF_TMC2300_ID): cv.use_id(TMC2300),
+    }
+)
 
-tmc_ns = cg.esphome_ns.namespace("tmc")
-TMC2300Stepper = tmc_ns.class_("TMC2300Stepper", cg.Component, stepper.Stepper, uart.UARTDevice)
 
-TMC2300StepperConfigureAction = tmc_ns.class_("TMC2300StepperConfigureAction", automation.Action)
-TMC2300StepperStopAction = tmc_ns.class_("TMC2300StepperStopAction", automation.Action)
-TMC2300StepperOnStallTrigger = tmc_ns.class_("TMC2300StepperOnStallTrigger", automation.Trigger)
-
-CONFIG_SCHEMA = (
-    stepper.STEPPER_SCHEMA.extend(
+CONFIG_SCHEMA = cv.All(
+    cv.Schema(
         {
-            cv.GenerateID(): cv.declare_id(TMC2300Stepper),
-            cv.Required(CONF_ENN_PIN): pins.gpio_output_pin_schema,
-            cv.Required(CONF_VIO_NSTDBY_PIN): pins.gpio_output_pin_schema,
+            cv.GenerateID(): cv.declare_id(TMC2300),
+            cv.Optional(CONF_ADDRESS, default=0x00): cv.hex_uint8_t,
+            cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.frequency,
+            cv.Optional(CONF_ENN_PIN): pins.internal_gpio_output_pin_schema,
             cv.Required(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
-            cv.Optional(CONF_ADDRESS, default=0x00): cv.uint8_t,
-            cv.Optional(CONF_RSENSE, default=0.11): cv.resistance,
-            cv.Optional(CONF_INTERNAL_RSENSE, default=True): cv.boolean,
-            cv.Optional(CONF_ON_STALL): automation.validate_automation(
+            cv.Optional(CONF_RSENSE): cv.resistance,
+            cv.Optional(CONF_VSENSE): cv.boolean,  # default OTP
+            cv.Optional(
+                CONF_POLL_STATUS_INTERVAL, default="500ms"
+            ): cv.positive_time_period_milliseconds,
+            cv.Optional(CONF_ON_ALERT): automation.validate_automation(
                 {
-                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
-                        TMC2300StepperOnStallTrigger
-                    ),
+                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnAlertTrigger),
                 }
             ),
         },
     )
-    .extend(cv.COMPONENT_SCHEMA)
     .extend(uart.UART_DEVICE_SCHEMA)
+    .extend(stepper.STEPPER_SCHEMA)
+    .extend(cv.COMPONENT_SCHEMA),
 )
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID], config[CONF_ADDRESS], config[CONF_INTERNAL_RSENSE], config[CONF_RSENSE])
+
+    var = cg.new_Pvariable(
+        config[CONF_ID], config[CONF_ADDRESS], config[CONF_CLOCK_FREQUENCY]
+    )
     await cg.register_component(var, config)
-    await stepper.register_stepper(var, config)
     await uart.register_uart_device(var, config)
+    await stepper.register_stepper(var, config)
 
-    cg.add(var.set_enn_pin(await cg.gpio_pin_expression(config[CONF_ENN_PIN])))
-    cg.add(var.set_vionstdby_pin(await cg.gpio_pin_expression(config[CONF_VIO_NSTDBY_PIN])))
-    cg.add(var.set_diag_pin(await cg.gpio_pin_expression(config[CONF_DIAG_PIN])))
+    enn_pin = config.get(CONF_ENN_PIN, None)
+    diag_pin = config.get(CONF_DIAG_PIN, None)
+    alert_triggers = config.get(CONF_ON_ALERT, [])
 
-    for conf in config.get(CONF_ON_STALL, []):
-        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-        await automation.build_automation(trigger, [], conf)
+    if enn_pin is not None:
+        cg.add(var.set_enn_pin(await cg.gpio_pin_expression(enn_pin)))
 
-    cg.add_library("https://github.com/slimcdk/TMC-API", "3.5.2")
+    cg.add(var.set_diag_pin(await cg.gpio_pin_expression(diag_pin)))
 
+    if (vsense := config.get(CONF_VSENSE, None)) is not None:
+        cg.add_define("VSENSE", vsense)
 
+    cg.add_define("INTERNAL_RSENSE", CONF_RSENSE not in config)
+    cg.add_define("RSENSE", config.get(CONF_RSENSE, 0.170))
 
-def final_validate_config(config):
-    steppers = fv.full_config.get()[CONF_STEPPER]
-    tmc2300_steppers = [stepper for stepper in steppers if stepper[CONF_PLATFORM] == CONF_TMC2300]
-    cg.add_define("TMC2300_NUM_COMPONENTS", len(tmc2300_steppers))
-    return config
+    if len(alert_triggers) > 0:
+        cg.add_define("ENABLE_DRIVER_ALERT_EVENTS")
+        for conf in alert_triggers:
+            trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+            await automation.build_automation(trigger, [(DriverEvent, "alert")], conf)
 
-FINAL_VALIDATE_SCHEMA = final_validate_config
+    cg.add_define("POLL_STATUS_INTERVAL", config[CONF_POLL_STATUS_INTERVAL])
+
+    cg.add_library("https://github.com/slimcdk/TMC-API", "3.10.3")
+    cg.add_build_flag("-std=c++17")
+    cg.add_build_flag("-std=gnu++17")
 
 
 @automation.register_action(
     "tmc2300.configure",
-    TMC2300StepperConfigureAction,
-    cv.Schema(
+    ConfigureAction,
+    maybe_simple_id(
         {
-            cv.GenerateID(): cv.use_id(TMC2300Stepper),
-            cv.Optional(CONF_INVERSE_DIRECTION): cv.templatable(cv.boolean),
+            cv.GenerateID(): cv.use_id(TMC2300),
+            cv.Optional(CONF_INVERSE_DIRECTION): cv.boolean,
             cv.Optional(CONF_MICROSTEPS): cv.templatable(
-                cv.one_of(256, 128, 64, 32, 16, 8, 4, 2, 0)
+                cv.one_of(256, 128, 64, 32, 16, 8, 4, 2, 1)
             ),
-            cv.Optional(CONF_RMS_CURRENT): cv.templatable(cv.positive_int), # cv.current
-            cv.Optional(CONF_RMS_CURRENT_HOLD_SCALE): cv.templatable(cv.float_range( # cv.percentage
-                min=0.0, max=1.0, min_included=True, max_included=True
-            )),
-            cv.Optional(CONF_HOLD_CURRENT_DELAY): cv.templatable(
-                cv.int_range(min=0, max=2**4, max_included=False),
-            ),
-            cv.Optional(CONF_POWER_DOWN_DELAY): cv.templatable(
-                cv.int_range(
-                    min=0, max=2**8, max_included=False
-                ),  # TODO: input value in time / duration format
-            ),
-            cv.Optional(CONF_COOLSTEP_TCOOLTHRS): cv.templatable(
+            cv.Optional(CONF_INTERPOLATION): cv.templatable(cv.boolean),
+            cv.Optional(CONF_COOLSTEP_TCOOL_THRESHOLD): cv.templatable(
                 cv.int_range(min=0, max=2**20, max_included=False)
             ),
-            cv.Optional(CONF_STALLGUARD_SGTHRS): cv.templatable(
-                cv.int_range(min=0, max=2**8, max_included=True)
+            cv.Optional(CONF_STALLGUARD_THRESHOLD): cv.templatable(
+                cv.int_range(min=0, max=2**8)
             ),
-            # CoolStep configuration
-            # cv.Optional(CONF_COOLCONF_SEIMIN): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEDN1): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEDN0): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEDN1): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMAX3): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMAX2): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMAX1): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMAX0): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEUP1): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEUP0): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMIN3): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMIN2): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMIN1): cv.templatable(cv.boolean),
-            # cv.Optional(CONF_COOLCONF_SEMIN0): cv.templatable(cv.boolean),
+            cv.Exclusive(CONF_RUN_CURRENT, "run_current"): cv.templatable(
+                cv.All(cv.current, cv.positive_not_null_float)
+            ),
+            cv.Exclusive(CONF_IRUN, "run_current"): cv.templatable(
+                cv.int_range(min=0, max=31)
+            ),
+            cv.Exclusive(CONF_HOLD_CURRENT, "hold_current"): cv.templatable(
+                cv.All(cv.current, cv.positive_float)
+            ),
+            cv.Exclusive(CONF_IHOLD, "hold_current"): cv.templatable(
+                cv.int_range(min=0, max=31)
+            ),
+            cv.Optional(CONF_STANDSTILL_MODE): cv.enum(STANDSTILL_MODES),
+            cv.Optional(CONF_IHOLDDELAY): cv.int_range(0, 15),
+            cv.Optional(CONF_TPOWERDOWN): cv.int_range(0, 255),
         }
     ),
 )
-def TMC2300_configure_to_code(config, action_id, template_arg, args):
+def tmc2300_configure_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     yield cg.register_parented(var, config[CONF_ID])
-    if CONF_INVERSE_DIRECTION in config:
-        template_ = yield cg.templatable(config[CONF_INVERSE_DIRECTION], args, bool)
+
+    if (inverse_direction := config.get(CONF_INVERSE_DIRECTION, None)) is not None:
+        template_ = yield cg.templatable(inverse_direction, args, bool)
         cg.add(var.set_inverse_direction(template_))
 
-    if CONF_RMS_CURRENT in config:
-        template_ = yield cg.templatable(config[CONF_RMS_CURRENT], args, int)
-        cg.add(var.set_rms_current(template_))
-
-    if CONF_RMS_CURRENT_HOLD_SCALE in config:
-        template_ = yield cg.templatable(config[CONF_RMS_CURRENT_HOLD_SCALE], args, float)
-        cg.add(var.set_rms_current_hold_scale(template_))
-
-    if CONF_HOLD_CURRENT_DELAY in config:
-        template_ = yield cg.templatable(
-            config[CONF_HOLD_CURRENT_DELAY], args, int
-        )  # float)
-        cg.add(var.set_hold_current_delay(template_))
-
-    if CONF_MICROSTEPS in config:
-        template_ = yield cg.templatable(config[CONF_MICROSTEPS], args, int)
+    if (microsteps := config.get(CONF_MICROSTEPS, None)) is not None:
+        template_ = yield cg.templatable(microsteps, args, int)
         cg.add(var.set_microsteps(template_))
 
-    if CONF_COOLSTEP_TCOOLTHRS in config:
-        template_ = yield cg.templatable(config[CONF_COOLSTEP_TCOOLTHRS], args, int)
+    if (interpolation := config.get(CONF_INTERPOLATION, None)) is not None:
+        template_ = yield cg.templatable(interpolation, args, bool)
+        cg.add(var.set_microstep_interpolation(template_))
+
+    if (tcoolthrs := config.get(CONF_COOLSTEP_TCOOL_THRESHOLD, None)) is not None:
+        template_ = yield cg.templatable(tcoolthrs, args, int)
         cg.add(var.set_coolstep_tcoolthrs(template_))
 
-    if CONF_STALLGUARD_SGTHRS in config:
-        template_ = yield cg.templatable(config[CONF_STALLGUARD_SGTHRS], args, int)
+    if (sgthrs := config.get(CONF_STALLGUARD_THRESHOLD, None)) is not None:
+        template_ = yield cg.templatable(sgthrs, args, int)
         cg.add(var.set_stallguard_sgthrs(template_))
+
+    if (standstill_mode := config.get(CONF_STANDSTILL_MODE, None)) is not None:
+        template_ = yield cg.templatable(STANDSTILL_MODES[standstill_mode], args, float)
+        cg.add(var.set_standstill_mode(template_))
+
+    if (run_current := config.get(CONF_RUN_CURRENT, None)) is not None:
+        template_ = yield cg.templatable(run_current, args, cv.current)
+        cg.add(var.set_run_current(template_))
+
+    if (irun := config.get(CONF_IRUN, None)) is not None:
+        template_ = yield cg.templatable(irun, args, cv.int_range(0, 31))
+        cg.add(var.set_irun(template_))
+
+    if (hold_current := config.get(CONF_HOLD_CURRENT, None)) is not None:
+        template_ = yield cg.templatable(hold_current, args, cv.current)
+        cg.add(var.set_hold_current(template_))
+
+    if (ihold := config.get(CONF_IHOLD, None)) is not None:
+        template_ = yield cg.templatable(ihold, args, cv.int_range(0, 31))
+        cg.add(var.set_ihold(template_))
+
+    if (iholddelay := config.get(CONF_IHOLDDELAY, None)) is not None:
+        template_ = yield cg.templatable(iholddelay, args, float)
+        cg.add(var.set_iholddelay(template_))
+
+    if (tpowerdown := config.get(CONF_TPOWERDOWN, None)) is not None:
+        template_ = yield cg.templatable(tpowerdown, args, float)
+        cg.add(var.set_tpowerdown(template_))
+
     yield var
 
 
-TMC2300_ACTION_SCHEMA = automation.maybe_simple_id({
-    cv.Required(CONF_ID): cv.use_id(TMC2300Stepper)
-})
-
-@automation.register_action("tmc2300.stop", TMC2300StepperStopAction, TMC2300_ACTION_SCHEMA)
-def tmc2300_stop_to_code(config, action_id, template_arg, args):
+@automation.register_action(
+    "tmc2300.enable",
+    ActivationAction,
+    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2300)}),
+)
+def tmc2300_enable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     yield cg.register_parented(var, config[CONF_ID])
-    yield var
+    cg.add(var.set_activate(True))
+    return var
+
+
+@automation.register_action(
+    "tmc2300.disable",
+    ActivationAction,
+    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2300)}),
+)
+def tmc2300_disable_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
+    cg.add(var.set_activate(False))
+    return var
+
+
+def final_validate_config(config):
+
+    uart.final_validate_device_schema(CONF_TMC2300, require_rx=True, require_tx=True)(
+        config
+    )
+
+    steppers = fv.full_config.get()[CONF_STEPPER]
+    tmc2300s = [
+        stepper for stepper in steppers if stepper[CONF_PLATFORM] == CONF_TMC2300
+    ]
+
+    cg.add_define("TMC2300_NUM_COMPONENTS", len(tmc2300s))
+    cg.add_define("TMC2300_ENABLE_TMC_CACHE", len(tmc2300s))
+    cg.add_define("TMC2300_CACHE", True)
+    cg.add_define("TMC_API_EXTERNAL_CRC_TABLE", False)
+
+
+FINAL_VALIDATE_SCHEMA = final_validate_config
