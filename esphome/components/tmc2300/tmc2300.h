@@ -20,10 +20,7 @@ namespace tmc2300 {
 
 static const char *TAG = "tmc2300";
 
-#define TMC2300_IC_VERSION_33 0x21
-
-#define VSENSE_HIGH 0.325f
-#define VSENSE_LOW 0.180f
+#define TMC2300_IC_VERSION_33 0x40
 
 #define mA2A(mA) ((float) mA / 1000.0)
 #define A2mA(A) (uint16_t)(A * 1000)
@@ -126,12 +123,12 @@ class TMC2300 : public Component, public stepper::Stepper, public uart::UARTDevi
   void loop() override;
   void set_target(int32_t steps);
   void stop() override;
-  void stop(bool disable);
 
   void enable(bool enable);
-  bool is_enabled() { return !this->enn_pin_state_; };
+  bool is_enabled() { return !this->en_pin_state_; };
 
-  void set_enn_pin(GPIOPin *pin) { this->enn_pin_ = pin; };
+  void set_en_pin(GPIOPin *pin) { this->en_pin_ = pin; };
+  void set_nstdby_pin(GPIOPin *pin) { this->nstdby_pin_ = pin; };
   void set_step_pin(GPIOPin *pin) { this->step_pin_ = pin; };
   void set_dir_pin(GPIOPin *pin) { this->dir_pin_ = pin; };
   void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; };
@@ -143,7 +140,6 @@ class TMC2300 : public Component, public stepper::Stepper, public uart::UARTDevi
   bool is_stalled();
 
   /* run and hold currents */
-  float read_vsense();
   uint16_t current_scale_to_rms_current_mA(uint8_t cs);
   uint8_t rms_current_to_current_scale_mA(uint16_t mA);
   void write_run_current_mA(uint16_t mA);
@@ -157,7 +153,6 @@ class TMC2300 : public Component, public stepper::Stepper, public uart::UARTDevi
 
   void set_tpowerdown_ms(uint32_t delay_in_ms);
   uint32_t get_tpowerdown_ms();
-  std::tuple<uint8_t, uint8_t> unpack_ottrim_values(uint8_t ottrim);
 
   void add_on_alert_callback(std::function<void(DriverEvent)> &&callback) {
     this->on_alert_callback_.add(std::move(callback));
@@ -177,9 +172,12 @@ class TMC2300 : public Component, public stepper::Stepper, public uart::UARTDevi
   uint8_t address_;
   const uint32_t clock_frequency_;
 
+  GPIOPin *en_pin_{nullptr};
+  GPIOPin *nstdby_pin_{nullptr};
   InternalGPIOPin *diag_pin_{nullptr};
-  GPIOPin *enn_pin_{nullptr};
-  bool enn_pin_state_;
+  GPIOPin *step_pin_{nullptr};
+  GPIOPin *dir_pin_{nullptr};
+  bool en_pin_state_;
 
   IndexPulseStore ips_{};  // index pulse store
 

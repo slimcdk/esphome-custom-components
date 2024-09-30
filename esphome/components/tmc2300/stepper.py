@@ -10,6 +10,9 @@ from esphome.const import (
     CONF_ADDRESS,
     CONF_ID,
     CONF_PLATFORM,
+    CONF_STEP_PIN,
+    CONF_DIR_PIN,
+    CONF_ENABLE_PIN,
 )
 
 CODEOWNERS = ["@slimcdk"]
@@ -21,14 +24,12 @@ CONF_TMC2300_ID = "tmc2300_id"
 CONF_ENABLE = "enable"
 CONF_DISABLE = "disable"
 
-CONF_ENN_PIN = "enn_pin"
 CONF_DIAG_PIN = "diag_pin"
+CONF_NSTDBY_PIN = "nstdby_pin"
 
 CONF_CLOCK_FREQUENCY = "clock_frequency"
 
 CONF_RSENSE = "rsense"  # sense resistors
-CONF_INTERNAL_RSENSE = "internal_rsense"  # use rdson to sense
-CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
 CONF_POLL_STATUS_INTERVAL = "poll_status_interval"
 
 CONF_ON_ALERT = "on_alert"
@@ -80,16 +81,32 @@ DEVICE_SCHEMA = cv.Schema(
 )
 
 
+def validate_(config):
+
+    has_diag = CONF_DIAG_PIN in config
+    has_step = CONF_STEP_PIN in config
+    has_dir = CONF_DIR_PIN in config
+
+    if not has_diag and not has_step and not has_dir:
+        raise EsphomeError(
+            f"Configure minimum {CONF_DIAG_PIN}, {CONF_STEP_PIN} and {CONF_DIR_PIN} or all three."
+        )
+
+    return config
+
+
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(TMC2300),
             cv.Optional(CONF_ADDRESS, default=0x00): cv.hex_uint8_t,
             cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.frequency,
-            cv.Optional(CONF_ENN_PIN): pins.internal_gpio_output_pin_schema,
-            cv.Required(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
+            cv.Optional(CONF_ENABLE_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_NSTDBY_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
+            cv.Optional(CONF_STEP_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_DIR_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_RSENSE): cv.resistance,
-            cv.Optional(CONF_VSENSE): cv.boolean,  # default OTP
             cv.Optional(
                 CONF_POLL_STATUS_INTERVAL, default="500ms"
             ): cv.positive_time_period_milliseconds,
@@ -103,6 +120,8 @@ CONFIG_SCHEMA = cv.All(
     .extend(uart.UART_DEVICE_SCHEMA)
     .extend(stepper.STEPPER_SCHEMA)
     .extend(cv.COMPONENT_SCHEMA),
+    cv.has_none_or_all_keys(CONF_STEP_PIN, CONF_DIR_PIN),
+    validate_,
 )
 
 
@@ -115,19 +134,29 @@ async def to_code(config):
     await uart.register_uart_device(var, config)
     await stepper.register_stepper(var, config)
 
-    enn_pin = config.get(CONF_ENN_PIN, None)
+    en_pin = config.get(CONF_ENABLE_PIN, None)
+    nstdby_pin = config.get(CONF_NSTDBY_PIN, None)
     diag_pin = config.get(CONF_DIAG_PIN, None)
+    step_pin = config.get(CONF_STEP_PIN, None)
+    dir_pin = config.get(CONF_DIR_PIN, None)
     alert_triggers = config.get(CONF_ON_ALERT, [])
 
-    if enn_pin is not None:
-        cg.add(var.set_enn_pin(await cg.gpio_pin_expression(enn_pin)))
+    if en_pin is not None:
+        cg.add(var.set_en_pin(await cg.gpio_pin_expression(en_pin)))
 
-    cg.add(var.set_diag_pin(await cg.gpio_pin_expression(diag_pin)))
+    if nstdby_pin is not None:
+        cg.add(var.set_nstdby_pin(await cg.gpio_pin_expression(nstdby_pin)))
 
-    if (vsense := config.get(CONF_VSENSE, None)) is not None:
-        cg.add_define("VSENSE", vsense)
+    pulse_control = step_pin is not None and dir_pin is not None
+    if pulse_control:
+        cg.add(var.set_step_pin(await cg.gpio_pin_expression(step_pin)))
+        cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
+        cg.add_define("USE_PULSE_CONTROL")
 
-    cg.add_define("INTERNAL_RSENSE", CONF_RSENSE not in config)
+    if diag_pin is not None:
+        cg.add(var.set_diag_pin(await cg.gpio_pin_expression(diag_pin)))
+        cg.add_define("USE_DIAG_PIN" if pulse_control else "USE_UART_CONTROL")
+
     cg.add_define("RSENSE", config.get(CONF_RSENSE, 0.170))
 
     if len(alert_triggers) > 0:

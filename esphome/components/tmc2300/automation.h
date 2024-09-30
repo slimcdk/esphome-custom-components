@@ -39,7 +39,7 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
       this->parent_->set_microsteps(this->microsteps_.value(x...));
 
     if (this->standstill_mode_.has_value()) {
-      if (this->parent_->read_field(TMC2300_EN_SPREADCYCLE_FIELD)) {
+      if (this->parent_->read_field(TMC2300_EN_SPREADCYCLE_SHIFT_FIELD)) {
         ESP_LOGW(TAG, "standstill modes are only possible with StealthChop enabled.");
       }
       this->parent_->write_field(TMC2300_FREEWHEEL_FIELD, this->standstill_mode_.value(x...));
@@ -63,7 +63,7 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
       this->parent_->write_hold_current(this->hold_current_.value(x...));
 
     if (this->enable_spreadcycle_.has_value()) {
-      this->parent_->write_field(TMC2300_EN_SPREADCYCLE_FIELD, this->enable_spreadcycle_.value(x...));
+      this->parent_->write_field(TMC2300_EN_SPREADCYCLE_SHIFT_FIELD, this->enable_spreadcycle_.value(x...));
     }
   }
 };
