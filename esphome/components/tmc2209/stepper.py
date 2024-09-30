@@ -106,6 +106,11 @@ def validate_(config):
             f"{CONF_STEP_PIN} and {CONF_DIR_PIN} must be configured together."
         )
 
+    if CONF_VSENSE in config and CONF_RSENSE not in config:
+        raise EsphomeError(
+            f"Must configure {CONF_RSENSE} if {CONF_VSENSE} is configured."
+        )
+
     return config
 
 

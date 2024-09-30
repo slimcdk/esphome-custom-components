@@ -442,30 +442,30 @@ void TMC2209::dump_config() {
 
   LOG_PIN("  ENN Pin: ", this->enn_pin_);
   LOG_PIN("  DIAG Pin: ", this->diag_pin_);
+  if (!this->diag_pin_) {
+    ESP_LOGCONFIG(TAG, "  Driver status poll interval: %dms", POLL_STATUS_INTERVAL);
+  }
   LOG_PIN("  INDEX Pin: ", this->index_pin_);
   LOG_PIN("  STEP Pin: ", this->step_pin_);
   LOG_PIN("  DIR Pin: ", this->dir_pin_);
+
   ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
   ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps());
 
-  // RSense and VSense (current sensing)
-  if (this->read_field(TMC2209_INTERNAL_RSENSE_FIELD)) {
+  if (this->read_field(TMC2209_VSENSE_FIELD)) {
     ESP_LOGCONFIG(TAG, "  RSense: %.3f Ohm (internal RDSon value)", RSENSE);
   } else {
     ESP_LOGCONFIG(TAG, "  RSense: %.3f Ohm (external sense resistors)", RSENSE);
-    if (this->read_field(TMC2209_VSENSE_FIELD)) {
+    if (this->read_field(TMC2209_INTERNAL_RSENSE_FIELD)) {
       ESP_LOGCONFIG(TAG, "    Configured for low heat dissipation (vsense = true)");
     } else {
       ESP_LOGCONFIG(TAG, "    Configured for high heat dissipation (vsense = false)");
     }
   }
 
-  auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(TMC2209_OTTRIM_FIELD));  // c++17 required
+  const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(TMC2209_OTTRIM_FIELD));  // c++17 required
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot);
   ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz", this->clock_frequency_);
-  if (this->diag_pin_ != nullptr) {
-    ESP_LOGCONFIG(TAG, "  Driver status poll interval: %dms", POLL_STATUS_INTERVAL);
-  }
 
   ESP_LOGCONFIG(TAG, "  Register dump:");
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "GCONF:", this->read_register(TMC2209_GCONF));
