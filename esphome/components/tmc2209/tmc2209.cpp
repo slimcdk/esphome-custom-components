@@ -335,11 +335,21 @@ uint16_t TMC2209::current_scale_to_rms_current_mA(uint8_t cs) {
   return (cs + 1) / 32.0f * this->read_vsense() / (RSENSE + 0.02f) * (1 / sqrtf(2)) * 1000.0f;
 }
 
+uint8_t TMC2209::rms_current_to_current_scale_mA_no_clamp(uint16_t mA) {
+  return 32.0f * sqrtf(2) * mA2A(mA) * ((RSENSE + 0.02f) / this->read_vsense()) - 1.0f;
+}
+
 uint8_t TMC2209::rms_current_to_current_scale_mA(uint16_t mA) {
   if (mA == 0) {
     return 0;
   }
-  const uint8_t cs = 32.0f * sqrtf(2) * mA2A(mA) * ((RSENSE + 0.02f) / this->read_vsense()) - 1.0f;
+  const uint8_t cs = this->rms_current_to_current_scale_mA_no_clamp(mA);
+
+  if (cs > 31) {
+    const uint16_t mA_limit = this->current_scale_to_rms_current_mA(cs);
+    ESP_LOGW(TAG, "Configured RSense and VSense has a max current limit of %d mA. Clamping value to max!", mA_limit);
+  }
+
   return clamp<uint8_t>(cs, 0, 31);
 }
 

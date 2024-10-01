@@ -144,6 +144,7 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
 
   /* run and hold currents */
   float read_vsense();
+  uint8_t rms_current_to_current_scale_mA_no_clamp(uint16_t mA);
   uint16_t current_scale_to_rms_current_mA(uint8_t cs);
   uint8_t rms_current_to_current_scale_mA(uint16_t mA);
   void write_run_current_mA(uint16_t mA);
