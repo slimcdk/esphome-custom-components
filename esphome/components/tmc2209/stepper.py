@@ -54,6 +54,7 @@ CONF_IHOLD = "ihold"
 CONF_IHOLDDELAY = "iholddelay"
 CONF_TPOWERDOWN = "tpowerdown"
 CONF_ENABLE_SPREADCYCLE = "enable_spreadcycle"
+CONF_MONITOR_STALL_THRESHOLD = "monitor_stall_threshold"
 
 CONF_STANDSTILL_MODE = "standstill_mode"
 STANDSTILL_MODE_NORMAL = "normal"
@@ -232,6 +233,7 @@ async def to_code(config):
             cv.Optional(CONF_IHOLDDELAY): cv.int_range(0, 15),
             cv.Optional(CONF_TPOWERDOWN): cv.int_range(0, 255),
             cv.Optional(CONF_ENABLE_SPREADCYCLE): cv.boolean,
+            cv.Optional(CONF_MONITOR_STALL_THRESHOLD): cv.percentage,
         }
     ),
 )
@@ -290,6 +292,10 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
     if (en_spreadcycle := config.get(CONF_ENABLE_SPREADCYCLE, None)) is not None:
         template_ = yield cg.templatable(en_spreadcycle, args, bool)
         cg.add(var.set_enable_spreadcycle(template_))
+
+    if (stall_threshold := config.get(CONF_MONITOR_STALL_THRESHOLD, None)) is not None:
+        template_ = yield cg.templatable(stall_threshold, args, cv.percentage)
+        cg.add(var.set_monitor_stall_threshold(template_))
 
     yield var
 

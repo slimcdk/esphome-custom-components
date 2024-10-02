@@ -136,12 +136,6 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   void set_dir_pin(GPIOPin *pin) { this->dir_pin_ = pin; };
   void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; };
 
-  void set_microsteps(uint16_t ms);
-  uint16_t get_microsteps();
-
-  float get_motor_load();
-  bool is_stalled();
-
   /* run and hold currents */
   float read_vsense();
   uint8_t rms_current_to_current_scale_mA_no_clamp(uint16_t mA);
@@ -156,9 +150,14 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   float read_run_current() { return mA2A(this->read_run_current_mA()); };
   float read_hold_current() { return mA2A(this->read_hold_current_mA()); };
 
+  void set_microsteps(uint16_t ms);
+  uint16_t get_microsteps();
+  float get_motor_load();
+  bool is_stalled();
   void set_tpowerdown_ms(uint32_t delay_in_ms);
   uint32_t get_tpowerdown_ms();
   std::tuple<uint8_t, uint8_t> unpack_ottrim_values(uint8_t ottrim);
+  void set_monitor_stall_threshold(float stall_threshold) { this->stall_threshold_ = stall_threshold; };
 
   void add_on_alert_callback(std::function<void(DriverEvent)> &&callback) {
     this->on_alert_callback_.add(std::move(callback));
@@ -184,6 +183,7 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   GPIOPin *dir_pin_{nullptr};
   GPIOPin *enn_pin_{nullptr};
   bool enn_pin_state_;
+  float stall_threshold_{0.5};
 
 #if defined(USE_DIAG_PIN)
   ISRStore diag_isr_store_{};

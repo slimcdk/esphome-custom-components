@@ -244,9 +244,9 @@ esphome:
 
 * `iholddelay` (*Optional*, int, [templatable][config-templatable]): IHOLDDELAY setting. Must be between 0 and 31.
 
-* `run_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IRUN based on RSense according to [section 9][datasheet].
+* `run_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IRUN based on RSense and VSense according to [section 9][datasheet].
 
-* `hold_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IHOLD based on RSense according to [section 9][datasheet].
+* `hold_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IHOLD based on RSense and VSense according to [section 9][datasheet].
 
 * `standstill_mode` (*Optional*, [templatable][config-templatable]): Standstill mode for when movement stops. Default is OTP. Available modes are:
   * `normal`: Actively breaks the motor.
@@ -255,6 +255,8 @@ esphome:
   * `short_coil_hs`: Similar to `freewheeling`, but with motor coils shorted to high side voltage.
 
 * `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `False` allows use of StealthChop. Defaults to OTP.
+
+* `monitor_stall_threshold` (*Optional*, percentage, [templatable][config-templatable]): Threshold is percentage of *max speed* for when stall detection is active. Default is 50% which should work fine. 0% might trigger on acceleration or deceleration.
 
 
 > [!NOTE]
