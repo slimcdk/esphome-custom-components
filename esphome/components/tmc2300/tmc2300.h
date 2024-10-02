@@ -20,7 +20,7 @@ namespace tmc2300 {
 
 static const char *TAG = "tmc2300";
 
-#define TMC2300_IC_VERSION_33 0x40
+#define TMC2300_IC_VERSION_64 0x40
 
 #define mA2A(mA) ((float) mA / 1000.0)
 #define A2mA(A) (uint16_t)(A * 1000)

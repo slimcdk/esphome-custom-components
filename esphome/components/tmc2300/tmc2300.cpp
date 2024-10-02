@@ -50,6 +50,18 @@ void TMC2300::setup() {
 
   this->high_freq_.start();
 
+  // EN must be enabled before n-standby
+  if (this->en_pin_ != nullptr) {
+    this->en_pin_->setup();
+    this->en_pin_->digital_write(true);
+    this->en_pin_state_ = true;
+  }
+
+  if (this->nstdby_pin_ != nullptr) {
+    this->nstdby_pin_->setup();
+    this->nstdby_pin_->digital_write(true);
+  }
+
   while (!this->is_ready()) {
   };
 
@@ -58,16 +70,9 @@ void TMC2300::setup() {
     this->mark_failed();
   }
 
-  /*
-  this->write_field(TMC2300_PDN_DISABLE_FIELD, true);
   this->write_field(TMC2300_VACTUAL_FIELD, 0);
-  this->write_field(TMC2300_I_SCALE_ANALOG_FIELD, false);
-  this->write_field(TMC2300_SHAFT_FIELD, false);
-  this->write_field(TMC2300_MSTEP_REG_SELECT_FIELD, true);
-  this->write_field(TMC2300_MULTISTEP_FILT_FIELD, false);
-  this->write_field(TMC2300_TEST_MODE_FIELD, false);
-  this->write_field(TMC2300_FREEWHEEL_FIELD, 1);
-  this->write_field(TMC2300_IHOLD_FIELD, 0);
+  this->write_field(TMC2300_DIAG_INDEX_FIELD, false);
+  this->write_field(TMC2300_DIAG_STEP_FIELD, true);
 
   this->ips_.current_position_ptr = &this->current_position;
   this->ips_.direction_ptr = &this->direction_;
@@ -80,6 +85,7 @@ void TMC2300::setup() {
 
   this->stalled_handler_.set_on_rise_callback([this]() { this->on_alert_callback_.call(STALLED); });  // stalled
 
+/*
   this->otpw_handler_.set_callbacks(  // overtemperature prewarning
       [this]() {
         this->on_alert_callback_.call(OVERTEMPERATURE_PREWARNING);
@@ -154,18 +160,8 @@ void TMC2300::setup() {
       [this]() { this->on_alert_callback_.call(CP_UNDERVOLTAGE); },         // rise
       [this]() { this->on_alert_callback_.call(CP_UNDERVOLTAGE_CLEARED); }  // fall
   );
-
-#endif
   */
-  if (this->en_pin_ != nullptr) {
-    this->en_pin_->setup();
-    this->enable(true);
-  }
-
-  if (this->nstdby_pin_ != nullptr) {
-    this->nstdby_pin_->setup();
-    this->nstdby_pin_->digital_write(true);
-  }
+#endif
 
   ESP_LOGCONFIG(TAG, "TMC2300 Stepper setup done.");
 }
@@ -192,35 +188,35 @@ void TMC2300::check_driver_status_() {
 #endif
 
 void TMC2300::loop() {
+#if defined(ENABLE_DRIVER_ALERT_EVENTS)
+  if (this->current_speed_ == this->max_speed_) {
+    this->stalled_handler_.check(this->is_stalled());
+  }
+
   /*
+    #if defined(USE_DIAG_PIN)
+      if (this->diag_isr_triggered_) {
+        this->diag_handler_.check(this->diag_isr_triggered_);
+        this->stalled_handler_.check(this->is_stalled());
+        this->check_driver_status_();
 
-  #if defined(ENABLE_DRIVER_ALERT_EVENTS)
-    if (this->current_speed_ == this->max_speed_) {
-      this->stalled_handler_.check(this->is_stalled());
-    }
-  #if defined(USE_DIAG_PIN)
-    if (this->diag_isr_triggered_) {
-      this->diag_handler_.check(this->diag_isr_triggered_);
-      this->stalled_handler_.check(this->is_stalled());
-      this->check_driver_status_();
+        // keep polling status as long as this DIAG is up
+        this->diag_isr_triggered_ = this->diag_pin_->digital_read();
+      }
+    #endif
+  */
+#endif
 
-      // keep polling status as long as this DIAG is up
-      this->diag_isr_triggered_ = this->diag_pin_->digital_read();
-    }
-  #endif
-  #endif
+  // Compute and set speed and direction to move the motor in
+  const int32_t to_target = (this->target_position - this->current_position);
+  this->direction_ = (to_target != 0 ? (Direction) (to_target / abs(to_target)) : Direction::NONE);  // yield 1, -1 or 0
+  this->calculate_speed_(micros());
 
-    // Compute and set speed and direction to move the motor in
-    const int32_t to_target = (this->target_position - this->current_position);
-    this->direction_ = (to_target != 0 ? (Direction) (to_target / abs(to_target)) : Direction::NONE);  // yield 1, -1 or
-  0 this->calculate_speed_(micros());
-
-    // -2.8 magically to synchronizes feedback with set velocity
-    const uint32_t velocity = ((int8_t) this->direction_) * this->current_speed_ * -2.8;
-    if (this->read_field(TMC2300_VACTUAL_FIELD) != velocity) {
-      this->write_field(TMC2300_VACTUAL_FIELD, velocity);
-    }
-    */
+  // -2.8 magically to synchronizes feedback with set velocity
+  const uint32_t velocity = ((int8_t) this->direction_) * this->current_speed_ * -2.8;
+  if (this->read_field(TMC2300_VACTUAL_FIELD) != velocity) {
+    this->write_field(TMC2300_VACTUAL_FIELD, velocity);
+  }
 }
 
 bool TMC2300::is_stalled() {
@@ -315,8 +311,8 @@ void TMC2300::enable(bool enable) {
     return ESP_LOGW(TAG, "en_pin is not configured and setting enable/disable has no effect");
   }
 
-  if (this->en_pin_state_ != !enable) {
-    this->en_pin_state_ = !enable;
+  if (this->en_pin_state_ != enable) {
+    this->en_pin_state_ = enable;
     this->en_pin_->digital_write(this->en_pin_state_);
   }
 }
@@ -337,7 +333,7 @@ void TMC2300::dump_config() {
   const int8_t icv_ = this->read_field(TMC2300_VERSION_FIELD);
   if (std::isnan(icv_) || icv_ == 0) {
     ESP_LOGE(TAG, "  Unable to read IC version. Is the driver powered and wired correctly?");
-  } else if (icv_ == TMC2300_IC_VERSION_33) {
+  } else if (icv_ == TMC2300_IC_VERSION_64) {
     ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", icv_);
   } else {
     ESP_LOGE(TAG, "  Detected unknown IC version: 0x%02X", icv_);
