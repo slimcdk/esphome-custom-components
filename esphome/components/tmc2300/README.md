@@ -104,14 +104,12 @@ stepper:
   - platform: tmc2300
     id: driver
     address: 0x00                 # optional, default is 0x00
-    enn_pin: REPLACEME            # optional, mostly not needed
-    diag_pin: REPLACEME           # optional, but highly recommended to set
-    index_pin: REPLACEME          # optional, unless using uart control
+    enable_pin: REPLACEME         # optional, mostly not needed
+    nstdby_pin: REPLACEME         # optional, mostly not needed
+    diag_pin: REPLACEME           # optional, unless using uart control
     step_pin: REPLACEME           # optional, unless using step/dir control
     dir_pin: REPLACEME            # optional, unless using step/dir control
     rsense: REPLACEME             # optional, check resistor on board
-    vsense: False                 # optional, default is False
-    ottrim: 0                     # optional, default is OTP
     clock_frequency: 12MHz        # optional, default is 12MHz
     poll_status_interval: 500ms   # optional, default is 500ms and has no effect if diag_pin is set
 
@@ -123,36 +121,17 @@ stepper:
 
 * `address` (*Optional*, hex): UART address of the IC. Configured by setting MS1_AD0 or MS2_AD1 high or low. Default is `0x00`.
 
-* `enn_pin` (*Optional*, [Output Pin Schema][config-pin]): Enable not input pin for the driver.
-> [!IMPORTANT]
-*Driver can't be enabled if ENN is left floating. Either configure it if it's actually connected or wire it to GND*
+* `enable_pin` (*Optional*, [Output Pin Schema][config-pin]): Enable input pin for the driver.
 
-* `diag_pin` (*Optional*, [Input Pin Schema][config-pin]): Driver error signaling from the driver.
+* `nstdby_pin` (*Optional*, [Output Pin Schema][config-pin]): Standby input pin for the driver.
 
-* `index_pin` (*Optional*, [Input Pin Schema][config-pin]): Serves as stepping feedback from the internal step pulse generator.
+* `diag_pin` (*Optional*, [Input Pin Schema][config-pin]): Serves as stepping feedback from the internal step pulse generator.
 
 * `step_pin` (*Optional*, [Output Pin Schema][config-pin]): Provides stepping pulses to the driver.
 
 * `dir_pin` (*Optional*, [Output Pin Schema][config-pin]): Controls direction of the motor.
 
 * `rsense` (*Optional*, resistance): Motor current sense resistors. Often varies from ~75 to 1000 mOhm. The actual value for your board can be found in the documentation. Leave empty to enable internal sensing using RDSon (170 mOhm). *Don't leave empty if your board has external sense resistors!*
-
-* `vsense` (*Optional*, boolean): Reduce currents/power to ~55% if smaller (<1/4 W) RSense resistors are used. Defaults to false.
-
-* `ottrim` (*Optional*, int): Limits for warning and shutdown temperatures. Default is OTP. OTP is 0 from factory. See below table for values.
-  <table>
-    <thead>
-      <tr><th>OTTRIM</th><th>Prewarning</th><th>Shutdown</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>0</td><td>120C</td><td>143C</td></tr>
-      <tr><td>1</td><td>120C</td><td>150C</td></tr>
-      <tr><td>2</td><td>143C</td><td>150C</td></tr>
-      <tr><td>3</td><td>143C</td><td>157C</td></tr>
-    </tbody>
-  </table>
-
-    > *Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning.*
 
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
 
@@ -184,21 +163,7 @@ stepper:
 
 Most alerts is signaling that the driver is in a given state. The majority of alert events also has a `CLEARED` or similar counterpart signaling that the driver is now not in the given state anymore.
 
-  * `DIAG_TRIGGERED` DIAG output is triggered. Primarily driver errors.
   * `STALLED` Motor is considered stalled when SG_RESULT crosses SGTHRS. Check below for more.
-  * `OVERTEMPERATURE_PREWARNING` | `OVERTEMPERATURE_PREWARNING_CLEARED` Driver is warning about increasing temperature.
-  * `OVERTEMPERATURE` | `OVERTEMPERATURE_CLEARED` Driver is at critical high temperature and is shutting down.
-  * `TEMPERATURE_ABOVE_120C` | `TEMPERATURE_BELOW_120C` Temperature is higher or lower than 120C.
-  * `TEMPERATURE_ABOVE_143C` | `TEMPERATURE_BELOW_143C` Temperature is higher or lower than 143C.
-  * `TEMPERATURE_ABOVE_150C` | `TEMPERATURE_BELOW_150C` Temperature is higher or lower than 150C.
-  * `TEMPERATURE_ABOVE_157C` | `TEMPERATURE_BELOW_157C` Temperature is higher or lower than 157C.
-  * `A_OPEN_LOAD` | `A_OPEN_LOAD_CLEARED` Open load indicator phase A.
-  * `B_OPEN_LOAD` | `B_OPEN_LOAD_CLEARED` Open load indicator phase B.
-  * `A_LOW_SIDE_SHORT` | `A_LOW_SIDE_SHORT_CLEARED` Low side short indicator phase A.
-  * `B_LOW_SIDE_SHORT` | `B_LOW_SIDE_SHORT_CLEARED` Low side short indicator phase B.
-  * `A_GROUND_SHORT` | `A_GROUND_SHORT_CLEARED` Short to ground indicator phase A.
-  * `B_GROUND_SHORT` | `B_GROUND_SHORT_CLEARED` Short to ground indicator phase B.
-  * `CP_UNDERVOLTAGE` | `CP_UNDERVOLTAGE_CLEARED` Undervoltage on chargepump input.
 
 > [!NOTE]
 *`STALLED` is the event you would want for sensorless homing. Check the [sensorless homing example](#sensorless-homing)*.
