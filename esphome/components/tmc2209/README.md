@@ -397,12 +397,10 @@ esphome:
   on_boot:
     - tmc2209.configure:
         microsteps: 8
-        interpolation: true
-        tcool_threshold: 400
         stallguard_threshold: 50
         standstill_mode: freewheeling
-        run_current: 800mA
-        hold_current: 0mA
+        irun: 12
+        ihold: 0
         tpowerdown: 0
         iholddelay: 0
 
@@ -415,12 +413,11 @@ uart:
 stepper:
   - platform: tmc2209
     id: driver
-    max_speed: 800 steps/s
-    acceleration: 7500 steps/s^2
-    deceleration: 7500 steps/s^2
+    max_speed: 900 steps/s
+    acceleration: 1500 steps/s^2
+    deceleration: 500 steps/s^2
     rsense: 110 mOhm
     vsense: False
-    ottrim: 0
     index_pin: 42
     diag_pin: 41
     on_alert:
@@ -474,46 +471,51 @@ sensor:
 Output of above configuration. Registers could differ due to OTP.
 ```console
 ...
-[00:00:00][C][tmc2209:422]: TMC2209 Stepper:
-[00:00:00][C][tmc2209:425]:   Control: Serial with feedback
-[00:00:00][C][tmc2209:431]:   Acceleration: 1500 steps/s^2
-[00:00:00][C][tmc2209:431]:   Deceleration: 500 steps/s^2
-[00:00:00][C][tmc2209:431]:   Max Speed: 900 steps/s
-[00:00:00][C][tmc2209:438]:   Detected IC version: 0x21
-[00:00:00][C][tmc2209:443]:   ENN Pin: GPIO38
-[00:00:00][C][tmc2209:444]:   DIAG Pin: GPIO41
-[00:00:00][C][tmc2209:448]:   INDEX Pin: GPIO42
-[00:00:00][C][tmc2209:452]:   Address: 0x00
-[00:00:00][C][tmc2209:453]:   Microsteps: 8
-[00:00:00][C][tmc2209:459]:   RSense: 0.110 Ohm (external sense resistors)
-[00:00:00][C][tmc2209:463]:     Configured for high heat dissipation (vsense = false)
-[00:00:00][C][tmc2209:468]:   Overtemperature: prewarning = 120C | shutdown = 143C
-[00:00:00][C][tmc2209:469]:   Clock frequency: 12000000 Hz
-[00:00:00][C][tmc2209:471]:   Register dump:
-[00:00:00][C][tmc2209:472]:     GCONF:        0x000000E0
-[00:00:00][C][tmc2209:473]:     GSTAT:        0x00000001
-[00:00:00][C][tmc2209:474]:     IFCNT:        0x00000016
-[00:00:00][C][tmc2209:475]:     SLAVECONF:    0x00000000
-[00:00:00][C][tmc2209:476]:     OTP_PROG:     0x00000000
-[00:00:00][C][tmc2209:477]:     OTP_READ:     0x0000000A
-[00:00:00][C][tmc2209:478]:     IOIN:         0x21000240
-[00:00:00][C][tmc2209:479]:     FACTORY_CONF: 0x0000000A
-[00:00:00][C][tmc2209:480]:     IHOLD_IRUN:   0x00000C00
-[00:00:00][C][tmc2209:481]:     TPOWERDOWN:   0x00000000
-[00:00:00][C][tmc2209:482]:     TSTEP:        0x000FFFFF
-[00:00:00][C][tmc2209:483]:     TPWMTHRS:     0x00000000
-[00:00:00][C][tmc2209:484]:     TCOOLTHRS:    0x00000000
-[00:00:00][C][tmc2209:485]:     VACTUAL:      0x00000000
-[00:00:00][C][tmc2209:486]:     SGTHRS:       0x00000032
-[00:00:00][C][tmc2209:487]:     SG_RESULT:    0x00000000
-[00:00:00][C][tmc2209:488]:     COOLCONF:     0x00000000
-[00:00:00][C][tmc2209:489]:     MSCNT:        0x00000250
-[00:00:00][C][tmc2209:490]:     MSCURACT:     0x0126018A
-[00:00:00][C][tmc2209:491]:     CHOPCONF:     0x15010053
-[00:00:00][C][tmc2209:492]:     DRV_STATUS:   0xC0000000
-[00:00:00][C][tmc2209:493]:     PWMCONF:      0xC81D0E24
-[00:00:00][C][tmc2209:494]:     PWMSCALE:     0x006C006D
-[00:00:00][C][tmc2209:495]:     PWM_AUTO:     0x000E0024
+[00:00:00][C][tmc2209:427]: TMC2209 Stepper:
+[00:00:00][C][tmc2209:430]:   Control: Over UART with feedback on INDEX
+[00:00:00][C][tmc2209:436]:   Acceleration: 1500 steps/s^2
+[00:00:00][C][tmc2209:436]:   Deceleration: 500 steps/s^2
+[00:00:00][C][tmc2209:436]:   Max Speed: 900 steps/s
+[00:00:00][C][tmc2209:443]:   Detected IC version: 0x21
+[00:00:00][C][tmc2209:451]:   Enable/disable driver with TOFF
+[00:00:00][C][tmc2209:454]:   DIAG Pin: GPIO41
+[00:00:00][C][tmc2209:458]:   INDEX Pin: GPIO42
+[00:00:00][C][tmc2209:462]:   Address: 0x00
+[00:00:00][C][tmc2209:463]:   Microsteps: 8
+[00:00:00][C][tmc2209:465]:   Currents:
+[00:00:00][C][tmc2209:469]:     RSense: 0.110 Ohm (external sense resistors)
+[00:00:00][C][tmc2209:473]:     VSense: Configured for high heat dissipation (false)
+[00:00:00][C][tmc2209:477]:     Currently set IRUN: 12 (718 mA)
+[00:00:00][C][tmc2209:479]:     Currently set IHOLD: 0 (0 mA)
+[00:00:00][C][tmc2209:480]:     Maximum allowable: 1767 mA
+[00:00:00][C][tmc2209:483]:   Overtemperature: prewarning = 120C | shutdown = 143C
+[00:00:00][C][tmc2209:484]:   Clock frequency: 12000000 Hz
+[00:00:00][C][tmc2209:486]:   Activate stall detection: At 450 steps/s (50% of max speed)
+[00:00:00][C][tmc2209:488]:   Register dump:
+[00:00:00][C][tmc2209:489]:     GCONF:        0x000001E0
+[00:00:00][C][tmc2209:490]:     GSTAT:        0x00000001
+[00:00:00][C][tmc2209:491]:     IFCNT:        0x00000016
+[00:00:00][C][tmc2209:492]:     SLAVECONF:    0x00000000
+[00:00:00][C][tmc2209:493]:     OTP_PROG:     0x00000000
+[00:00:00][C][tmc2209:494]:     OTP_READ:     0x0000000A
+[00:00:00][C][tmc2209:495]:     IOIN:         0x21000240
+[00:00:00][C][tmc2209:496]:     FACTORY_CONF: 0x0000000A
+[00:00:00][C][tmc2209:497]:     IHOLD_IRUN:   0x00000C00
+[00:00:00][C][tmc2209:498]:     TPOWERDOWN:   0x00000000
+[00:00:00][C][tmc2209:499]:     TSTEP:        0x000FFFFF
+[00:00:00][C][tmc2209:500]:     TPWMTHRS:     0x00000000
+[00:00:00][C][tmc2209:501]:     TCOOLTHRS:    0x00000000
+[00:00:00][C][tmc2209:502]:     VACTUAL:      0x00000000
+[00:00:00][C][tmc2209:503]:     SGTHRS:       0x00000032
+[00:00:00][C][tmc2209:504]:     SG_RESULT:    0x00000014
+[00:00:00][C][tmc2209:505]:     COOLCONF:     0x00000000
+[00:00:00][C][tmc2209:506]:     MSCNT:        0x00000370
+[00:00:00][C][tmc2209:507]:     MSCURACT:     0x009D0141
+[00:00:00][C][tmc2209:508]:     CHOPCONF:     0x15010053
+[00:00:00][C][tmc2209:509]:     DRV_STATUS:   0xC0000000
+[00:00:00][C][tmc2209:510]:     PWMCONF:      0xC81D0E24
+[00:00:00][C][tmc2209:511]:     PWMSCALE:     0x00200021
+[00:00:00][C][tmc2209:512]:     PWM_AUTO:     0x000E0024
 ...
 ```
 

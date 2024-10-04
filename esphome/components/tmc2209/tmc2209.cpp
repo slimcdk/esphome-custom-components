@@ -445,7 +445,12 @@ void TMC2209::dump_config() {
     ESP_LOGE(TAG, "  Detected unknown IC version: 0x%02X", icv_);
   }
 
-  LOG_PIN("  ENN Pin: ", this->enn_pin_);
+  if (this->enn_pin_) {
+    LOG_PIN("  ENN Pin: ", this->enn_pin_);
+  } else {
+    ESP_LOGCONFIG(TAG, "  Enable/disable driver with TOFF");
+  }
+
   LOG_PIN("  DIAG Pin: ", this->diag_pin_);
   if (!this->diag_pin_) {
     ESP_LOGCONFIG(TAG, "  Driver status poll interval: %dms", POLL_STATUS_INTERVAL);
@@ -457,16 +462,22 @@ void TMC2209::dump_config() {
   ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
   ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps());
 
+  ESP_LOGCONFIG(TAG, "  Currents:");
   if (this->read_field(TMC2209_VSENSE_FIELD)) {
-    ESP_LOGCONFIG(TAG, "  RSense: %.3f Ohm (internal RDSon value)", RSENSE);
+    ESP_LOGCONFIG(TAG, "    RSense: %.3f Ohm (internal RDSon value)", RSENSE);
   } else {
-    ESP_LOGCONFIG(TAG, "  RSense: %.3f Ohm (external sense resistors)", RSENSE);
+    ESP_LOGCONFIG(TAG, "    RSense: %.3f Ohm (external sense resistors)", RSENSE);
     if (this->read_field(TMC2209_INTERNAL_RSENSE_FIELD)) {
-      ESP_LOGCONFIG(TAG, "    Configured for low heat dissipation (vsense = true)");
+      ESP_LOGCONFIG(TAG, "    VSense: Configured for low heat dissipation (true)");
     } else {
-      ESP_LOGCONFIG(TAG, "    Configured for high heat dissipation (vsense = false)");
+      ESP_LOGCONFIG(TAG, "    VSense: Configured for high heat dissipation (false)");
     }
   }
+  ESP_LOGCONFIG(TAG, "    Currently set IRUN: %d (%d mA)", this->read_field(TMC2209_IRUN_FIELD),
+                this->read_run_current_mA());
+  ESP_LOGCONFIG(TAG, "    Currently set IHOLD: %d (%d mA)", this->read_field(TMC2209_IHOLD_FIELD),
+                this->read_hold_current_mA());
+  ESP_LOGCONFIG(TAG, "    Maximum allowable: %d mA", this->current_scale_to_rms_current_mA(31));
 
   const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(TMC2209_OTTRIM_FIELD));  // c++17 required
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot);
