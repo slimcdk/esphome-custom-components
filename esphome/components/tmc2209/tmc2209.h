@@ -182,6 +182,7 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   GPIOPin *dir_pin_{nullptr};
   GPIOPin *enn_pin_{nullptr};
   float sdal_{0.5};  // stall detection activation level. A percentage of max_speed.
+  bool is_enabled_;
 
 #if defined(USE_DIAG_PIN)
   ISRStore diag_isr_store_{};

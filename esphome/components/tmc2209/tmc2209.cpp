@@ -223,8 +223,8 @@ void TMC2209::setup() {
 
   if (this->enn_pin_ != nullptr) {
     this->enn_pin_->setup();
-    this->enable(true);
   }
+  this->enable(true);
 
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper setup done.");
 }
@@ -394,7 +394,7 @@ std::tuple<uint8_t, uint8_t> TMC2209::unpack_ottrim_values(uint8_t ottrim) {
 }
 
 void TMC2209::set_target(int32_t steps) {
-  if (this->enn_pin_ != nullptr) {
+  if (!this->is_enabled_) {
     this->enable(true);
   }
 
@@ -420,6 +420,7 @@ void TMC2209::enable(bool enable) {
   } else {
     this->write_field(TMC2209_TOFF_FIELD, enable ? 3 : 0);
   }
+  this->is_enabled_ = enable;
 }
 
 void TMC2209::dump_config() {
