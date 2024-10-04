@@ -89,16 +89,11 @@ void TMC2209::setup() {
   this->write_field(TMC2209_INTERNAL_RSENSE_FIELD, INTERNAL_RSENSE);
   this->write_field(TMC2209_I_SCALE_ANALOG_FIELD, false);
   this->write_field(TMC2209_SHAFT_FIELD, false);
-  // this->write_field(TMC2209_INDEX_OTPW_FIELD, true);
-  // this->write_field(TMC2209_INDEX_STEP_FIELD, false);
   this->write_field(TMC2209_MSTEP_REG_SELECT_FIELD, true);
-  this->write_field(TMC2209_MULTISTEP_FILT_FIELD, false);
+  // this->write_field(TMC2209_MULTISTEP_FILT_FIELD, false);
   this->write_field(TMC2209_TEST_MODE_FIELD, false);
   // this->write_field(TMC2209_PWM_SCALE_AUTO_FIELD, 1);
   // this->write_field(TMC2209_PWM_GRAD_AUTO_FIELD, 1);
-
-  // this->write_field(TMC2209_FREEWHEEL_FIELD, 1);
-  // this->write_field(TMC2209_IHOLD_FIELD, 0);
 
 #if defined(USE_UART_CONTROL)
   /* Configure INDEX for pulse feedback from the driver */
@@ -257,7 +252,9 @@ void TMC2209::check_driver_status_() {
 void TMC2209::loop() {
   /** Alert events **/
 #if defined(ENABLE_DRIVER_ALERT_EVENTS)
-  if (this->current_speed_ >= (this->max_speed_ * this->stall_threshold_)) {
+
+  const bool standstill = this->read_field(TMC2209_STST_FIELD);
+  if (!standstill && this->current_speed_ >= (this->max_speed_ * this->sdal_)) {
     this->stalled_handler_.check(this->is_stalled());
   }
 #if defined(USE_DIAG_PIN)
@@ -418,15 +415,10 @@ void TMC2209::enable(bool enable) {
     this->stop();
   }
 
-  if (this->enn_pin_ == nullptr) {
-    return ESP_LOGW(TAG, "enn_pin is not configured and setting enable/disable has no effect");
+  if (this->enn_pin_ != nullptr) {
+    this->enn_pin_->digital_write(!enable);
   } else {
-    // TODO: set TOFF to 0..
-  }
-
-  if (this->enn_pin_state_ != !enable) {
-    this->enn_pin_state_ = !enable;
-    this->enn_pin_->digital_write(this->enn_pin_state_);
+    this->write_field(TMC2209_TOFF_FIELD, enable ? 3 : 0);
   }
 }
 
@@ -434,9 +426,9 @@ void TMC2209::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
 
 #if defined(USE_UART_CONTROL)
-  ESP_LOGCONFIG(TAG, "  Control: Serial with feedback");
+  ESP_LOGCONFIG(TAG, "  Control: Over UART with feedback on INDEX");
 #elif defined(USE_PULSE_CONTROL)
-  ESP_LOGCONFIG(TAG, "  Control: Pulse");
+  ESP_LOGCONFIG(TAG, "  Control: Pulses on STEP and direction on DIR");
 #else
   ESP_LOGE(TAG, "No control method defined!");
 #endif
@@ -478,8 +470,8 @@ void TMC2209::dump_config() {
   const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(TMC2209_OTTRIM_FIELD));  // c++17 required
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot);
   ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz", this->clock_frequency_);
-  ESP_LOGCONFIG(TAG, "  Monitor stall threshold: %.0f (when speed is above %d steps/s)", (this->stall_threshold_ * 100),
-                (int) (this->max_speed_ * this->stall_threshold_));
+  ESP_LOGCONFIG(TAG, "  Activate stall detection: At %d steps/s (%.0f%% of max speed)",
+                (int) (this->max_speed_ * this->sdal_), (this->sdal_ * 100));
 
   ESP_LOGCONFIG(TAG, "  Register dump:");
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "GCONF:", this->read_register(TMC2209_GCONF));

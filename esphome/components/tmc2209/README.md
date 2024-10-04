@@ -256,7 +256,7 @@ esphome:
 
 * `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `False` allows use of StealthChop. Defaults to OTP.
 
-* `monitor_stall_threshold` (*Optional*, percentage, [templatable][config-templatable]): Threshold is percentage of *max speed* for when stall detection is active. Default is 50% which should work fine. 0% might trigger on acceleration or deceleration.
+* `stall_detection_activation_level` (*Optional*, percentage, [templatable][config-templatable]): Threshold is percentage of *max speed* for when stall detection is active. Default is 50% which should work fine. 0% might cause false triggers on acceleration or deceleration.
 
 
 > [!NOTE]
@@ -267,22 +267,20 @@ esphome:
 
 ### `tmc2209.enable` Action
 
-Enables driver on ENN.
+Enables driver on ENN (requires `enn_pin`) or by setting *TOFF* to 3.
 
 ```yaml
 on_...:
   - tmc2209.enable: driver
 ```
 * `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
-
-> [!IMPORTANT]
-*This action has no effect if `enn_pin` isn't set.*
-
+> [!NOTE]
+*Driver will automatically be enabled if new target is issued.*
 
 
 ### `tmc2209.disable` Action
 
-Disables driver on ENN. *Stop* is also called.
+Disables driver on ENN (requires `enn_pin`) or by setting *TOFF* to 0.
 
 ```yaml
 on_...:
@@ -290,8 +288,6 @@ on_...:
 ```
 * `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
-> [!IMPORTANT]
-*This action has no effect on ENN if `enn_pin` isn't set.* *Driver will be automatically be enabled if new target is issued.*
 
 
 
@@ -638,9 +634,9 @@ Long wires connected to ENN might pick up interference causing the driver to mak
 
 ## TODOs
 * Reconfigure driver if driver was power cycled.
-* OTTRIM not setting or reading properly
-* Generate step pulses outside of main loop
-
+* OTTRIM not setting or reading properly.
+* Generate step pulses outside of main loop.
+* Use index for warning if stepper is controlled with step/dir.
 
 ## MISC
 

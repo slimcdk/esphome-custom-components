@@ -21,7 +21,7 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
   TEMPLATABLE_VALUE(int, iholddelay)
   TEMPLATABLE_VALUE(int, tpowerdown)
   TEMPLATABLE_VALUE(bool, enable_spreadcycle)
-  TEMPLATABLE_VALUE(float, monitor_stall_threshold)
+  TEMPLATABLE_VALUE(float, stall_detection_activation_level)
 
   void play(Ts... x) override {
     if (this->inverse_direction_.has_value())
@@ -67,8 +67,8 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
       this->parent_->write_field(TMC2209_EN_SPREADCYCLE_FIELD, this->enable_spreadcycle_.value(x...));
     }
 
-    if (this->monitor_stall_threshold_.has_value()) {
-      this->parent_->set_monitor_stall_threshold(this->monitor_stall_threshold_.value(x...));
+    if (this->stall_detection_activation_level_.has_value()) {
+      this->parent_->set_stall_detection_activation_level(this->stall_detection_activation_level_.value(x...));
     }
   }
 };

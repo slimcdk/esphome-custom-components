@@ -128,7 +128,6 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   void stop() override;
 
   void enable(bool enable);
-  bool is_enabled() { return !this->enn_pin_state_; };
 
   void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; };
   void set_enn_pin(GPIOPin *pin) { this->enn_pin_ = pin; };
@@ -157,7 +156,7 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   void set_tpowerdown_ms(uint32_t delay_in_ms);
   uint32_t get_tpowerdown_ms();
   std::tuple<uint8_t, uint8_t> unpack_ottrim_values(uint8_t ottrim);
-  void set_monitor_stall_threshold(float stall_threshold) { this->stall_threshold_ = stall_threshold; };
+  void set_stall_detection_activation_level(float level) { this->sdal_ = level; };
 
   void add_on_alert_callback(std::function<void(DriverEvent)> &&callback) {
     this->on_alert_callback_.add(std::move(callback));
@@ -182,8 +181,7 @@ class TMC2209 : public Component, public stepper::Stepper, public uart::UARTDevi
   GPIOPin *step_pin_{nullptr};
   GPIOPin *dir_pin_{nullptr};
   GPIOPin *enn_pin_{nullptr};
-  bool enn_pin_state_;
-  float stall_threshold_{0.5};
+  float sdal_{0.5};  // stall detection activation level. A percentage of max_speed.
 
 #if defined(USE_DIAG_PIN)
   ISRStore diag_isr_store_{};

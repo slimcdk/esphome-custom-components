@@ -54,7 +54,7 @@ CONF_IHOLD = "ihold"
 CONF_IHOLDDELAY = "iholddelay"
 CONF_TPOWERDOWN = "tpowerdown"
 CONF_ENABLE_SPREADCYCLE = "enable_spreadcycle"
-CONF_MONITOR_STALL_THRESHOLD = "monitor_stall_threshold"
+CONF_STALL_DETECTION_ACTIVATION_LEVEL = "stall_detection_activation_level"
 
 CONF_STANDSTILL_MODE = "standstill_mode"
 STANDSTILL_MODE_NORMAL = "normal"
@@ -120,7 +120,9 @@ CONFIG_SCHEMA = cv.All(
         {
             cv.GenerateID(): cv.declare_id(TMC2209),
             cv.Optional(CONF_ADDRESS, default=0x00): cv.hex_uint8_t,
-            cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.frequency,
+            cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.All(
+                cv.positive_int, cv.frequency
+            ),
             cv.Optional(CONF_ENN_PIN): pins.internal_gpio_output_pin_schema,
             cv.Optional(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
@@ -233,7 +235,7 @@ async def to_code(config):
             cv.Optional(CONF_IHOLDDELAY): cv.int_range(0, 15),
             cv.Optional(CONF_TPOWERDOWN): cv.int_range(0, 255),
             cv.Optional(CONF_ENABLE_SPREADCYCLE): cv.boolean,
-            cv.Optional(CONF_MONITOR_STALL_THRESHOLD): cv.percentage,
+            cv.Optional(CONF_STALL_DETECTION_ACTIVATION_LEVEL): cv.percentage,
         }
     ),
 )
@@ -293,9 +295,9 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
         template_ = yield cg.templatable(en_spreadcycle, args, bool)
         cg.add(var.set_enable_spreadcycle(template_))
 
-    if (stall_threshold := config.get(CONF_MONITOR_STALL_THRESHOLD, None)) is not None:
-        template_ = yield cg.templatable(stall_threshold, args, cv.percentage)
-        cg.add(var.set_monitor_stall_threshold(template_))
+    if (level := config.get(CONF_STALL_DETECTION_ACTIVATION_LEVEL, None)) is not None:
+        template_ = yield cg.templatable(level, args, cv.percentage)
+        cg.add(var.set_stall_detection_activation_level(template_))
 
     yield var
 
