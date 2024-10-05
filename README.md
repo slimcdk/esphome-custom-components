@@ -7,18 +7,18 @@ external_components:
     components: [ <component1>, <component2>, ... ]
 ```
 
-## [StepDir](esphome/components/stepdir/README.md)
-> Working
+## [Insight](esphome/components/insight/README.md)
+
+Component to expose internal metrics from the running device.
 
 
-## [TMC2209](esphome/components/tmc2209/README.md)
-> Working, but needs testing
+## [TMC2209](esphome/components/tmc2209/README.md) 
 
 Component to interface ADI Trinamic stepper driver.
 
 
 ## [TMC2300](esphome/components/tmc2300/README.md)
-> Working, but needs testing
+> Work in progress
 
 Component to interface ADI Trinamic stepper driver.
 
@@ -33,13 +33,6 @@ Component to interface ADI Trinamic stepper driver.
 
 Component to interface quadrature encoder with SPI.
 
-
-## [Insight](esphome/components/insight/README.md)
-> Working
-
-Component to expose internal metrics from the running device.
-
-
 ## [Modem](esphome/components/modem/README.md)
 > Work in progress
 
@@ -52,12 +45,6 @@ Component to handle state of cellular modems.
 Networking over serial i.e. cellular modems.
 
 
-## [Network2](esphome/components/network2/README.md)
-> Work in progress
-
-
-
-
 ## [Freematics](esphome/components/freematics/README.md)
 > Work in progress
 
@@ -68,8 +55,5 @@ Component to interface the Freematics firmware.
 > Work in progress
 
 Component to interface 9-axis IMU.
-
-## [Latch](esphome/components/latch/README.md)
-> Work in progress
 
 Binary sensor with latching/locking and release functionality.
