@@ -12,7 +12,7 @@ external_components:
 Component to expose internal metrics from the running device.
 
 
-## [TMC2209](esphome/components/tmc2209/README.md) 
+## [TMC2209](esphome/components/tmc2209/README.md)
 
 Component to interface ADI Trinamic stepper driver.
 
