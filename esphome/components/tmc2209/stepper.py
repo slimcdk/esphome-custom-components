@@ -11,12 +11,10 @@ from esphome.const import (
     CONF_ID,
     CONF_STEP_PIN,
     CONF_DIR_PIN,
-    CONF_PLATFORM,
 )
 
 CODEOWNERS = ["@slimcdk"]
 
-CONF_STEPPER = "stepper"
 CONF_TMC2209 = "tmc2209"
 CONF_TMC2209_ID = "tmc2209_id"
 
@@ -197,10 +195,6 @@ async def to_code(config):
 
     cg.add_define("POLL_STATUS_INTERVAL", config[CONF_POLL_STATUS_INTERVAL])
 
-    cg.add_library("https://github.com/slimcdk/TMC-API", "3.10.3")
-    cg.add_build_flag("-std=c++17")
-    cg.add_build_flag("-std=gnu++17")
-
 
 @automation.register_action(
     "tmc2209.configure",
@@ -326,21 +320,6 @@ def tmc2209_disable_to_code(config, action_id, template_arg, args):
     return var
 
 
-def final_validate_config(config):
-
-    uart.final_validate_device_schema(CONF_TMC2209, require_rx=True, require_tx=True)(
-        config
-    )
-
-    steppers = fv.full_config.get()[CONF_STEPPER]
-    tmc2209s = [
-        stepper for stepper in steppers if stepper[CONF_PLATFORM] == CONF_TMC2209
-    ]
-
-    cg.add_define("TMC2209_NUM_COMPONENTS", len(tmc2209s))
-    cg.add_define("TMC2209_ENABLE_TMC_CACHE", len(tmc2209s))
-    cg.add_define("TMC2209_CACHE", True)
-    cg.add_define("TMC_API_EXTERNAL_CRC_TABLE", False)
-
-
-FINAL_VALIDATE_SCHEMA = final_validate_config
+FINAL_VALIDATE_SCHEMA = uart.final_validate_device_schema(
+    CONF_TMC2209, require_rx=True, require_tx=True
+)

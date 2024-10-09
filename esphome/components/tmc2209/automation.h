@@ -25,37 +25,37 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
 
   void play(Ts... x) override {
     if (this->inverse_direction_.has_value())
-      this->parent_->write_field(TMC2209_SHAFT_FIELD, this->inverse_direction_.value(x...));
+      this->parent_->write_field(SHAFT_FIELD, this->inverse_direction_.value(x...));
 
     if (this->coolstep_tcoolthrs_.has_value())
-      this->parent_->write_register(TMC2209_TCOOLTHRS, this->coolstep_tcoolthrs_.value(x...));
+      this->parent_->write_register(TCOOLTHRS, this->coolstep_tcoolthrs_.value(x...));
 
     if (this->stallguard_sgthrs_.has_value())
-      this->parent_->write_register(TMC2209_SGTHRS, this->stallguard_sgthrs_.value(x...));
+      this->parent_->write_register(SGTHRS, this->stallguard_sgthrs_.value(x...));
 
     if (this->microstep_interpolation_.has_value())
-      this->parent_->write_field(TMC2209_INTPOL_FIELD, this->microstep_interpolation_.value(x...));
+      this->parent_->write_field(INTPOL_FIELD, this->microstep_interpolation_.value(x...));
 
     if (this->microsteps_.has_value())
       this->parent_->set_microsteps(this->microsteps_.value(x...));
 
     if (this->standstill_mode_.has_value()) {
-      if (this->parent_->read_field(TMC2209_EN_SPREADCYCLE_FIELD)) {
+      if (this->parent_->read_field(EN_SPREADCYCLE_FIELD)) {
         ESP_LOGW(TAG, "standstill modes are only possible with StealthChop enabled.");
       }
-      this->parent_->write_field(TMC2209_FREEWHEEL_FIELD, this->standstill_mode_.value(x...));
+      this->parent_->write_field(FREEWHEEL_FIELD, this->standstill_mode_.value(x...));
     }
     if (this->iholddelay_.has_value())
-      this->parent_->write_field(TMC2209_IHOLDDELAY_FIELD, this->iholddelay_.value(x...));
+      this->parent_->write_field(IHOLDDELAY_FIELD, this->iholddelay_.value(x...));
 
     if (this->tpowerdown_.has_value())
-      this->parent_->write_field(TMC2209_TPOWERDOWN_FIELD, this->tpowerdown_.value(x...));
+      this->parent_->write_field(TPOWERDOWN_FIELD, this->tpowerdown_.value(x...));
 
     if (this->irun_.has_value())
-      this->parent_->write_field(TMC2209_IRUN_FIELD, this->irun_.value(x...));
+      this->parent_->write_field(IRUN_FIELD, this->irun_.value(x...));
 
     if (this->ihold_.has_value())
-      this->parent_->write_field(TMC2209_IHOLD_FIELD, this->ihold_.value(x...));
+      this->parent_->write_field(IHOLD_FIELD, this->ihold_.value(x...));
 
     if (this->run_current_.has_value())
       this->parent_->write_run_current(this->run_current_.value(x...));
@@ -64,7 +64,7 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
       this->parent_->write_hold_current(this->hold_current_.value(x...));
 
     if (this->enable_spreadcycle_.has_value()) {
-      this->parent_->write_field(TMC2209_EN_SPREADCYCLE_FIELD, this->enable_spreadcycle_.value(x...));
+      this->parent_->write_field(EN_SPREADCYCLE_FIELD, this->enable_spreadcycle_.value(x...));
     }
 
     if (this->stall_detection_activation_level_.has_value()) {
