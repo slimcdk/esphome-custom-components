@@ -1,166 +1,11 @@
-#include "tmc2209.h"
+#include "tmc2209_stepper.h"
+#include "tmc2209_api_registers.h"
 
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
 
 namespace esphome {
 namespace tmc2209 {
-
-uint8_t TMC2209::crc8(uint8_t *data, uint32_t bytes) {
-  uint8_t result = 0;
-  uint8_t *table;
-
-  while (bytes--)
-    result = this->tmcCRCTable_Poly7Reflected[result ^ *data++];
-
-  // Flip the result around
-  // swap odd and even bits
-  result = ((result >> 1) & 0x55) | ((result & 0x55) << 1);
-  // swap consecutive pairs
-  result = ((result >> 2) & 0x33) | ((result & 0x33) << 2);
-  // swap nibbles ...
-  result = ((result >> 4) & 0x0F) | ((result & 0x0F) << 4);
-
-  return result;
-}
-
-void TMC2209::set_dirty_bit_(uint8_t index, bool value) {
-  if (index >= REGISTER_COUNT)
-    return;
-
-  uint8_t *tmp = &this->dirty_bits_[index / 8];
-  uint8_t shift = (index % 8);
-  uint8_t mask = 1 << shift;
-  *tmp = (((*tmp) & (~(mask))) | (((value) << (shift)) & (mask)));
-}
-
-bool TMC2209::get_dirty_bit_(uint8_t index) {
-  if (index >= REGISTER_COUNT)
-    return false;
-
-  uint8_t *tmp = &this->dirty_bits_[index / 8];
-  uint8_t shift = (index % 8);
-  return ((*tmp) >> shift) & 1;
-}
-
-bool TMC2209::cache_(CacheOp operation, uint8_t address, uint32_t *value) {
-  if (operation == CACHE_READ) {
-    if (IS_READABLE(this->register_access_[address]))
-      return false;
-
-    // Grab the value from the cache
-    *value = this->shadow_register_[address];
-    return true;
-  } else if (operation == CACHE_WRITE || operation == CACHE_FILL_DEFAULT) {
-    // Fill the cache
-
-    // Write to the shadow register.
-    this->shadow_register_[address] = *value;
-    // For write operations, mark the register dirty
-    if (operation == CACHE_WRITE) {
-      this->set_dirty_bit_(address, true);
-    }
-
-    return true;
-  }
-  return false;
-}
-
-bool TMC2209::read_write_register_(uint8_t *data, size_t writeLength, size_t readLength) {
-  if (writeLength > 0) {
-    this->write_array(data, writeLength);
-    this->read_array(data, writeLength);
-    this->flush();
-    // TODO: maybe do something with IFCNT for write verification
-  }
-
-  optional<bool> ok;
-  if (readLength > 0) {
-    ok = this->read_array(data, readLength);
-  }
-
-  return ok.value_or(false);
-}
-
-void TMC2209::write_register(uint8_t address, int32_t value) {
-  std::array<uint8_t, 8> data = {0};
-
-  data[0] = 0x05;
-  data[1] = this->address_;
-  data[2] = address | TMC_WRITE_BIT;
-  data[3] = (value >> 24) & 0xFF;
-  data[4] = (value >> 16) & 0xFF;
-  data[5] = (value >> 8) & 0xFF;
-  data[6] = (value) &0xFF;
-  data[7] = this->crc8(data.data(), 7);
-
-  this->read_write_register_(&data[0], 8, 0);
-  this->cache_(CACHE_WRITE, address, (uint32_t *) &value);
-}
-
-int32_t TMC2209::read_register(uint8_t address) {
-  uint32_t value;
-
-  // Read from cache for registers with write-only access
-  if (this->cache_(CACHE_READ, address, &value))
-    return value;
-
-  address = address & TMC_ADDRESS_MASK;
-  std::array<uint8_t, 8> data = {0};
-
-  data[0] = 0x05;
-  data[1] = this->address_;
-  data[2] = address;
-  data[3] = this->crc8(data.data(), 3);
-
-  if (!this->read_write_register_(&data[0], 4, 8))
-    return 0;
-
-  // Byte 0: Sync nibble correct?
-  if (data[0] != 0x05)
-    return 0;
-
-  // Byte 1: Master address correct?
-  if (data[1] != 0xFF)
-    return 0;
-
-  // Byte 2: Address correct?
-  if (data[2] != address)
-    return 0;
-
-  // Byte 7: CRC correct?
-  if (data[7] != this->crc8(data.data(), 7))
-    return 0;
-
-  return encode_uint32(data[3], data[4], data[5], data[6]);
-}
-
-uint32_t TMC2209::update_field(uint32_t data, RegisterField field, uint32_t value) {
-  return (data & (~field.mask)) | ((value << field.shift) & field.mask);
-}
-
-void TMC2209::write_field(RegisterField field, uint32_t value) {
-  uint32_t regValue = this->read_register(field.address);
-  regValue = this->update_field(regValue, field, value);
-  this->write_register(field.address, regValue);
-}
-
-uint32_t TMC2209::extract_field(uint32_t data, RegisterField field) {
-  uint32_t value = (data & field.mask) >> field.shift;
-
-  if (field.isSigned) {
-    uint32_t baseMask = field.mask >> field.shift;
-    uint32_t signMask = baseMask & (~baseMask >> 1);
-    value = (value ^ signMask) - signMask;
-  }
-
-  return value;
-}
-
-uint32_t TMC2209::read_field(RegisterField field) {
-  uint32_t value = this->read_register(field.address);
-  return this->extract_field(value, field);
-}
 
 /** End of TMC-API wrappers **/
 void TMC2209::setup() {
@@ -548,7 +393,7 @@ void TMC2209::dump_config() {
   LOG_PIN("  STEP Pin: ", this->step_pin_);
   LOG_PIN("  DIR Pin: ", this->dir_pin_);
 
-  ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
+  ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->driver_address_);
   ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps());
 
   ESP_LOGCONFIG(TAG, "  Currents:");

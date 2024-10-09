@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tmc2209.h"
+#include "tmc2209_stepper.h"
 #include "esphome/core/automation.h"
 
 namespace esphome {
