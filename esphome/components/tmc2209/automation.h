@@ -1,5 +1,6 @@
 #pragma once
 
+#include "tmc2209.h"
 #include "tmc2209_stepper.h"
 #include "esphome/core/automation.h"
 
@@ -73,7 +74,7 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
   }
 };
 
-template<typename... Ts> class ActivationAction : public Action<Ts...>, public Parented<TMC2209> {
+template<typename... Ts> class ActivationAction : public Action<Ts...>, public Parented<TMC2209Stepper> {
   TEMPLATABLE_VALUE(bool, activate)
 
   void play(Ts... x) override {

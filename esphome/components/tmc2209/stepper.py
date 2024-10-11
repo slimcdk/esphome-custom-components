@@ -68,7 +68,11 @@ STANDSTILL_MODES = {
 }
 
 tmc2209_ns = cg.esphome_ns.namespace("tmc2209")
-TMC2209 = tmc2209_ns.class_("TMC2209", cg.Component, uart.UARTDevice, stepper.Stepper)
+TMC2209API = tmc2209_ns.class_("TMC2209API", uart.UARTDevice)
+TMC2209 = tmc2209_ns.class_("TMC2209", TMC2209API)
+TMC2209Stepper = tmc2209_ns.class_(
+    "TMC2209Stepper", TMC2209, cg.Component, stepper.Stepper
+)
 
 OnAlertTrigger = tmc2209_ns.class_("OnAlertTrigger", automation.Trigger)
 ConfigureAction = tmc2209_ns.class_("ConfigureAction", automation.Action)
@@ -79,7 +83,7 @@ DriverEvent = tmc2209_ns.enum("DriverEvent")
 
 DEVICE_SCHEMA = cv.Schema(
     {
-        cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209),
+        cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209Stepper),
     }
 )
 
@@ -116,7 +120,7 @@ def validate_(config):
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
-            cv.GenerateID(): cv.declare_id(TMC2209),
+            cv.GenerateID(): cv.declare_id(TMC2209Stepper),
             cv.Optional(CONF_ADDRESS, default=0x00): cv.hex_uint8_t,
             cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.All(
                 cv.positive_int, cv.frequency
@@ -201,7 +205,7 @@ async def to_code(config):
     ConfigureAction,
     maybe_simple_id(
         {
-            cv.GenerateID(): cv.use_id(TMC2209),
+            cv.GenerateID(): cv.use_id(TMC2209Stepper),
             cv.Optional(CONF_INVERSE_DIRECTION): cv.boolean,
             cv.Optional(CONF_MICROSTEPS): cv.templatable(
                 cv.one_of(256, 128, 64, 32, 16, 8, 4, 2, 1)
@@ -299,7 +303,7 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
 @automation.register_action(
     "tmc2209.enable",
     ActivationAction,
-    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209)}),
+    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209Stepper)}),
 )
 def tmc2209_enable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
@@ -311,7 +315,7 @@ def tmc2209_enable_to_code(config, action_id, template_arg, args):
 @automation.register_action(
     "tmc2209.disable",
     ActivationAction,
-    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209)}),
+    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209Stepper)}),
 )
 def tmc2209_disable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)

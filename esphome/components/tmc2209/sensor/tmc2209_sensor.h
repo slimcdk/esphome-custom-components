@@ -4,7 +4,7 @@
 #include "esphome/core/helpers.h"
 
 #include "esphome/components/sensor/sensor.h"
-#include "esphome/components/tmc2209/tmc2209_stepper.h"
+#include "esphome/components/tmc2209/tmc2209.h"
 
 namespace esphome {
 namespace tmc2209 {
