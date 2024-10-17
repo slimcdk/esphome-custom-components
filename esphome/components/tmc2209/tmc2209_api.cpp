@@ -3,7 +3,7 @@
 namespace esphome {
 namespace tmc2209 {
 
-uint8_t TMC2209API::crc8(uint8_t *data, uint32_t bytes) {
+uint8_t TMC2209API::crc8_(uint8_t *data, uint32_t bytes) {
   uint8_t result = 0;
   uint8_t *table;
 
@@ -40,7 +40,7 @@ bool TMC2209API::get_dirty_bit_(uint8_t index) {
   return ((*tmp) >> shift) & 1;
 }
 
-bool TMC2209API::cache_(cache_op operation, uint8_t address, uint32_t *value) {
+bool TMC2209API::cache_(CacheOperation operation, uint8_t address, uint32_t *value) {
   if (operation == CACHE_READ) {
     if (IS_READABLE(this->register_access_[address]))
       return false;
@@ -63,17 +63,17 @@ bool TMC2209API::cache_(cache_op operation, uint8_t address, uint32_t *value) {
   return false;
 }
 
-bool TMC2209API::read_write_register_(uint8_t *data, size_t writeLength, size_t readLength) {
-  if (writeLength > 0) {
-    this->write_array(data, writeLength);
-    this->read_array(data, writeLength);
+bool TMC2209API::read_write_register_(uint8_t *data, size_t write_length, size_t read_length) {
+  if (write_length > 0) {
+    this->write_array(data, write_length);
+    this->read_array(data, write_length);
     this->flush();
     // TODO: maybe do something with IFCNT for write verification
   }
 
   optional<bool> ok;
-  if (readLength > 0) {
-    ok = this->read_array(data, readLength);
+  if (read_length > 0) {
+    ok = this->read_array(data, read_length);
   }
 
   return ok.value_or(false);
@@ -89,7 +89,7 @@ void TMC2209API::write_register(uint8_t address, int32_t value) {
   data[4] = (value >> 16) & 0xFF;
   data[5] = (value >> 8) & 0xFF;
   data[6] = (value) &0xFF;
-  data[7] = this->crc8(data.data(), 7);
+  data[7] = this->crc8_(data.data(), 7);
 
   this->read_write_register_(&data[0], 8, 0);
   this->cache_(CACHE_WRITE, address, (uint32_t *) &value);
@@ -108,7 +108,7 @@ int32_t TMC2209API::read_register(uint8_t address) {
   data[0] = 0x05;
   data[1] = this->driver_address_;
   data[2] = address;
-  data[3] = this->crc8(data.data(), 3);
+  data[3] = this->crc8_(data.data(), 3);
 
   if (!this->read_write_register_(&data[0], 4, 8))
     return 0;
@@ -126,23 +126,23 @@ int32_t TMC2209API::read_register(uint8_t address) {
     return 0;
 
   // Byte 7: CRC correct?
-  if (data[7] != this->crc8(data.data(), 7))
+  if (data[7] != this->crc8_(data.data(), 7))
     return 0;
 
   return encode_uint32(data[3], data[4], data[5], data[6]);
 }
 
-uint32_t TMC2209API::update_field(uint32_t data, register_field field, uint32_t value) {
+uint32_t TMC2209API::update_field(uint32_t data, RegisterField field, uint32_t value) {
   return (data & (~field.mask)) | ((value << field.shift) & field.mask);
 }
 
-void TMC2209API::write_field(register_field field, uint32_t value) {
+void TMC2209API::write_field(RegisterField field, uint32_t value) {
   uint32_t reg_value = this->read_register(field.address);
   reg_value = this->update_field(reg_value, field, value);
   this->write_register(field.address, reg_value);
 }
 
-uint32_t TMC2209API::extract_field(uint32_t data, register_field field) {
+uint32_t TMC2209API::extract_field(uint32_t data, RegisterField field) {
   uint32_t value = (data & field.mask) >> field.shift;
 
   if (field.is_signed) {
@@ -154,7 +154,7 @@ uint32_t TMC2209API::extract_field(uint32_t data, register_field field) {
   return value;
 }
 
-uint32_t TMC2209API::read_field(register_field field) {
+uint32_t TMC2209API::read_field(RegisterField field) {
   uint32_t value = this->read_register(field.address);
   return this->extract_field(value, field);
 }

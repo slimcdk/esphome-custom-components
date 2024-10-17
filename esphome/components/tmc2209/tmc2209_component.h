@@ -3,15 +3,6 @@
 #include "tmc2209_api.h"
 #include "tmc2209_api_registers.h"
 
-// #include <limits>
-// #include <string>
-// #include <tuple>
-// #include <iostream>
-
-// #include "esphome/core/helpers.h"
-// #include "esphome/core/component.h"
-// #include "esphome/core/automation.h"
-
 namespace esphome {
 namespace tmc2209 {
 
@@ -92,9 +83,13 @@ class EventHandler {
   std::function<void()> callback_fall_;
 };
 
-class TMC2209 : public TMC2209API {
+class TMC2209Component : public TMC2209API, public Component {
  public:
-  TMC2209(uint8_t address, uint32_t clk_frequency) : TMC2209API(address), clk_frequency_(clk_frequency){};
+  TMC2209Component(uint8_t address, uint32_t clk_frequency, bool internal_sense, float rsense)
+      : TMC2209API(address), clk_frequency_(clk_frequency), internal_sense_(internal_sense), rsense_(rsense){};
+
+  float get_setup_priority() const override { return setup_priority::HARDWARE; }
+  void setup() override;
 
   void set_enn_pin(InternalGPIOPin *pin) { this->enn_pin_ = pin; };
   void set_diag_pin(InternalGPIOPin *pin) { this->diag_pin_ = pin; };
@@ -125,12 +120,14 @@ class TMC2209 : public TMC2209API {
   std::tuple<uint8_t, uint8_t> unpack_ottrim_values(uint8_t ottrim);
   void set_stall_detection_activation_level(float level) { this->sdal_ = level; };
 
-  void add_on_alert_callback(std::function<void(DriverEvent)> &&callback) {
-    this->on_alert_callback_.add(std::move(callback));
+  void add_on_event_callback(std::function<void(DriverEvent)> &&callback) {
+    this->on_event_callback_.add(std::move(callback));
   }
 
  protected:
   const uint32_t clk_frequency_;
+  const float rsense_{0.170};  // RDSon value
+  const bool internal_sense_{false};
 
   InternalGPIOPin *enn_pin_{nullptr};
   InternalGPIOPin *diag_pin_{nullptr};
@@ -141,11 +138,9 @@ class TMC2209 : public TMC2209API {
   bool is_enabled_;
   float sdal_{0.5};  // stall detection activation level. A percentage of max_speed.
 
-  CallbackManager<void(const DriverEvent &event)> on_alert_callback_;
-
-#if defined(ENABLE_DRIVER_ALERT_EVENTS)
   void check_driver_status_();
 
+  CallbackManager<void(const DriverEvent &event)> on_event_callback_;
   EventHandler diag_handler_{};         // Event on DIAG
   EventHandler stalled_handler_{true};  // Stalled. Initial state is true so that first startup doesn't trigger
   // EventHandler stst_handler_{};     // standstill indicator
@@ -163,17 +158,14 @@ class TMC2209 : public TMC2209API {
   EventHandler s2gb_handler_{};   // short to ground indicator phase B
   EventHandler s2ga_handler_{};   // short to ground indicator phase A
   EventHandler uvcp_handler_{};   // Charge pump undervoltage
-#endif
 
-#if defined(USE_DIAG_PIN)
   ISRPinTriggerStore diag_isr_store_{};
   bool diag_triggered_{false};
-#endif
 
-#if defined(USE_INDEX_PIN)
   ISRPinTriggerStore index_isr_store_{};
   bool index_triggered_{false};
-#endif
+
+  HighFrequencyLoopRequester high_freq_;
 };
 
 }  // namespace tmc2209

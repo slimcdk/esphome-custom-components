@@ -12,13 +12,26 @@ namespace tmc2209 {
 #define IS_READABLE(x) ((x) &ACCESS_READ)
 
 // Default Register values
-#define R00 ((int32_t) 0x00000040)  // GCONF
-#define R10 ((int32_t) 0x00071703)  // IHOLD_IRUN
-#define R11 ((int32_t) 0x00000014)  // TPOWERDOWN
-#define R6C ((int32_t) 0x10000053)  // CHOPCONF
-#define R70 ((int32_t) 0xC10D0024)  // PWMCONF
+// #define R00 ((int32_t) 0x00000040)  // GCONF
+// #define R10 ((int32_t) 0x00071703)  // IHOLD_IRUN
+// #define R11 ((int32_t) 0x00000014)  // TPOWERDOWN
+// #define R6C ((int32_t) 0x10000053)  // CHOPCONF
+// #define R70 ((int32_t) 0xC10D0024)  // PWMCONF
 
 #define ____ 0x00
+
+enum CacheOperation {
+  CACHE_READ,
+  CACHE_WRITE,
+  CACHE_FILL_DEFAULT,
+};
+
+struct RegisterField {
+  uint32_t mask;
+  uint8_t shift;
+  uint8_t address;
+  bool is_signed;
+};
 
 static const uint8_t tmc_crc_table_poly7_reflected[256] = {
     0x00, 0x91, 0xE3, 0x72, 0x07, 0x96, 0xE4, 0x75, 0x0E, 0x9F, 0xED, 0x7C, 0x09, 0x98, 0xEA, 0x7B, 0x1C, 0x8D, 0xFF,
@@ -37,19 +50,6 @@ static const uint8_t tmc_crc_table_poly7_reflected[256] = {
     0xC1, 0xBA, 0x2B, 0x59, 0xC8, 0xBD, 0x2C, 0x5E, 0xCF,
 };
 
-typedef enum {
-  CACHE_READ,
-  CACHE_WRITE,
-  CACHE_FILL_DEFAULT,
-} cache_op;
-
-typedef struct {
-  uint32_t mask;
-  uint8_t shift;
-  uint8_t address;
-  bool is_signed;
-} register_field;
-
 class TMC2209API : public uart::UARTDevice {
  public:
   TMC2209API(uint8_t address) : driver_address_(address){};
@@ -57,10 +57,10 @@ class TMC2209API : public uart::UARTDevice {
   // Write or read a register (all fields) or register field (single field within register)
   void write_register(uint8_t address, int32_t value);
   int32_t read_register(uint8_t address);
-  void write_field(register_field field, uint32_t value);
-  uint32_t read_field(register_field field);
-  uint32_t extract_field(uint32_t data, register_field field);
-  uint32_t update_field(uint32_t data, register_field field, uint32_t value);
+  void write_field(RegisterField field, uint32_t value);
+  uint32_t read_field(RegisterField field);
+  uint32_t extract_field(uint32_t data, RegisterField field);
+  uint32_t update_field(uint32_t data, RegisterField field, uint32_t value);
 
  protected:
   const uint8_t driver_address_;
@@ -87,9 +87,9 @@ class TMC2209API : public uart::UARTDevice {
 
   void set_dirty_bit_(uint8_t index, bool value);
   bool get_dirty_bit_(uint8_t index);
-  bool cache_(cache_op operation, uint8_t address, uint32_t *value);
-  bool read_write_register_(uint8_t *data, size_t writeLength, size_t readLength);
-  uint8_t crc8(uint8_t *data, uint32_t bytes);
+  bool cache_(CacheOperation operation, uint8_t address, uint32_t *value);
+  bool read_write_register_(uint8_t *data, size_t write_length, size_t read_length);
+  uint8_t crc8_(uint8_t *data, uint32_t bytes);
 };
 
 }  // namespace tmc2209

@@ -5,7 +5,7 @@
 #include <tuple>
 #include <iostream>
 
-#include "tmc2209.h"
+#include "tmc2209_component.h"
 #include "tmc2209_api.h"
 #include "tmc2209_api_registers.h"
 
@@ -22,12 +22,15 @@ static const char *TAG = "tmc2209.stepper";
 struct IndexPulseStore {
   int32_t *current_position_ptr{nullptr};
   stepper::Direction *direction_ptr{nullptr};
-  static void IRAM_ATTR HOT pulse_isr(IndexPulseStore *arg) { (*(arg->current_position_ptr)) += *(arg->direction_ptr); }
+  static void IRAM_ATTR HOT pulse_isr(IndexPulseStore *arg) {
+    (*(arg->current_position_ptr)) += (int8_t) * (arg->direction_ptr);
+  }
 };
 
-class TMC2209Stepper : public TMC2209, public Component, public stepper::Stepper {
+class TMC2209Stepper : public TMC2209Component, public stepper::Stepper {
  public:
-  TMC2209Stepper(uint8_t address, uint32_t clk_frequency) : TMC2209(address, clk_frequency){};
+  TMC2209Stepper(uint8_t address, uint32_t clk_frequency, bool internal_sense, float rsense)
+      : TMC2209Component(address, clk_frequency, internal_sense, rsense){};
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void dump_config() override;

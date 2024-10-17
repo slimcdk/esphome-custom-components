@@ -8,25 +8,10 @@ namespace esphome {
 namespace tmc2209 {
 
 void TMC2209Stepper::setup() {
+  TMC2209Component::setup();
   ESP_LOGCONFIG(TAG, "Setting up TMC2209 Stepper...");
 
-  this->high_freq_.start();
-
-  if (!this->read_field(VERSION_FIELD)) {
-    this->status_set_error("Failed to communicate with driver");
-    this->mark_failed();
-  }
-
-  this->write_field(PDN_DISABLE_FIELD, true);
   this->write_field(VACTUAL_FIELD, 0);
-  this->write_field(INTERNAL_RSENSE_FIELD, INTERNAL_RSENSE);
-  this->write_field(I_SCALE_ANALOG_FIELD, false);
-  this->write_field(SHAFT_FIELD, false);
-  this->write_field(MSTEP_REG_SELECT_FIELD, true);
-  // this->write_field(MULTISTEP_FILT_FIELD, false);
-  this->write_field(TEST_MODE_FIELD, false);
-  // this->write_field(PWM_SCALE_AUTO_FIELD, 1);
-  // this->write_field(PWM_GRAD_AUTO_FIELD, 1);
 
 #if defined(USE_UART_CONTROL)
   /* Configure INDEX for pulse feedback from the driver */
@@ -35,7 +20,7 @@ void TMC2209Stepper::setup() {
   this->write_field(INDEX_OTPW_FIELD, false);
   this->ips_.current_position_ptr = &this->current_position;
   this->ips_.direction_ptr = &this->current_direction_;
-  this->index_pin_->setup();
+  // this->index_pin_->setup();
   this->index_pin_->attach_interrupt(IndexPulseStore::pulse_isr, &this->ips_, gpio::INTERRUPT_RISING_EDGE);
 #endif
 
@@ -45,9 +30,9 @@ void TMC2209Stepper::setup() {
   // this->write_field(MULTISTEP_FILT_FIELD, false);
   // this->write_field(DEDGE_FIELD, true);
 
-  this->step_pin_->setup();
+  // this->step_pin_->setup();
   this->step_pin_->digital_write(false);
-  this->dir_pin_->setup();
+  // this->dir_pin_->setup();
   this->dir_pin_->digital_write(false);
 #endif
 
@@ -59,104 +44,101 @@ void TMC2209Stepper::setup() {
   this->write_field(OTTRIM_FIELD, OTTRIM);
 #endif
 
-#if defined(ENABLE_DRIVER_ALERT_EVENTS)
+#if defined(ENABLE_DRIVER_EVENT_EVENTS)
 #if defined(USE_DIAG_PIN)
-  // dont bother configuring diag pin as it is only used for driver alerts
-  this->diag_pin_->setup();
+  // dont bother configuring diag pin as it is only used for driver events
+  // this->diag_pin_->setup();
   this->diag_pin_->attach_interrupt(ISRPinTriggerStore::pin_isr, &this->diag_isr_store_, gpio::INTERRUPT_RISING_EDGE);
   this->diag_isr_store_.pin_triggered_ptr = &this->diag_triggered_;
 
   this->diag_handler_.set_callbacks(                                     // DIAG
-      [this]() { this->on_alert_callback_.call(DIAG_TRIGGERED); },       // rise
-      [this]() { this->on_alert_callback_.call(DIAG_TRIGGER_CLEARED); }  // fall
+      [this]() { this->on_event_callback_.call(DIAG_TRIGGERED); },       // rise
+      [this]() { this->on_event_callback_.call(DIAG_TRIGGER_CLEARED); }  // fall
   );
 #else
   // poll driver every x time to check for errors
   this->set_interval(POLL_STATUS_INTERVAL, [this] { this->check_driver_status_(); });
 #endif
 
-  this->stalled_handler_.set_on_rise_callback([this]() { this->on_alert_callback_.call(STALLED); });  // stalled
+  this->stalled_handler_.set_on_rise_callback([this]() { this->on_event_callback_.call(STALLED); });  // stalled
 
   this->otpw_handler_.set_callbacks(  // overtemperature prewarning
       [this]() {
-        this->on_alert_callback_.call(OVERTEMPERATURE_PREWARNING);
+        this->on_event_callback_.call(OVERTEMPERATURE_PREWARNING);
         this->status_set_warning("driver is warning about overheating!");
       },
       [this]() {
-        this->on_alert_callback_.call(OVERTEMPERATURE_PREWARNING_CLEARED);
+        this->on_event_callback_.call(OVERTEMPERATURE_PREWARNING_CLEARED);
         this->status_clear_warning();
       });
 
   this->ot_handler_.set_callbacks(  // overtemperature
       [this]() {
-        this->on_alert_callback_.call(OVERTEMPERATURE);
+        this->on_event_callback_.call(OVERTEMPERATURE);
         this->status_set_error("driver is overheating!");
       },
       [this]() {
-        this->on_alert_callback_.call(OVERTEMPERATURE_CLEARED);
+        this->on_event_callback_.call(OVERTEMPERATURE_CLEARED);
         this->status_clear_error();
       });
 
   this->t120_handler_.set_callbacks(                                        // t120 flag
-      [this]() { this->on_alert_callback_.call(TEMPERATURE_ABOVE_120C); },  // rise
-      [this]() { this->on_alert_callback_.call(TEMPERATURE_BELOW_120C); }   // fall
+      [this]() { this->on_event_callback_.call(TEMPERATURE_ABOVE_120C); },  // rise
+      [this]() { this->on_event_callback_.call(TEMPERATURE_BELOW_120C); }   // fall
   );
 
   this->t143_handler_.set_callbacks(                                        // t143 flag
-      [this]() { this->on_alert_callback_.call(TEMPERATURE_ABOVE_143C); },  // rise
-      [this]() { this->on_alert_callback_.call(TEMPERATURE_BELOW_143C); }   // fall
+      [this]() { this->on_event_callback_.call(TEMPERATURE_ABOVE_143C); },  // rise
+      [this]() { this->on_event_callback_.call(TEMPERATURE_BELOW_143C); }   // fall
   );
 
   this->t150_handler_.set_callbacks(                                        // t150 flag
-      [this]() { this->on_alert_callback_.call(TEMPERATURE_ABOVE_150C); },  // rise
-      [this]() { this->on_alert_callback_.call(TEMPERATURE_BELOW_150C); }   // fall
+      [this]() { this->on_event_callback_.call(TEMPERATURE_ABOVE_150C); },  // rise
+      [this]() { this->on_event_callback_.call(TEMPERATURE_BELOW_150C); }   // fall
   );
 
   this->t157_handler_.set_callbacks(                                        // t157 flag
-      [this]() { this->on_alert_callback_.call(TEMPERATURE_ABOVE_157C); },  // rise
-      [this]() { this->on_alert_callback_.call(TEMPERATURE_BELOW_157C); }   // fall
+      [this]() { this->on_event_callback_.call(TEMPERATURE_ABOVE_157C); },  // rise
+      [this]() { this->on_event_callback_.call(TEMPERATURE_BELOW_157C); }   // fall
   );
 
   this->olb_handler_.set_callbacks(                                     // olb
-      [this]() { this->on_alert_callback_.call(B_OPEN_LOAD); },         // rise
-      [this]() { this->on_alert_callback_.call(B_OPEN_LOAD_CLEARED); }  // fall
+      [this]() { this->on_event_callback_.call(B_OPEN_LOAD); },         // rise
+      [this]() { this->on_event_callback_.call(B_OPEN_LOAD_CLEARED); }  // fall
   );
 
   this->ola_handler_.set_callbacks(                                     // ola
-      [this]() { this->on_alert_callback_.call(A_OPEN_LOAD); },         // rise
-      [this]() { this->on_alert_callback_.call(A_OPEN_LOAD_CLEARED); }  // fall
+      [this]() { this->on_event_callback_.call(A_OPEN_LOAD); },         // rise
+      [this]() { this->on_event_callback_.call(A_OPEN_LOAD_CLEARED); }  // fall
   );
 
   this->s2vsb_handler_.set_callbacks(                                        // s2vsb
-      [this]() { this->on_alert_callback_.call(B_LOW_SIDE_SHORT); },         // rise
-      [this]() { this->on_alert_callback_.call(B_LOW_SIDE_SHORT_CLEARED); }  // fall
+      [this]() { this->on_event_callback_.call(B_LOW_SIDE_SHORT); },         // rise
+      [this]() { this->on_event_callback_.call(B_LOW_SIDE_SHORT_CLEARED); }  // fall
   );
 
   this->s2vsa_handler_.set_callbacks(                                        // s2vsa
-      [this]() { this->on_alert_callback_.call(A_LOW_SIDE_SHORT); },         // rise
-      [this]() { this->on_alert_callback_.call(A_LOW_SIDE_SHORT_CLEARED); }  // fall
+      [this]() { this->on_event_callback_.call(A_LOW_SIDE_SHORT); },         // rise
+      [this]() { this->on_event_callback_.call(A_LOW_SIDE_SHORT_CLEARED); }  // fall
   );
 
   this->s2gb_handler_.set_callbacks(                                       // s2gb
-      [this]() { this->on_alert_callback_.call(B_GROUND_SHORT); },         // rise
-      [this]() { this->on_alert_callback_.call(B_GROUND_SHORT_CLEARED); }  // fall
+      [this]() { this->on_event_callback_.call(B_GROUND_SHORT); },         // rise
+      [this]() { this->on_event_callback_.call(B_GROUND_SHORT_CLEARED); }  // fall
   );
 
   this->s2ga_handler_.set_callbacks(                                       // s2ga
-      [this]() { this->on_alert_callback_.call(A_GROUND_SHORT); },         // rise
-      [this]() { this->on_alert_callback_.call(A_GROUND_SHORT_CLEARED); }  // fall
+      [this]() { this->on_event_callback_.call(A_GROUND_SHORT); },         // rise
+      [this]() { this->on_event_callback_.call(A_GROUND_SHORT_CLEARED); }  // fall
   );
 
   this->uvcp_handler_.set_callbacks(                                        // uc_vp
-      [this]() { this->on_alert_callback_.call(CP_UNDERVOLTAGE); },         // rise
-      [this]() { this->on_alert_callback_.call(CP_UNDERVOLTAGE_CLEARED); }  // fall
+      [this]() { this->on_event_callback_.call(CP_UNDERVOLTAGE); },         // rise
+      [this]() { this->on_event_callback_.call(CP_UNDERVOLTAGE_CLEARED); }  // fall
   );
 
 #endif
 
-  if (this->enn_pin_ != nullptr) {
-    this->enn_pin_->setup();
-  }
   this->enable(true);
 
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper setup done.");
@@ -164,7 +146,7 @@ void TMC2209Stepper::setup() {
 
 void TMC2209Stepper::loop() {
   /** Alert events **/
-#if defined(ENABLE_DRIVER_ALERT_EVENTS)
+#if defined(ENABLE_DRIVER_EVENT_EVENTS)
 
   const bool standstill = this->read_field(STST_FIELD);
   if (!standstill && this->current_speed_ >= (this->max_speed_ * this->sdal_)) {

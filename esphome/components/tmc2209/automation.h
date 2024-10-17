@@ -1,13 +1,13 @@
 #pragma once
 
-#include "tmc2209.h"
+#include "tmc2209_component.h"
 #include "tmc2209_stepper.h"
 #include "esphome/core/automation.h"
 
 namespace esphome {
 namespace tmc2209 {
 
-template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Parented<TMC2209> {
+template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Parented<TMC2209Component> {
  public:
   TEMPLATABLE_VALUE(bool, inverse_direction)
   TEMPLATABLE_VALUE(int, microsteps)
@@ -86,8 +86,8 @@ template<typename... Ts> class ActivationAction : public Action<Ts...>, public P
 
 class OnAlertTrigger : public Trigger<DriverEvent> {
  public:
-  explicit OnAlertTrigger(TMC2209 *parent) {
-    parent->add_on_alert_callback([this](DriverEvent event) { this->trigger(event); });
+  explicit OnAlertTrigger(TMC2209Component *parent) {
+    parent->add_on_event_callback([this](DriverEvent event) { this->trigger(event); });
   }
 };
 

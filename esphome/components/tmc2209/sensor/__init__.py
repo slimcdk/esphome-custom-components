@@ -9,11 +9,15 @@ from esphome.const import (
     ICON_PERCENT,
 )
 
-from ..stepper import tmc2209_ns, TMC2209Stepper, DEVICE_SCHEMA, CONF_TMC2209_ID
+from ..stepper import tmc2209_ns, TMC2209Component, DEVICE_SCHEMA, CONF_TMC2209_ID
 
 CODEOWNERS = ["@slimcdk"]
 
-sensor_base = (cg.PollingComponent, sensor.Sensor, cg.Parented.template(TMC2209Stepper))
+sensor_base = (
+    cg.PollingComponent,
+    sensor.Sensor,
+    cg.Parented.template(TMC2209Component),
+)
 StallGuardResultSensor = tmc2209_ns.class_("StallGuardResultSensor", *sensor_base)
 MotorLoadSensor = tmc2209_ns.class_("MotorLoadSensor", *sensor_base)
 ActualCurrentSensor = tmc2209_ns.class_("ActualCurrentSensor", *sensor_base)

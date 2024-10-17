@@ -1,4 +1,4 @@
-#include "tmc2209.h"
+#include "tmc2209_component.h"
 #include "tmc2209_api_registers.h"
 
 #include "esphome/core/log.h"
@@ -7,44 +7,79 @@
 namespace esphome {
 namespace tmc2209 {
 
-static const char *TAG = "tmc2209.stepper";
+static const char *TAG = "tmc2209";
 
-bool TMC2209::is_stalled() {
+void TMC2209Component::setup() {
+  ESP_LOGCONFIG(TAG, "Setting up TMC2209 Component...");
+
+  this->high_freq_.start();
+
+  if (!this->read_field(VERSION_FIELD)) {
+    this->status_set_error("Failed to communicate with driver");
+    this->mark_failed();
+  }
+
+  this->write_field(PDN_DISABLE_FIELD, true);
+  this->write_field(INTERNAL_RSENSE_FIELD, this->internal_sense_);
+  this->write_field(I_SCALE_ANALOG_FIELD, false);
+  this->write_field(SHAFT_FIELD, false);
+  this->write_field(MSTEP_REG_SELECT_FIELD, true);
+  this->write_field(TEST_MODE_FIELD, false);
+
+  if (this->enn_pin_ != nullptr) {
+    this->enn_pin_->setup();
+  }
+
+  if (this->diag_pin_ != nullptr) {
+    this->diag_pin_->setup();
+  }
+
+  if (this->index_pin_ != nullptr) {
+    this->index_pin_->setup();
+  }
+
+  if (this->step_pin_ != nullptr) {
+    this->step_pin_->setup();
+  }
+
+  if (this->dir_pin_ != nullptr) {
+    this->dir_pin_->setup();
+  }
+
+  ESP_LOGCONFIG(TAG, "TMC2209 Component setup done.");
+}
+
+bool TMC2209Component::is_stalled() {
   const auto sgthrs = this->read_register(SGTHRS);
   const auto sgresult = this->read_register(SG_RESULT);
   return (2 * sgthrs) > sgresult;
 }
 
-uint16_t TMC2209::get_microsteps() {
+void TMC2209Component::set_microsteps(uint16_t ms) { this->write_field(MRES_FIELD, 256 << ms); }
+uint16_t TMC2209Component::get_microsteps() {
   const uint8_t mres = this->read_field(MRES_FIELD);
   return 256 >> mres;
 }
 
-void TMC2209::set_microsteps(uint16_t ms) {
-  for (uint8_t mres = 8; mres > 0; mres--)
-    if ((256 >> mres) == ms)
-      return this->write_field(MRES_FIELD, mres);
-}
-
-float TMC2209::get_motor_load() {
+float TMC2209Component::get_motor_load() {
   const uint16_t result = this->read_register(SG_RESULT);
   return (510.0 - (float) result) / (510.0 - this->read_register(SGTHRS) * 2.0);
 }
 
-float TMC2209::read_vsense() { return (this->read_field(VSENSE_FIELD) ? VSENSE_LOW : VSENSE_HIGH); }
+float TMC2209Component::read_vsense() { return (this->read_field(VSENSE_FIELD) ? VSENSE_LOW : VSENSE_HIGH); }
 
-uint16_t TMC2209::current_scale_to_rms_current_mA(uint8_t cs) {
+uint16_t TMC2209Component::current_scale_to_rms_current_mA(uint8_t cs) {
   cs = clamp<uint8_t>(cs, 0, 31);
   if (cs == 0)
     return 0;
-  return (cs + 1) / 32.0f * this->read_vsense() / (RSENSE + 0.02f) * (1 / sqrtf(2)) * 1000.0f;
+  return (cs + 1) / 32.0f * this->read_vsense() / (this->rsense_ + 0.02f) * (1 / sqrtf(2)) * 1000.0f;
 }
 
-uint8_t TMC2209::rms_current_to_current_scale_mA_no_clamp(uint16_t mA) {
-  return 32.0f * sqrtf(2) * mA2A(mA) * ((RSENSE + 0.02f) / this->read_vsense()) - 1.0f;
+uint8_t TMC2209Component::rms_current_to_current_scale_mA_no_clamp(uint16_t mA) {
+  return 32.0f * sqrtf(2) * mA2A(mA) * ((this->rsense_ + 0.02f) / this->read_vsense()) - 1.0f;
 }
 
-uint8_t TMC2209::rms_current_to_current_scale_mA(uint16_t mA) {
+uint8_t TMC2209Component::rms_current_to_current_scale_mA(uint16_t mA) {
   if (mA == 0) {
     return 0;
   }
@@ -58,36 +93,36 @@ uint8_t TMC2209::rms_current_to_current_scale_mA(uint16_t mA) {
   return clamp<uint8_t>(cs, 0, 31);
 }
 
-void TMC2209::write_run_current_mA(uint16_t mA) {
+void TMC2209Component::write_run_current_mA(uint16_t mA) {
   const uint8_t cs = this->rms_current_to_current_scale_mA(mA);
   this->write_field(IRUN_FIELD, cs);
 }
 
-uint16_t TMC2209::read_run_current_mA() {
+uint16_t TMC2209Component::read_run_current_mA() {
   const uint8_t cs = this->read_field(IRUN_FIELD);
   return this->current_scale_to_rms_current_mA(cs);
 }
 
-void TMC2209::write_hold_current_mA(uint16_t mA) {
+void TMC2209Component::write_hold_current_mA(uint16_t mA) {
   const uint8_t cs = this->rms_current_to_current_scale_mA(mA);
   this->write_field(IHOLD_FIELD, cs);
 }
 
-uint16_t TMC2209::read_hold_current_mA() {
+uint16_t TMC2209Component::read_hold_current_mA() {
   const uint8_t cs = this->read_field(IHOLD_FIELD);
   return this->current_scale_to_rms_current_mA(cs);
 }
 
-void TMC2209::set_tpowerdown_ms(uint32_t delay_in_ms) {
+void TMC2209Component::set_tpowerdown_ms(uint32_t delay_in_ms) {
   auto tpowerdown = ((float) delay_in_ms / 262144.0) * ((float) this->clk_frequency_ / 1000.0);
   this->write_field(TPOWERDOWN_FIELD, tpowerdown);
 };
 
-uint32_t TMC2209::get_tpowerdown_ms() {
+uint32_t TMC2209Component::get_tpowerdown_ms() {
   return (this->read_field(TPOWERDOWN_FIELD) * 262144.0) / (this->clk_frequency_ / 1000.0);
 };
 
-std::tuple<uint8_t, uint8_t> TMC2209::unpack_ottrim_values(uint8_t ottrim) {
+std::tuple<uint8_t, uint8_t> TMC2209Component::unpack_ottrim_values(uint8_t ottrim) {
   switch (ottrim) {
     case 0b00:
       return std::make_tuple(120, 143);
@@ -101,9 +136,9 @@ std::tuple<uint8_t, uint8_t> TMC2209::unpack_ottrim_values(uint8_t ottrim) {
   return std::make_tuple(0, 0);
 }
 
-#if defined(ENABLE_DRIVER_ALERT_EVENTS)
+#if defined(ENABLE_DRIVER_EVENT_EVENTS)
 
-void TMC2209::check_driver_status_() {
+void TMC2209Component::check_driver_status_() {
   const uint32_t drv_status = this->read_register(DRV_STATUS);
   this->ot_handler_.check(static_cast<bool>((drv_status >> 1) & 1));
   this->otpw_handler_.check(static_cast<bool>(drv_status & 1));

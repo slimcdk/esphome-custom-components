@@ -33,7 +33,7 @@ CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
 CONF_OTTRIM = "ottrim"
 CONF_POLL_STATUS_INTERVAL = "poll_status_interval"
 
-CONF_ON_ALERT = "on_alert"
+CONF_ON_EVENT = "on_alert"  # TODO: rename?
 
 CONF_INVERSE_DIRECTION = "inverse_direction"
 CONF_VELOCITY = "velocity"
@@ -69,9 +69,9 @@ STANDSTILL_MODES = {
 
 tmc2209_ns = cg.esphome_ns.namespace("tmc2209")
 TMC2209API = tmc2209_ns.class_("TMC2209API", uart.UARTDevice)
-TMC2209 = tmc2209_ns.class_("TMC2209", TMC2209API)
+TMC2209Component = tmc2209_ns.class_("TMC2209Component", TMC2209API)
 TMC2209Stepper = tmc2209_ns.class_(
-    "TMC2209Stepper", TMC2209, cg.Component, stepper.Stepper
+    "TMC2209Stepper", TMC2209Component, cg.Component, stepper.Stepper
 )
 
 OnAlertTrigger = tmc2209_ns.class_("OnAlertTrigger", automation.Trigger)
@@ -136,7 +136,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(
                 CONF_POLL_STATUS_INTERVAL, default="500ms"
             ): cv.positive_time_period_milliseconds,
-            cv.Optional(CONF_ON_ALERT): automation.validate_automation(
+            cv.Optional(CONF_ON_EVENT): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnAlertTrigger),
                 }
@@ -153,7 +153,11 @@ CONFIG_SCHEMA = cv.All(
 async def to_code(config):
 
     var = cg.new_Pvariable(
-        config[CONF_ID], config[CONF_ADDRESS], config[CONF_CLOCK_FREQUENCY]
+        config[CONF_ID],
+        config[CONF_ADDRESS],
+        config[CONF_CLOCK_FREQUENCY],
+        CONF_RSENSE not in config,
+        config.get(CONF_RSENSE, 0.170),
     )
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
@@ -164,7 +168,7 @@ async def to_code(config):
     index_pin = config.get(CONF_INDEX_PIN, None)
     dir_pin = config.get(CONF_DIR_PIN, None)
     step_pin = config.get(CONF_STEP_PIN, None)
-    alert_triggers = config.get(CONF_ON_ALERT, [])
+    alert_triggers = config.get(CONF_ON_EVENT, [])
 
     if enn_pin is not None:
         cg.add(var.set_enn_pin(await cg.gpio_pin_expression(enn_pin)))
@@ -185,14 +189,11 @@ async def to_code(config):
     if (vsense := config.get(CONF_VSENSE, None)) is not None:
         cg.add_define("VSENSE", vsense)
 
-    cg.add_define("INTERNAL_RSENSE", CONF_RSENSE not in config)
-    cg.add_define("RSENSE", config.get(CONF_RSENSE, 0.170))
-
     if (ottrim := config.get(CONF_OTTRIM, None)) is not None:
         cg.add_define("OTTRIM", ottrim)
 
     if len(alert_triggers) > 0:
-        cg.add_define("ENABLE_DRIVER_ALERT_EVENTS")
+        cg.add_define("ENABLE_DRIVER_EVENT_EVENTS")
         for conf in alert_triggers:
             trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
             await automation.build_automation(trigger, [(DriverEvent, "alert")], conf)
