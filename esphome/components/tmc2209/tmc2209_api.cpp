@@ -1,5 +1,5 @@
+#include "tmc2209_api_registers.h"
 #include "tmc2209_api.h"
-
 #include "esphome/core/helpers.h"
 
 namespace esphome {
@@ -85,7 +85,7 @@ void TMC2209API::write_register(uint8_t address, int32_t value) {
   std::array<uint8_t, 8> data = {0};
 
   data[0] = 0x05;
-  data[1] = this->driver_address_;
+  data[1] = this->address_;
   data[2] = address | TMC_WRITE_BIT;
   data[3] = (value >> 24) & 0xFF;
   data[4] = (value >> 16) & 0xFF;
@@ -108,7 +108,7 @@ int32_t TMC2209API::read_register(uint8_t address) {
   std::array<uint8_t, 8> data = {0};
 
   data[0] = 0x05;
-  data[1] = this->driver_address_;
+  data[1] = this->address_;
   data[2] = address;
   data[3] = this->crc8_(data.data(), 3);
 

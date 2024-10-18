@@ -1,14 +1,14 @@
 #pragma once
-
-#include "events.h"
-#include "tmc2209_api.h"
 #include "tmc2209_api_registers.h"
+#include "tmc2209_api.h"
+#include "events.h"
 
 namespace esphome {
 namespace tmc2209 {
 
 #define FROM_MILLI(mu) (mu / 1000.0)
 #define TO_MILLI(u) (u * 1000)
+#define MRES_TO_MS(mres) (256 >> mres)
 
 #define VSENSE_HIGH 0.325f
 #define VSENSE_LOW 0.180f
@@ -21,11 +21,7 @@ struct ISRPinTriggerStore {
 class TMC2209Component : public TMC2209API, public Component {
  public:
   TMC2209Component(uint8_t address, uint32_t clk_frequency, bool internal_sense, float rsense)
-      : TMC2209API(address),
-        clk_frequency_(clk_frequency),
-        internal_sense_(internal_sense),
-        rsense_(rsense)  // Initialize rsense_ first
-        {};
+      : TMC2209API(address), clk_frequency_(clk_frequency), internal_sense_(internal_sense), rsense_(rsense){};
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void setup() override;
@@ -38,8 +34,6 @@ class TMC2209Component : public TMC2209API, public Component {
   void set_dir_pin(GPIOPin *pin) { this->dir_pin_ = pin; };
 
   float read_vsense();
-
-  uint8_t mres_to_microsteps(uint8_t mres);
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
   float get_motor_load();
@@ -111,14 +105,16 @@ class TMC2209Component : public TMC2209API, public Component {
   HighFrequencyLoopRequester high_freq_;
 };
 
-#define LOG_TMC2209_IC_VERSION(this) \
+#define LOG_TMC2209_VERSION(this) \
   const int8_t icv_ = this->read_field(VERSION_FIELD); \
-  if (std::isnan(icv_) || icv_ == 0) { \
-    ESP_LOGE(TAG, "  Unable to read IC version. Is the driver powered and wired correctly?"); \
-  } else if (icv_ == IC_VERSION_33) { \
+  if (icv_ == IC_VERSION_33) { \
     ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", icv_); \
   } else { \
-    ESP_LOGE(TAG, "  Detected unknown IC version: 0x%02X", icv_); \
+    if (icv_ == 0) { \
+      ESP_LOGE(TAG, "  Unable to read IC version. Is the driver powered and wired correctly?"); \
+    } else { \
+      ESP_LOGE(TAG, "  Detected unknown IC version: 0x%02X", icv_); \
+    } \
   }
 
 #define LOG_TMC2209_PINS(this) \
@@ -137,21 +133,14 @@ class TMC2209Component : public TMC2209API, public Component {
   LOG_PIN("  DIR Pin: ", this->dir_pin_);
 
 #define LOG_TMC2209_CURRENTS(this) \
+  const bool ir_ = this->read_field(INTERNAL_RSENSE_FIELD); \
+  const bool vs_ = this->read_field(VSENSE_FIELD); \
   ESP_LOGCONFIG(TAG, "  Currents:"); \
-  if (this->read_field(INTERNAL_RSENSE_FIELD)) { \
-    ESP_LOGCONFIG(TAG, "    RSense: %.3f Ohm (internal RDSon value)", this->rsense_); \
-  } else { \
-    ESP_LOGCONFIG(TAG, "    RSense: %.3f Ohm (external sense resistors)", this->rsense_); \
-    if (this->read_field(VSENSE_FIELD)) { \
-      ESP_LOGCONFIG(TAG, "    VSense: True (low heat dissipation)"); \
-    } else { \
-      ESP_LOGCONFIG(TAG, "    VSense: False (high heat dissipation)"); \
-    } \
-  } \
-  ESP_LOGCONFIG(TAG, "    Currently set IRUN: %d (%d mA)", this->read_field(IRUN_FIELD), this->read_run_current_mA()); \
-  ESP_LOGCONFIG(TAG, "    Currently set IHOLD: %d (%d mA)", this->read_field(IHOLD_FIELD), \
-                this->read_hold_current_mA()); \
-  ESP_LOGCONFIG(TAG, "    Limits: %d mA", this->current_scale_to_rms_current_mA(31));
+  ESP_LOGCONFIG(TAG, "    IRUN: %d (%d mA)", this->read_field(IRUN_FIELD), this->read_run_current_mA()); \
+  ESP_LOGCONFIG(TAG, "    IHOLD: %d (%d mA)", this->read_field(IHOLD_FIELD), this->read_hold_current_mA()); \
+  ESP_LOGCONFIG(TAG, "    Limits: %d mA", this->current_scale_to_rms_current_mA(31)); \
+  ESP_LOGCONFIG(TAG, "    VSense: %s", (vs_ ? "True (low heat dissipation)" : "False (high heat dissipation)")); \
+  ESP_LOGCONFIG(TAG, "    RSense: %.3f Ohm (%s)", this->rsense_, (ir_ ? "internal RDSon" : "external sense resistors"));
 
 #define LOG_TMC2209_REGISTER_DUMP(this) \
   ESP_LOGCONFIG(TAG, "  Register dump:"); \
@@ -182,8 +171,8 @@ class TMC2209Component : public TMC2209API, public Component {
 
 #define LOG_TMC2209(this) \
   LOG_TMC2209_PINS(this); \
-  ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->driver_address_); \
-  LOG_TMC2209_IC_VERSION(this); \
+  ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_); \
+  LOG_TMC2209_VERSION(this); \
   ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps()); \
   ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz", this->clk_frequency_); \
   const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(OTTRIM_FIELD)); \

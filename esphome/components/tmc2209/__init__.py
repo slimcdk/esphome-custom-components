@@ -3,6 +3,7 @@ import esphome.config_validation as cv
 from esphome.components import uart
 from esphome import automation, pins
 from esphome.automation import maybe_simple_id
+from esphome.core import EsphomeError
 from esphome.const import (
     CONF_TRIGGER_ID,
     CONF_ADDRESS,
@@ -22,10 +23,11 @@ CONF_INDEX_PIN = "index_pin"
 
 CONF_CLOCK_FREQUENCY = "clock_frequency"
 
+CONF_OTTRIM = "ottrim"
+CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
 CONF_RSENSE = "rsense"  # sense resistors
 CONF_INTERNAL_RSENSE = "internal_rsense"  # use rdson to sense
-CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
-CONF_OTTRIM = "ottrim"
+
 CONF_POLL_STATUS_INTERVAL = "poll_status_interval"
 
 CONF_ON_EVENT = "on_event"  # TODO: rename?
@@ -35,7 +37,7 @@ CONF_VELOCITY = "velocity"
 CONF_MICROSTEPS = "microsteps"  # CHOPCONF.mres
 CONF_INTERPOLATION = "interpolation"  # CHOPCONF.intpol
 
-CONF_VACTUAL = "vactual"
+# CONF_VACTUAL = "vactual"
 
 CONF_RUN_CURRENT = "run_current"  # translates to IRUN
 CONF_HOLD_CURRENT = "hold_current"  # translates to IHOLD
@@ -73,11 +75,7 @@ CoolstepAction = tmc2209_ns.class_("CoolstepAction", automation.Action)
 
 DriverEvent = tmc2209_ns.enum("DriverEvent")
 
-DEVICE_SCHEMA = cv.Schema(
-    {
-        cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209Component),
-    }
-)
+DEVICE_SCHEMA = cv.Schema({cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209Component)})
 
 
 TMC2209_BASE_CONFIG_SCHEMA = (
@@ -142,14 +140,12 @@ async def register_tmc2209_base(var, config):
         cg.add_define("OTTRIM", ottrim)
 
     if len(alert_triggers) > 0:
-        # cg.add_define("ENABLE_DRIVER_EVENT_EVENTS")
         for conf in alert_triggers:
             trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-            await automation.build_automation(trigger, [(DriverEvent, "alert")], conf)
+            await automation.build_automation(trigger, [(DriverEvent, "event")], conf)
+        # cg.add_define("ENABLE_DRIVER_EVENT_EVENTS")
 
     cg.add_define("POLL_STATUS_INTERVAL", config[CONF_POLL_STATUS_INTERVAL])
-    # cg.add_define("OTTRIM", config.get(CONF_OTTRIM, None))
-    # cg.add_define("VSENSE", config.get(CONF_VSENSE, None))
 
     cg.add_build_flag("-std=c++17")
     cg.add_build_flag("-std=gnu++17")
@@ -159,6 +155,29 @@ async def register_tmc2209_base(var, config):
 
 def validate_tmc2209_base(config):
     return config
+    has_index = CONF_INDEX_PIN in config
+    has_step = CONF_STEP_PIN in config
+    has_dir = CONF_DIR_PIN in config
+
+    if not has_index and not has_step and not has_dir:
+        raise EsphomeError(
+            f"A control must be defined! Configure either {CONF_INDEX_PIN} or {CONF_STEP_PIN} and {CONF_DIR_PIN}"
+        )
+
+    if has_index and (has_step or has_dir):
+        raise EsphomeError(
+            f"{CONF_INDEX_PIN} and {CONF_STEP_PIN} or {CONF_DIR_PIN} must not be configured together."
+        )
+
+    if (has_step and not has_dir) or (not has_step and has_dir):
+        raise EsphomeError(
+            f"{CONF_STEP_PIN} and {CONF_DIR_PIN} must be configured together."
+        )
+
+    if CONF_VSENSE in config and CONF_RSENSE not in config:
+        raise EsphomeError(
+            f"Must configure {CONF_RSENSE} if {CONF_VSENSE} is configured."
+        )
 
 
 @automation.register_action(

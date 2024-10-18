@@ -1,5 +1,5 @@
 #pragma once
-
+#include "tmc2209_api_registers.h"
 #include "esphome/core/helpers.h"
 
 namespace esphome {

@@ -1,6 +1,5 @@
-#include "tmc2209_component.h"
 #include "tmc2209_api_registers.h"
-
+#include "tmc2209_component.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
 
@@ -169,12 +168,10 @@ bool TMC2209Component::is_stalled() {
   return (2 * sgthrs) > sgresult;
 }
 
-uint8_t TMC2209Component::mres_to_microsteps(uint8_t mres) { return 256 >> mres; }
-uint16_t TMC2209Component::get_microsteps() { return this->mres_to_microsteps(this->read_field(MRES_FIELD)); }
-
+uint16_t TMC2209Component::get_microsteps() { return MRES_TO_MS(this->read_field(MRES_FIELD)); }
 void TMC2209Component::set_microsteps(uint16_t ms) {
   for (uint8_t mres = 0; mres <= 8; mres++) {
-    if (this->mres_to_microsteps(mres) == ms) {
+    if (MRES_TO_MS(mres) == ms) {
       return this->write_field(MRES_FIELD, mres);
     }
   }

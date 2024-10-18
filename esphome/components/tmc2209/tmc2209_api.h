@@ -1,7 +1,5 @@
 #pragma once
-
 #include "tmc2209_api_registers.h"
-
 #include "esphome/components/uart/uart.h"
 
 namespace esphome {
@@ -21,17 +19,17 @@ static const char *TAG = "tmc2209";
 
 #define ____ 0x00
 
-enum CacheOperation {
-  CACHE_READ,
-  CACHE_WRITE,
-  CACHE_FILL_DEFAULT,
-};
-
 struct RegisterField {
   uint32_t mask;
   uint8_t shift;
   uint8_t address;
   bool is_signed;
+};
+
+enum CacheOperation {
+  CACHE_READ,
+  CACHE_WRITE,
+  CACHE_FILL_DEFAULT,
 };
 
 static const uint8_t tmc_crc_table_poly7_reflected[256] = {
@@ -53,7 +51,7 @@ static const uint8_t tmc_crc_table_poly7_reflected[256] = {
 
 class TMC2209API : public uart::UARTDevice {
  public:
-  TMC2209API(uint8_t address) : driver_address_(address){};
+  TMC2209API(uint8_t address) : address_(address){};
 
   // Write or read a register (all fields) or register field (single field within register)
   void write_register(uint8_t address, int32_t value);
@@ -64,7 +62,7 @@ class TMC2209API : public uart::UARTDevice {
   uint32_t update_field(uint32_t data, RegisterField field, uint32_t value);
 
  protected:
-  const uint8_t driver_address_;
+  const uint8_t address_;
   uint8_t dirty_bits_[REGISTER_COUNT / 8] = {0};
   int32_t shadow_register_[REGISTER_COUNT];
 

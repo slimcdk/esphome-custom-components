@@ -1,5 +1,4 @@
 #include "tmc2209_stepper.h"
-
 #include "esphome/components/tmc2209/tmc2209_api_registers.h"
 
 #include "esphome/core/log.h"
@@ -7,6 +6,36 @@
 
 namespace esphome {
 namespace tmc2209 {
+
+void TMC2209Stepper::dump_config() {
+  ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
+
+#if defined(USE_UART_CONTROL)
+  ESP_LOGCONFIG(TAG, "  Control: Over UART with feedback on INDEX");
+#elif defined(USE_PULSE_CONTROL)
+  ESP_LOGCONFIG(TAG, "  Control: Pulses on STEP and direction on DIR");
+#else
+  ESP_LOGE(TAG, "No control method defined!");
+#endif
+
+  LOG_TMC2209_PINS(this);
+  ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
+  LOG_TMC2209_VERSION(this);
+
+  ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps());
+  ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz", this->clk_frequency_);
+  const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(OTTRIM_FIELD));
+  ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot);
+
+  const uint sdal0_ = (this->max_speed_ * this->sdal_);
+  const float sdal1_ = (this->sdal_ * 100.0);
+  ESP_LOGCONFIG(TAG, "  Activate stall detection: At %d steps/s (%.0f%% of max speed)", sdal0_, sdal1_);
+
+  LOG_STEPPER(this);
+
+  LOG_TMC2209_CURRENTS(this);
+  LOG_TMC2209_REGISTER_DUMP(this);
+}
 
 void TMC2209Stepper::setup() {
   TMC2209Component::setup();
@@ -31,6 +60,10 @@ void TMC2209Stepper::setup() {
   // this->write_field(DEDGE_FIELD, true);
 #endif
 
+#if defined(USE_HYBRID_CONTROL)
+
+#endif
+
   this->enable(true);
 
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper setup done.");
@@ -53,25 +86,30 @@ void TMC2209Stepper::loop() {
 
   this->calculate_speed_(micros());
   // -2.8 magically to synchronizes feedback with set velocity
-  const uint32_t velocity = ((int8_t) this->current_direction_) * this->current_speed_ * -2.8;
+  const uint32_t velocity = ((int8_t) this->current_direction_) * this->current_speed_ * 2.8;
   if (this->read_field(VACTUAL_FIELD) != velocity) {
     this->write_field(VACTUAL_FIELD, velocity);
   }
-
 #endif
   /** */
 
 /** Pulse train handling **/
 #if defined(USE_PULSE_CONTROL)
   // Compute and set speed and direction to move the motor in
-  this->current_direction_ = (Direction) this->should_step_();
-  if (this->current_direction_ != Direction::STANDSTILL) {
-    this->dir_pin_->digital_write(this->current_direction_ == Direction::FORWARD);
+  this->current_direction_ = this->should_step_();
+  if (this->current_direction_ != stepper::Direction::STANDSTILL) {
+    this->dir_pin_->digital_write(this->current_direction_ == stepper::Direction::FORWARD);
     delayMicroseconds(5);
     this->step_pin_->digital_write(true);
     delayMicroseconds(5);
     this->step_pin_->digital_write(false);
   }
+#endif
+/** */
+
+/** Pulse train and serial handling **/
+#if defined(USE_HYBRID_CONTROL)
+
 #endif
   /** */
 }
@@ -103,36 +141,6 @@ void TMC2209Stepper::enable(bool enable) {
     this->write_field(TOFF_FIELD, enable ? 3 : 0);
   }
   this->is_enabled_ = enable;
-}
-
-void TMC2209Stepper::dump_config() {
-  ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
-
-#if defined(USE_UART_CONTROL)
-  ESP_LOGCONFIG(TAG, "  Control: Over UART with feedback on INDEX");
-#elif defined(USE_PULSE_CONTROL)
-  ESP_LOGCONFIG(TAG, "  Control: Pulses on STEP and direction on DIR");
-#else
-  ESP_LOGE(TAG, "No control method defined!");
-#endif
-
-  LOG_TMC2209_PINS(this);
-  ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->driver_address_);
-  LOG_TMC2209_IC_VERSION(this);
-
-  ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps());
-  ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz", this->clk_frequency_);
-  const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(OTTRIM_FIELD));
-  ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot);
-
-  const uint sdal0_ = (this->max_speed_ * this->sdal_);
-  const float sdal1_ = (this->sdal_ * 100.0);
-  ESP_LOGCONFIG(TAG, "  Active stall detection: At %d steps/s (%.0f%% of max speed)", sdal0_, sdal1_);
-
-  LOG_STEPPER(this);
-
-  LOG_TMC2209_CURRENTS(this);
-  LOG_TMC2209_REGISTER_DUMP(this);
 }
 
 }  // namespace tmc2209

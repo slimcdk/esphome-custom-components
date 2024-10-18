@@ -1,9 +1,7 @@
 #pragma once
-
 #include "tmc2209_api_registers.h"
 #include "tmc2209_component.h"
 #include "events.h"
-
 #include "esphome/core/automation.h"
 
 namespace esphome {
@@ -33,13 +31,13 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
 
 template<typename... Ts> class CurrentsAction : public Action<Ts...>, public Parented<TMC2209Component> {
  public:
-  TEMPLATABLE_VALUE(float, run_current)
-  TEMPLATABLE_VALUE(float, hold_current)
   TEMPLATABLE_VALUE(int, standstill_mode)
   TEMPLATABLE_VALUE(uint8_t, irun)
   TEMPLATABLE_VALUE(uint8_t, ihold)
   TEMPLATABLE_VALUE(int, iholddelay)
   TEMPLATABLE_VALUE(int, tpowerdown)
+  TEMPLATABLE_VALUE(float, run_current)
+  TEMPLATABLE_VALUE(float, hold_current)
 
   void play(Ts... x) override {
     if (this->standstill_mode_.has_value()) {

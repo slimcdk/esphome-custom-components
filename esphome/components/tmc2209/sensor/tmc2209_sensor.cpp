@@ -1,5 +1,5 @@
+#include "esphome/components/tmc2209/tmc2209_api_registers.h"
 #include "tmc2209_sensor.h"
-
 #include "esphome/core/log.h"
 
 namespace esphome {

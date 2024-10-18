@@ -1,10 +1,9 @@
 #pragma once
-
+#include "esphome/components/tmc2209/tmc2209_api_registers.h"
+#include "esphome/components/tmc2209/tmc2209_component.h"
+#include "esphome/components/sensor/sensor.h"
 #include "esphome/core/component.h"
 #include "esphome/core/helpers.h"
-
-#include "esphome/components/sensor/sensor.h"
-#include "esphome/components/tmc2209/tmc2209_component.h"
 
 namespace esphome {
 namespace tmc2209 {
