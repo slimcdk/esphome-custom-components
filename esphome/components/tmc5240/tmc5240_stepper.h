@@ -1,28 +1,28 @@
-// file: esphome/components/tmc5241/tmc5241_stepper.h
+// file: esphome/components/tmc5240/tmc5240_stepper.h
 /**
- * Communication agnostic TMC5241 stepper component.
+ * Communication agnostic TMC5240 stepper component.
  * Contains the logic for a ESPHome stepper.
  */
 
 #pragma once
 
-#include "tmc5241.h"
+#include "tmc5240.h"
 
 #include "esphome/core/helpers.h"
 #include "esphome/core/hal.h"
 #include "esphome/components/stepper/stepper.h"
 
 namespace esphome {
-namespace tmc5241 {
+namespace tmc5240 {
 
-class TMC5241Stepper : public TMC5241, public stepper::Stepper {
+class TMC5240Stepper : public TMC5240, public stepper::Stepper {
  public:
-  TMC5241Stepper() = default;
+  TMC5240Stepper() = default;
 
   // void setup() override;
   // void loop() override;
   // void dump_config() override;
 };
 
-}  // namespace tmc5241
+}  // namespace tmc5240
 }  // namespace esphome

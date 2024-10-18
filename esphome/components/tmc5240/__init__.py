@@ -5,8 +5,8 @@ import esphome.codegen as cg
 
 CODEOWNERS = ["@slimcdk"]
 
-CONF_TMC5241 = "tmc5241"
-CONF_TMC5241_ID = "tmc5241_id"
+CONF_TMC5240 = "tmc5240"
+CONF_TMC5240_ID = "tmc5240_id"
 
 CONF_ENABLE = "enable"
 CONF_DISABLE = "disable"
@@ -19,11 +19,11 @@ CONF_DIAG1_PIN = "diag1_pin"
 CONF_ON_ALERT = "on_alert"
 
 
-tmc5241_ns = cg.esphome_ns.namespace("tmc5241")
-TMC5241 = tmc5241_ns.class_("TMC5241", cg.Component)
+tmc5240_ns = cg.esphome_ns.namespace("tmc5240")
+TMC5240 = tmc5240_ns.class_("TMC5240", cg.Component)
 
 
-TMC5241_SCHEMA = cv.Schema(
+TMC5240_SCHEMA = cv.Schema(
     {
         cv.Optional(CONF_ENN_PIN): pins.gpio_output_pin_schema,
         cv.Optional(CONF_DIAG0_PIN): pins.internal_gpio_input_pin_schema,
@@ -31,7 +31,7 @@ TMC5241_SCHEMA = cv.Schema(
 ).extend(cv.COMPONENT_SCHEMA)
 
 
-async def register_tmc5241(var, config):
+async def register_tmc5240(var, config):
     await cg.register_component(var, config)
 
     enn_pin = config.get(CONF_ENN_PIN, None)
@@ -53,12 +53,12 @@ async def register_tmc5241(var, config):
 
 
 # def final_validate_config(config):
-#     tmc5241_steppers = [
+#     tmc5240_steppers = [
 #         stepper
 #         for stepper in fv.full_config.get()[PLATFORM_STEPPER]
-#         if stepper[CONF_PLATFORM] == CONF_TMC5241_SPI
+#         if stepper[CONF_PLATFORM] == CONF_TMC5240_SPI
 #     ]
-#     cg.add_define("TMC5241_NUM_SPI_COMPONENTS", len(tmc5241_steppers))
+#     cg.add_define("TMC5240_NUM_SPI_COMPONENTS", len(tmc5240_steppers))
 
 
 # FINAL_VALIDATE_SCHEMA = final_validate_config

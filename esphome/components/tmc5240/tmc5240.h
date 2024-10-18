@@ -1,6 +1,6 @@
-// file: esphome/components/tmc5241/tmc5241.h
+// file: esphome/components/tmc5240/tmc5240.h
 /**
- * Communication agnostic TMC5241 base component.
+ * Communication agnostic TMC5240 base component.
  * Holds a global component index and definitions to write and read registers.
  */
 
@@ -10,18 +10,18 @@
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
 
-#include "tmc5241_registers.h"
+#include "tmc5240_registers.h"
 
 #define CAST_Sn_TO_S32(value, n) ((value) | (((value) & ((uint32_t) 1 << ((n) -1))) ? ~(((uint32_t) 1 << (n)) - 1) : 0))
 
 namespace esphome {
-namespace tmc5241 {
+namespace tmc5240 {
 
 static const char *TAG = "tmc5240.stepper";
 
-class TMC5241 : public Component {
+class TMC5240 : public Component {
  public:
-  TMC5241() = default;
+  TMC5240() = default;
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void setup() override;
@@ -50,5 +50,5 @@ class TMC5241 : public Component {
   InternalGPIOPin *diag1_pin_;
 };
 
-}  // namespace tmc5241
+}  // namespace tmc5240
 }  // namespace esphome

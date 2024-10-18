@@ -10,16 +10,16 @@ from esphome.const import (
     ICON_PERCENT,
 )
 
-from .. import as5x47_ns, AS5X47Component, DEVICE_SCHEMA, CONF_AS5X47_ID
+from .. import as5047_ns, AS5047Component, DEVICE_SCHEMA, CONF_AS5047_ID
 
 CODEOWNERS = ["@slimcdk"]
 
 common_sensor = (
     cg.PollingComponent,
     sensor.Sensor,
-    cg.Parented.template(AS5X47Component),
+    cg.Parented.template(AS5047Component),
 )
-AngleSensor = as5x47_ns.class_("AngleSensor", *common_sensor)
+AngleSensor = as5047_ns.class_("AngleSensor", *common_sensor)
 
 
 TYPE_ANGLE = "angle"
@@ -37,4 +37,4 @@ CONFIG_SCHEMA = cv.typed_schema(
 async def to_code(config):
     var = await sensor.new_sensor(config)
     await cg.register_component(var, config)
-    await cg.register_parented(var, config[CONF_AS5X47_ID])
+    await cg.register_parented(var, config[CONF_AS5047_ID])

@@ -1,5 +1,5 @@
 """
-Based of https://github.com/Adrien-Legrand/AS5X47
+Based of https://github.com/Adrien-Legrand/AS5047
 """
 
 from esphome import automation
@@ -15,24 +15,24 @@ CODEOWNERS = ["@slimcdk"]
 DEPENDENCIES = ["spi"]
 MULTI_CONF = True
 
-CONF_AS5X47_ID = "as5x47_id"
+CONF_AS5047_ID = "as5047_id"
 CONF_ABI_PULSE_PER_REVOLUTION = "ab_ppr"
 
 
-as5x47_ns = cg.esphome_ns.namespace("as5x47")
-AS5X47Component = as5x47_ns.class_("AS5X47Component", cg.Component, spi.SPIDevice)
-# AS5X47ComponentConfigureAction = as5x47_ns.class_(
-#     "AS5X47ComponentConfigureAction", automation.Action
+as5047_ns = cg.esphome_ns.namespace("as5047")
+AS5047Component = as5047_ns.class_("AS5047Component", cg.Component, spi.SPIDevice)
+# AS5047ComponentConfigureAction = as5047_ns.class_(
+#     "AS5047ComponentConfigureAction", automation.Action
 # )
 
 
-DEVICE_SCHEMA = cv.Schema({cv.GenerateID(CONF_AS5X47_ID): cv.use_id(AS5X47Component)})
+DEVICE_SCHEMA = cv.Schema({cv.GenerateID(CONF_AS5047_ID): cv.use_id(AS5047Component)})
 
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
-            cv.GenerateID(): cv.declare_id(AS5X47Component),
+            cv.GenerateID(): cv.declare_id(AS5047Component),
         }
     ).extend(
         cv.COMPONENT_SCHEMA,
@@ -48,11 +48,11 @@ async def to_code(config):
 
 
 # @automation.register_action(
-#     "as5x47.configure",
-#     AS5X47ComponentConfigureAction,
+#     "as5047.configure",
+#     AS5047ComponentConfigureAction,
 #     cv.Schema(
 #         {
-#             cv.GenerateID(): cv.use_id(AS5X47Component),
+#             cv.GenerateID(): cv.use_id(AS5047Component),
 #             cv.Optional(CONF_ABI_PULSE_PER_REVOLUTION): cv.templatable(
 #                 cv.one_of(500, 400, 300, 200, 100, 50, 25, 8, 512, 256)
 #             ),

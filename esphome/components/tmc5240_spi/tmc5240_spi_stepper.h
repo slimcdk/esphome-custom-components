@@ -1,12 +1,12 @@
-// file: esphome/components/tmc5241_spi/tmc5241_spi.h
+// file: esphome/components/tmc5240_spi/tmc5240_spi.h
 /**
- * SPI communication setup for TMC5241.
+ * SPI communication setup for TMC5240.
  * Provides access to the SPI interface.
  */
 
 #pragma once
 
-#include "esphome/components/tmc5241/tmc5241_stepper.h"
+#include "esphome/components/tmc5240/tmc5240_stepper.h"
 #include "esphome/components/spi/spi.h"
 
 #include "esphome/core/helpers.h"
@@ -14,13 +14,13 @@
 #include "esphome/core/hal.h"
 
 namespace esphome {
-namespace tmc5241 {
+namespace tmc5240 {
 
-class TMC5241SPIStepper : public TMC5241Stepper,
+class TMC5240SPIStepper : public TMC5240Stepper,
                           public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_HIGH,
                                                 spi::CLOCK_PHASE_TRAILING, spi::DATA_RATE_10MHZ> {
  public:
-  TMC5241SPIStepper() = default;
+  TMC5240SPIStepper() = default;
 
   void setup() override { this->spi_setup(); }
 
@@ -28,5 +28,5 @@ class TMC5241SPIStepper : public TMC5241Stepper,
   int32_t read_register(uint8_t address) override;
 };
 
-}  // namespace tmc5241
+}  // namespace tmc5240
 }  // namespace esphome
