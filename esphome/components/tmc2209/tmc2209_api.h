@@ -3,10 +3,11 @@
 #include "tmc2209_api_registers.h"
 
 #include "esphome/components/uart/uart.h"
-#include "esphome/core/helpers.h"
 
 namespace esphome {
 namespace tmc2209 {
+
+static const char *TAG = "tmc2209";
 
 #define ACCESS_READ 0x01
 #define IS_READABLE(x) ((x) &ACCESS_READ)

@@ -5,7 +5,7 @@
 namespace esphome {
 namespace tmc2209 {
 
-// static const char *const TAG = "tmc2209.sensor";
+static const char *const TAG = "tmc2209.sensor";
 
 void StallGuardResultSensor::dump_config() { LOG_SENSOR(" ", "TMC2209 StallGuard Result Sensor", this); }
 void StallGuardResultSensor::update() { this->publish_state(this->parent_->read_register(SG_RESULT)); }

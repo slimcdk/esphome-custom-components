@@ -1,5 +1,7 @@
 #include "tmc2209_api.h"
 
+#include "esphome/core/helpers.h"
+
 namespace esphome {
 namespace tmc2209 {
 

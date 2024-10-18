@@ -1,13 +1,8 @@
 #pragma once
 
-#include <limits>
-#include <string>
-#include <tuple>
-#include <iostream>
-
-#include "tmc2209_component.h"
-#include "tmc2209_api.h"
-#include "tmc2209_api_registers.h"
+#include "esphome/components/tmc2209/tmc2209_component.h"
+#include "esphome/components/tmc2209/tmc2209_api.h"
+#include "esphome/components/tmc2209/tmc2209_api_registers.h"
 
 #include "esphome/core/helpers.h"
 #include "esphome/core/component.h"
@@ -16,8 +11,6 @@
 
 namespace esphome {
 namespace tmc2209 {
-
-static const char *TAG = "tmc2209.stepper";
 
 struct IndexPulseStore {
   int32_t *current_position_ptr{nullptr};
@@ -32,7 +25,6 @@ class TMC2209Stepper : public TMC2209Component, public stepper::Stepper {
   TMC2209Stepper(uint8_t address, uint32_t clk_frequency, bool internal_sense, float rsense)
       : TMC2209Component(address, clk_frequency, internal_sense, rsense){};
 
-  float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void dump_config() override;
   void setup() override;
   void loop() override;
