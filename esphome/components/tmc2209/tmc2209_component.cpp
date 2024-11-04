@@ -19,7 +19,7 @@ void TMC2209Component::setup() {
   }
 
   this->write_field(PDN_DISABLE_FIELD, true);
-  this->write_field(INTERNAL_RSENSE_FIELD, this->internal_sense_);
+  this->write_field(INTERNAL_RSENSE_FIELD, this->internal_rsense_);
   this->write_field(I_SCALE_ANALOG_FIELD, false);
   this->write_field(SHAFT_FIELD, false);
   this->write_field(MSTEP_REG_SELECT_FIELD, true);
@@ -33,131 +33,157 @@ void TMC2209Component::setup() {
   this->write_field(OTTRIM_FIELD, OTTRIM);
 #endif
 
-  if (this->enn_pin_ != nullptr) {
-    this->enn_pin_->setup();
-  }
+#if defined(HAS_ENN_PIN)
+  this->enn_pin_->setup();
+#endif
 
-  if (this->diag_pin_ != nullptr) {
-    this->diag_pin_->setup();
-  }
-
-  if (this->index_pin_ != nullptr) {
-    this->index_pin_->setup();
-  }
-
-  if (this->step_pin_ != nullptr) {
-    this->step_pin_->setup();
-  }
-
-  if (this->dir_pin_ != nullptr) {
-    this->dir_pin_->setup();
-  }
-
-#if defined(USE_DIAG_PIN)
-  // dont bother configuring diag pin as it is only used for driver events
-  // this->diag_pin_->setup();
+#if defined(HAS_DIAG_PIN)
+  this->diag_pin_->setup();
   this->diag_pin_->attach_interrupt(ISRPinTriggerStore::pin_isr, &this->diag_isr_store_, gpio::INTERRUPT_RISING_EDGE);
   this->diag_isr_store_.pin_triggered_ptr = &this->diag_triggered_;
 
-  this->diag_handler_.set_callbacks(                                     // DIAG
-      [this]() { this->on_event_callback_.call(DIAG_TRIGGERED); },       // rise
-      [this]() { this->on_event_callback_.call(DIAG_TRIGGER_CLEARED); }  // fall
+  this->diag_handler_.set_callbacks(                                             // DIAG
+      [this]() { this->on_driver_status_callback_.call(DIAG_TRIGGERED); },       // rise
+      [this]() { this->on_driver_status_callback_.call(DIAG_TRIGGER_CLEARED); }  // fall
   );
-#else
-  // poll driver every x time to check for errors
-  this->set_interval(POLL_STATUS_INTERVAL, [this] { this->check_driver_status_(); });
 #endif
 
-  /** Driver events **/
-  this->stalled_handler_.set_on_rise_callback([this]() { this->on_event_callback_.call(STALLED); });  // stalled
+#if defined(HAS_INDEX_PIN)
+  this->index_pin_->setup();
+#endif
 
+#if defined(HAS_STEP_PIN)
+  this->step_pin_->setup();
+#endif
+
+#if defined(HAS_DIR_PIN)
+  this->dir_pin_->setup();
+#endif
+
+#if defined(ENABLE_DRIVER_EVENT_EVENTS)
   this->otpw_handler_.set_callbacks(  // overtemperature prewarning
       [this]() {
-        this->on_event_callback_.call(OVERTEMPERATURE_PREWARNING);
-        this->status_set_warning("driver is warning about overheating!");
+        this->on_driver_status_callback_.call(OVERTEMPERATURE_PREWARNING);
+        this->status_set_warning("driver is overheating soon!");
       },
       [this]() {
-        this->on_event_callback_.call(OVERTEMPERATURE_PREWARNING_CLEARED);
+        this->on_driver_status_callback_.call(OVERTEMPERATURE_PREWARNING_CLEARED);
         this->status_clear_warning();
       });
 
   this->ot_handler_.set_callbacks(  // overtemperature
       [this]() {
-        this->on_event_callback_.call(OVERTEMPERATURE);
+        this->on_driver_status_callback_.call(OVERTEMPERATURE);
         this->status_set_error("driver is overheating!");
       },
       [this]() {
-        this->on_event_callback_.call(OVERTEMPERATURE_CLEARED);
+        this->on_driver_status_callback_.call(OVERTEMPERATURE_CLEARED);
         this->status_clear_error();
       });
 
-  this->t120_handler_.set_callbacks(                                        // t120 flag
-      [this]() { this->on_event_callback_.call(TEMPERATURE_ABOVE_120C); },  // rise
-      [this]() { this->on_event_callback_.call(TEMPERATURE_BELOW_120C); }   // fall
+  this->t120_handler_.set_callbacks(                                                // t120 flag
+      [this]() { this->on_driver_status_callback_.call(TEMPERATURE_ABOVE_120C); },  // rise
+      [this]() { this->on_driver_status_callback_.call(TEMPERATURE_BELOW_120C); }   // fall
   );
 
-  this->t143_handler_.set_callbacks(                                        // t143 flag
-      [this]() { this->on_event_callback_.call(TEMPERATURE_ABOVE_143C); },  // rise
-      [this]() { this->on_event_callback_.call(TEMPERATURE_BELOW_143C); }   // fall
+  this->t143_handler_.set_callbacks(                                                // t143 flag
+      [this]() { this->on_driver_status_callback_.call(TEMPERATURE_ABOVE_143C); },  // rise
+      [this]() { this->on_driver_status_callback_.call(TEMPERATURE_BELOW_143C); }   // fall
   );
 
-  this->t150_handler_.set_callbacks(                                        // t150 flag
-      [this]() { this->on_event_callback_.call(TEMPERATURE_ABOVE_150C); },  // rise
-      [this]() { this->on_event_callback_.call(TEMPERATURE_BELOW_150C); }   // fall
+  this->t150_handler_.set_callbacks(                                                // t150 flag
+      [this]() { this->on_driver_status_callback_.call(TEMPERATURE_ABOVE_150C); },  // rise
+      [this]() { this->on_driver_status_callback_.call(TEMPERATURE_BELOW_150C); }   // fall
   );
 
-  this->t157_handler_.set_callbacks(                                        // t157 flag
-      [this]() { this->on_event_callback_.call(TEMPERATURE_ABOVE_157C); },  // rise
-      [this]() { this->on_event_callback_.call(TEMPERATURE_BELOW_157C); }   // fall
+  this->t157_handler_.set_callbacks(                                                // t157 flag
+      [this]() { this->on_driver_status_callback_.call(TEMPERATURE_ABOVE_157C); },  // rise
+      [this]() { this->on_driver_status_callback_.call(TEMPERATURE_BELOW_157C); }   // fall
   );
 
-  this->olb_handler_.set_callbacks(                                     // olb
-      [this]() { this->on_event_callback_.call(B_OPEN_LOAD); },         // rise
-      [this]() { this->on_event_callback_.call(B_OPEN_LOAD_CLEARED); }  // fall
+  this->ola_handler_.set_callbacks(  // ola
+      [this]() {
+        this->on_driver_status_callback_.call(OPEN_LOAD);
+        this->on_driver_status_callback_.call(OPEN_LOAD_A);
+      },
+      [this]() {
+        this->on_driver_status_callback_.call(OPEN_LOAD_CLEARED);
+        this->on_driver_status_callback_.call(OPEN_LOAD_A_CLEARED);
+      });
+
+  this->olb_handler_.set_callbacks(  // olb
+      [this]() {
+        this->on_driver_status_callback_.call(OPEN_LOAD);
+        this->on_driver_status_callback_.call(OPEN_LOAD_B);
+      },
+      [this]() {
+        this->on_driver_status_callback_.call(OPEN_LOAD_CLEARED);
+        this->on_driver_status_callback_.call(OPEN_LOAD_B_CLEARED);
+      });
+
+  this->s2vsa_handler_.set_callbacks(  // s2vsa
+      [this]() {
+        this->on_driver_status_callback_.call(LOW_SIDE_SHORT);
+        this->on_driver_status_callback_.call(LOW_SIDE_SHORT_A);
+      },
+      [this]() {
+        this->on_driver_status_callback_.call(LOW_SIDE_SHORT_CLEARED);
+        this->on_driver_status_callback_.call(LOW_SIDE_SHORT_A_CLEARED);
+      });
+
+  this->s2vsb_handler_.set_callbacks(  // s2vsb
+      [this]() {
+        this->on_driver_status_callback_.call(LOW_SIDE_SHORT);
+        this->on_driver_status_callback_.call(LOW_SIDE_SHORT_B);
+      },
+      [this]() {
+        this->on_driver_status_callback_.call(LOW_SIDE_SHORT_CLEARED);
+        this->on_driver_status_callback_.call(LOW_SIDE_SHORT_B_CLEARED);
+      });
+
+  this->s2ga_handler_.set_callbacks(  // s2ga
+      [this]() {
+        this->on_driver_status_callback_.call(GROUND_SHORT);
+        this->on_driver_status_callback_.call(GROUND_SHORT_A);
+      },
+      [this]() {
+        this->on_driver_status_callback_.call(GROUND_SHORT_CLEARED);
+        this->on_driver_status_callback_.call(GROUND_SHORT_A_CLEARED);
+      });
+
+  this->s2gb_handler_.set_callbacks(  // s2gb
+      [this]() {
+        this->on_driver_status_callback_.call(GROUND_SHORT);
+        this->on_driver_status_callback_.call(GROUND_SHORT_B);
+      },
+      [this]() {
+        this->on_driver_status_callback_.call(GROUND_SHORT_CLEARED);
+        this->on_driver_status_callback_.call(GROUND_SHORT_B_CLEARED);
+      });
+
+  this->uvcp_handler_.set_callbacks(  // uc_vp
+      [this]() {
+        this->on_driver_status_callback_.call(CP_UNDERVOLTAGE);
+        this->status_set_warning("undervoltage detected!");
+      },  // rise
+      [this]() {
+        this->on_driver_status_callback_.call(CP_UNDERVOLTAGE_CLEARED);
+        this->status_clear_warning();
+      }  // fall
   );
 
-  this->ola_handler_.set_callbacks(                                     // ola
-      [this]() { this->on_event_callback_.call(A_OPEN_LOAD); },         // rise
-      [this]() { this->on_event_callback_.call(A_OPEN_LOAD_CLEARED); }  // fall
-  );
-
-  this->s2vsb_handler_.set_callbacks(                                        // s2vsb
-      [this]() { this->on_event_callback_.call(B_LOW_SIDE_SHORT); },         // rise
-      [this]() { this->on_event_callback_.call(B_LOW_SIDE_SHORT_CLEARED); }  // fall
-  );
-
-  this->s2vsa_handler_.set_callbacks(                                        // s2vsa
-      [this]() { this->on_event_callback_.call(A_LOW_SIDE_SHORT); },         // rise
-      [this]() { this->on_event_callback_.call(A_LOW_SIDE_SHORT_CLEARED); }  // fall
-  );
-
-  this->s2gb_handler_.set_callbacks(                                       // s2gb
-      [this]() { this->on_event_callback_.call(B_GROUND_SHORT); },         // rise
-      [this]() { this->on_event_callback_.call(B_GROUND_SHORT_CLEARED); }  // fall
-  );
-
-  this->s2ga_handler_.set_callbacks(                                       // s2ga
-      [this]() { this->on_event_callback_.call(A_GROUND_SHORT); },         // rise
-      [this]() { this->on_event_callback_.call(A_GROUND_SHORT_CLEARED); }  // fall
-  );
-
-  this->uvcp_handler_.set_callbacks(                                        // uc_vp
-      [this]() { this->on_event_callback_.call(CP_UNDERVOLTAGE); },         // rise
-      [this]() { this->on_event_callback_.call(CP_UNDERVOLTAGE_CLEARED); }  // fall
-  );
+  this->set_interval(POLL_DRIVER_STATUS_INTERVAL, [this] { this->poll_driver_status_(); });
+#endif
 
   ESP_LOGCONFIG(TAG, "TMC2209 Component setup done.");
 }
 
 void TMC2209Component::loop() {
-#if defined(USE_DIAG_PIN)
+#if defined(HAS_DIAG_PIN)
   if (this->diag_triggered_) {
+    this->diag_triggered_ = this->diag_pin_->digital_read();  // don't clear flag if DIAG is still up
     this->diag_handler_.check(this->diag_triggered_);
-    this->stalled_handler_.check(this->is_stalled());
-    this->check_driver_status_();
-
-    // keep polling status as long as this DIAG is up
-    this->diag_triggered_ = this->diag_pin_->digital_read();
+    this->poll_driver_status_();
   }
 #endif
 }
@@ -254,7 +280,7 @@ std::tuple<uint8_t, uint8_t> TMC2209Component::unpack_ottrim_values(uint8_t ottr
   return std::make_tuple(0, 0);
 }
 
-void TMC2209Component::check_driver_status_() {
+void TMC2209Component::poll_driver_status_() {
   const uint32_t drv_status = this->read_register(DRV_STATUS);
   this->ot_handler_.check(static_cast<bool>((drv_status >> 1) & 1));
   this->otpw_handler_.check(static_cast<bool>(drv_status & 1));

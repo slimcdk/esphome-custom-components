@@ -67,20 +67,6 @@ template<typename... Ts> class CurrentsAction : public Action<Ts...>, public Par
   }
 };
 
-template<typename... Ts> class StallguardAction : public Action<Ts...>, public Parented<TMC2209Component> {
- public:
-  TEMPLATABLE_VALUE(int32_t, stallguard_threshold)
-  TEMPLATABLE_VALUE(float, stall_detection_activation_level)
-
-  void play(Ts... x) override {
-    if (this->stallguard_threshold_.has_value())
-      this->parent_->write_register(SGTHRS, this->stallguard_threshold_.value(x...));
-
-    if (this->stall_detection_activation_level_.has_value())
-      this->parent_->set_stall_detection_activation_level(this->stall_detection_activation_level_.value(x...));
-  }
-};
-
 template<typename... Ts> class CoolstepAction : public Action<Ts...>, public Parented<TMC2209Component> {
  public:
   TEMPLATABLE_VALUE(int, tcool_threshold)
@@ -91,10 +77,10 @@ template<typename... Ts> class CoolstepAction : public Action<Ts...>, public Par
   }
 };
 
-class OnAlertTrigger : public Trigger<DriverEvent> {
+class OnDriverStatusTrigger : public Trigger<DriverStatusEvent> {
  public:
-  explicit OnAlertTrigger(TMC2209Component *parent) {
-    parent->add_on_event_callback([this](DriverEvent event) { this->trigger(event); });
+  explicit OnDriverStatusTrigger(TMC2209Component *parent) {
+    parent->add_on_driver_status_callback([this](DriverStatusEvent code) { this->trigger(code); });
   }
 };
 

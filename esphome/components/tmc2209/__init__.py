@@ -10,9 +10,13 @@ from esphome.const import (
     CONF_ID,
     CONF_STEP_PIN,
     CONF_DIR_PIN,
+    CONF_DIRECTION,
 )
 
 CODEOWNERS = ["@slimcdk"]
+
+MULTI_CONF = True
+
 
 CONF_TMC2209 = "tmc2209"
 CONF_TMC2209_ID = "tmc2209_id"
@@ -22,23 +26,27 @@ CONF_DIAG_PIN = "diag_pin"
 CONF_INDEX_PIN = "index_pin"
 
 CONF_CLOCK_FREQUENCY = "clock_frequency"
-
 CONF_OTTRIM = "ottrim"
 CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
 CONF_RSENSE = "rsense"  # sense resistors
 CONF_INTERNAL_RSENSE = "internal_rsense"  # use rdson to sense
+CONF_ANALOG_SCALE = "analog_scaling"
+CONF_POLL_DRIVER_STATUS_INTERVAL = "poll_driver_status_interval"
+CONF_ON_DRIVER_STATUS = "on_driver_status"
 
-CONF_POLL_STATUS_INTERVAL = "poll_status_interval"
 
-CONF_ON_EVENT = "on_event"  # TODO: rename?
+OPT_CLOCKWISE = "clockwise"
+OPT_CW = "cw"
+OPT_COUNTERCLOCKWISE = "counterclockwise"
+OPT_CCW = "ccw"
+OPT_STANDSTILL_MODE_NORMAL = "normal"
+OPT_STANDSTILL_MODE_FREEWHEELING = "freewheeling"
+OPT_STANDSTILL_MODE_COIL_SHORT_LS = "short_coil_ls"
+OPT_STANDSTILL_MODE_COIL_SHORT_HS = "short_coil_hs"
 
-CONF_INVERSE_DIRECTION = "inverse_direction"
 CONF_VELOCITY = "velocity"
 CONF_MICROSTEPS = "microsteps"  # CHOPCONF.mres
 CONF_INTERPOLATION = "interpolation"  # CHOPCONF.intpol
-
-# CONF_VACTUAL = "vactual"
-
 CONF_RUN_CURRENT = "run_current"  # translates to IRUN
 CONF_HOLD_CURRENT = "hold_current"  # translates to IHOLD
 CONF_IRUN = "irun"
@@ -46,37 +54,29 @@ CONF_IHOLD = "ihold"
 CONF_IHOLDDELAY = "iholddelay"
 CONF_TPOWERDOWN = "tpowerdown"
 CONF_ENABLE_SPREADCYCLE = "enable_spreadcycle"
-CONF_ACTIVATION_LEVEL = "activation_level"
-
 CONF_TCOOL_THRESHOLD = "tcool_threshold"
-
 CONF_STANDSTILL_MODE = "standstill_mode"
-STANDSTILL_MODE_NORMAL = "normal"
-STANDSTILL_MODE_FREEWHEELING = "freewheeling"
-STANDSTILL_MODE_COIL_SHORT_LS = "short_coil_ls"
-STANDSTILL_MODE_COIL_SHORT_HS = "short_coil_hs"
 
 STANDSTILL_MODES = {
-    STANDSTILL_MODE_NORMAL: 0,
-    STANDSTILL_MODE_FREEWHEELING: 1,
-    STANDSTILL_MODE_COIL_SHORT_LS: 2,
-    STANDSTILL_MODE_COIL_SHORT_HS: 3,
+    OPT_STANDSTILL_MODE_NORMAL: 0,
+    OPT_STANDSTILL_MODE_FREEWHEELING: 1,
+    OPT_STANDSTILL_MODE_COIL_SHORT_LS: 2,
+    OPT_STANDSTILL_MODE_COIL_SHORT_HS: 3,
 }
 
 tmc2209_ns = cg.esphome_ns.namespace("tmc2209")
 TMC2209API = tmc2209_ns.class_("TMC2209API", uart.UARTDevice)
 TMC2209Component = tmc2209_ns.class_("TMC2209Component", TMC2209API, cg.Component)
 
-OnAlertTrigger = tmc2209_ns.class_("OnAlertTrigger", automation.Trigger)
+DriverStatusEvent = tmc2209_ns.enum("DriverStatusEvent")
+
+OnDriverStatusTrigger = tmc2209_ns.class_("OnDriverStatusTrigger", automation.Trigger)
+
 ConfigureAction = tmc2209_ns.class_("ConfigureAction", automation.Action)
 CurrentsAction = tmc2209_ns.class_("CurrentsAction", automation.Action)
-StallguardAction = tmc2209_ns.class_("StallguardAction", automation.Action)
 CoolstepAction = tmc2209_ns.class_("CoolstepAction", automation.Action)
 
-DriverEvent = tmc2209_ns.enum("DriverEvent")
-
 DEVICE_SCHEMA = cv.Schema({cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209Component)})
-
 
 TMC2209_BASE_CONFIG_SCHEMA = (
     cv.Schema(
@@ -87,18 +87,21 @@ TMC2209_BASE_CONFIG_SCHEMA = (
             cv.Optional(CONF_STEP_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_DIR_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_ADDRESS, default=0x00): cv.hex_uint8_t,
-            cv.Optional(CONF_RSENSE): cv.resistance,  # default is 170 mOhm
             cv.Optional(CONF_VSENSE): cv.boolean,  # default OTP
             cv.Optional(CONF_OTTRIM): cv.int_range(0, 3),  # default OTP
+            cv.Optional(CONF_RSENSE): cv.resistance,  # default is 170 mOhm
+            cv.Optional(CONF_ANALOG_SCALE, default=True): cv.boolean,
             cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.All(
                 cv.positive_int, cv.frequency
             ),
             cv.Optional(
-                CONF_POLL_STATUS_INTERVAL, default="500ms"
+                CONF_POLL_DRIVER_STATUS_INTERVAL, default="500ms"
             ): cv.positive_time_period_milliseconds,
-            cv.Optional(CONF_ON_EVENT): automation.validate_automation(
+            cv.Optional(CONF_ON_DRIVER_STATUS): automation.validate_automation(
                 {
-                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnAlertTrigger),
+                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
+                        OnDriverStatusTrigger
+                    ),
                 }
             ),
         },
@@ -118,19 +121,25 @@ async def register_tmc2209_base(var, config):
     index_pin = config.get(CONF_INDEX_PIN, None)
     dir_pin = config.get(CONF_DIR_PIN, None)
     step_pin = config.get(CONF_STEP_PIN, None)
-    alert_triggers = config.get(CONF_ON_EVENT, [])
 
     if enn_pin is not None:
+        cg.add_define("HAS_ENN_PIN")
         cg.add(var.set_enn_pin(await cg.gpio_pin_expression(enn_pin)))
 
     if diag_pin is not None:
+        cg.add_define("HAS_DIAG_PIN")
         cg.add(var.set_diag_pin(await cg.gpio_pin_expression(diag_pin)))
 
     if index_pin is not None:
+        cg.add_define("HAS_INDEX_PIN")
         cg.add(var.set_index_pin(await cg.gpio_pin_expression(index_pin)))
 
-    if step_pin is not None and dir_pin is not None:
+    if step_pin is not None:
+        cg.add_define("HAS_STEP_PIN")
         cg.add(var.set_step_pin(await cg.gpio_pin_expression(step_pin)))
+
+    if dir_pin is not None:
+        cg.add_define("HAS_DIR_PIN")
         cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
 
     if (vsense := config.get(CONF_VSENSE, None)) is not None:
@@ -139,13 +148,14 @@ async def register_tmc2209_base(var, config):
     if (ottrim := config.get(CONF_OTTRIM, None)) is not None:
         cg.add_define("OTTRIM", ottrim)
 
-    if len(alert_triggers) > 0:
-        for conf in alert_triggers:
-            trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-            await automation.build_automation(trigger, [(DriverEvent, "event")], conf)
-        # cg.add_define("ENABLE_DRIVER_EVENT_EVENTS")
+    cg.add_define(
+        "POLL_DRIVER_STATUS_INTERVAL", config[CONF_POLL_DRIVER_STATUS_INTERVAL]
+    )
 
-    cg.add_define("POLL_STATUS_INTERVAL", config[CONF_POLL_STATUS_INTERVAL])
+    for conf in config.get(CONF_ON_DRIVER_STATUS, []):
+        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
+        await automation.build_automation(trigger, [(DriverStatusEvent, "code")], conf)
+        cg.add_define("ENABLE_DRIVER_EVENT_EVENTS")
 
     cg.add_build_flag("-std=c++17")
     cg.add_build_flag("-std=gnu++17")
@@ -155,29 +165,28 @@ async def register_tmc2209_base(var, config):
 
 def validate_tmc2209_base(config):
     return config
-    has_index = CONF_INDEX_PIN in config
-    has_step = CONF_STEP_PIN in config
-    has_dir = CONF_DIR_PIN in config
 
-    if not has_index and not has_step and not has_dir:
-        raise EsphomeError(
-            f"A control must be defined! Configure either {CONF_INDEX_PIN} or {CONF_STEP_PIN} and {CONF_DIR_PIN}"
-        )
 
-    if has_index and (has_step or has_dir):
-        raise EsphomeError(
-            f"{CONF_INDEX_PIN} and {CONF_STEP_PIN} or {CONF_DIR_PIN} must not be configured together."
-        )
+CONFIG_SCHEMA = cv.All(
+    TMC2209_BASE_CONFIG_SCHEMA.extend(
+        {cv.GenerateID(CONF_ID): cv.declare_id(TMC2209Component)}
+    ),
+    validate_tmc2209_base,
+)
 
-    if (has_step and not has_dir) or (not has_step and has_dir):
-        raise EsphomeError(
-            f"{CONF_STEP_PIN} and {CONF_DIR_PIN} must be configured together."
-        )
 
-    if CONF_VSENSE in config and CONF_RSENSE not in config:
-        raise EsphomeError(
-            f"Must configure {CONF_RSENSE} if {CONF_VSENSE} is configured."
-        )
+async def to_code(config):
+
+    var = cg.new_Pvariable(
+        config[CONF_ID],
+        config[CONF_ADDRESS],
+        config[CONF_CLOCK_FREQUENCY],
+        CONF_RSENSE not in config,  # internal rsense
+        config.get(CONF_RSENSE, 0.170),  # rsense value
+        config[CONF_ANALOG_SCALE],  # VREF is connected
+    )
+
+    await register_tmc2209_base(var, config)
 
 
 @automation.register_action(
@@ -186,7 +195,9 @@ def validate_tmc2209_base(config):
     maybe_simple_id(
         {
             cv.GenerateID(): cv.use_id(TMC2209Component),
-            cv.Optional(CONF_INVERSE_DIRECTION): cv.boolean,
+            cv.Optional(CONF_DIRECTION): cv.one_of(
+                OPT_CLOCKWISE, OPT_CW, OPT_COUNTERCLOCKWISE, OPT_CCW
+            ),
             cv.Optional(CONF_MICROSTEPS): cv.templatable(
                 cv.one_of(256, 128, 64, 32, 16, 8, 4, 2, 1)
             ),
@@ -199,8 +210,10 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     yield cg.register_parented(var, config[CONF_ID])
 
-    if (inverse_direction := config.get(CONF_INVERSE_DIRECTION, None)) is not None:
-        template_ = yield cg.templatable(inverse_direction, args, bool)
+    if (dir := config.get(CONF_DIRECTION, None)) is not None:
+        template_ = yield cg.templatable(
+            (dir in [OPT_COUNTERCLOCKWISE, OPT_CCW]), args, bool
+        )
         cg.add(var.set_inverse_direction(template_))
 
     if (microsteps := config.get(CONF_MICROSTEPS, None)) is not None:
@@ -296,7 +309,6 @@ def tmc2209_tcool_to_code(config, action_id, template_arg, args):
     if (tcoolthrs := config.get(CONF_TCOOL_THRESHOLD, None)) is not None:
         template_ = yield cg.templatable(tcoolthrs, args, int)
         cg.add(var.set_tcool_threshold(template_))
-
     yield var
 
 

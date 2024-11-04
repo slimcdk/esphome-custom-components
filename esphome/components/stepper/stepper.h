@@ -18,6 +18,12 @@ enum Direction : int8_t {
   BACKWARD = -1,
 };
 
+enum Mode : int8_t {
+  ACCELERATION = 1,
+  MAX_SPEED = 0,
+  DECELERATION = 1,
+};
+
 class Stepper {
  public:
   virtual void set_target(int32_t steps) { this->target_position = steps; }
@@ -29,23 +35,23 @@ class Stepper {
   bool has_reached_target() { return this->current_position == this->target_position; }
   virtual void stop() {
     this->target_position = this->current_position;
-    this->current_direction_ = Direction::STANDSTILL;
+    this->current_direction = Direction::STANDSTILL;
   }
 
   int32_t current_position{0};
   int32_t target_position{0};
+  Direction current_direction{Direction::STANDSTILL};
 
  protected:
-  void calculate_speed_(uint32_t now);
-  Direction should_step_();
+  void calculate_speed_(time_t now);
+  Direction should_step_(time_t now);
 
   float acceleration_{1e6f};
   float deceleration_{1e6f};
   float current_speed_{0.0f};
   float max_speed_{1e6f};
-  uint32_t last_calculation_{0};
-  uint32_t last_step_{0};
-  Direction current_direction_{Direction::STANDSTILL};
+  time_t last_calculation_{0};
+  time_t last_step_{0};
 };
 
 template<typename... Ts> class SetTargetAction : public Action<Ts...> {

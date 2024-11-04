@@ -6,8 +6,8 @@
 namespace esphome {
 namespace tmc2209 {
 
-#define FROM_MILLI(mu) (mu / 1000.0)
-#define TO_MILLI(u) (u * 1000)
+#define FROM_MILLI(mu) ((double) mu / 1000.0)
+#define TO_MILLI(u) (u * 1000.0)
 #define MRES_TO_MS(mres) (256 >> mres)
 
 #define VSENSE_HIGH 0.325f
@@ -20,8 +20,12 @@ struct ISRPinTriggerStore {
 
 class TMC2209Component : public TMC2209API, public Component {
  public:
-  TMC2209Component(uint8_t address, uint32_t clk_frequency, bool internal_sense, float rsense)
-      : TMC2209API(address), clk_frequency_(clk_frequency), internal_sense_(internal_sense), rsense_(rsense){};
+  TMC2209Component(uint8_t address, uint32_t clk_frequency, bool internal_rsense, float rsense, bool analog_scale)
+      : TMC2209API(address),
+        clk_frequency_(clk_frequency),
+        internal_rsense_(internal_rsense),
+        rsense_(rsense),
+        analog_scale_(analog_scale){};
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void setup() override;
@@ -55,16 +59,15 @@ class TMC2209Component : public TMC2209API, public Component {
   float read_run_current() { return FROM_MILLI(this->read_run_current_mA()); };
   float read_hold_current() { return FROM_MILLI(this->read_hold_current_mA()); };
 
-  void set_stall_detection_activation_level(float level) { this->sdal_ = level; };
-
-  void add_on_event_callback(std::function<void(DriverEvent)> &&callback) {
-    this->on_event_callback_.add(std::move(callback));
+  void add_on_driver_status_callback(std::function<void(DriverStatusEvent)> &&callback) {
+    this->on_driver_status_callback_.add(std::move(callback));
   }
 
  protected:
   const uint32_t clk_frequency_;
-  const bool internal_sense_;
-  const float rsense_;  // default RDSon value
+  const bool internal_rsense_;
+  const float rsense_;       // default RDSon value
+  const bool analog_scale_;  // VREF is connected
 
   InternalGPIOPin *enn_pin_{nullptr};
   InternalGPIOPin *diag_pin_{nullptr};
@@ -73,13 +76,11 @@ class TMC2209Component : public TMC2209API, public Component {
   GPIOPin *dir_pin_{nullptr};
 
   bool is_enabled_;
-  float sdal_;  // stall detection activation level. A percentage of max_speed.
 
-  void check_driver_status_();
+  void poll_driver_status_();
 
-  CallbackManager<void(const DriverEvent &event)> on_event_callback_;
-  EventHandler diag_handler_{};         // Event on DIAG
-  EventHandler stalled_handler_{true};  // Stalled. Initial state is true so that first startup doesn't trigger
+  CallbackManager<void(const DriverStatusEvent &event)> on_driver_status_callback_;
+  EventHandler diag_handler_{};  // Event on DIAG
   // EventHandler stst_handler_{};     // standstill indicator
   // EventHandler stealth_handler_{};  // StealthChop indicator (0=SpreadCycle mode, 1=StealthChop mode)
   EventHandler otpw_handler_{};   // overtemperature prewarning flag (Selected limit has been reached)
@@ -125,9 +126,8 @@ class TMC2209Component : public TMC2209API, public Component {
   } \
   if (this->diag_pin_) { \
     LOG_PIN("  DIAG Pin: ", this->diag_pin_); \
-  } else { \
-    ESP_LOGCONFIG(TAG, "  Driver status poll interval: %dms", POLL_STATUS_INTERVAL); \
   } \
+  ESP_LOGCONFIG(TAG, "  Driver status poll interval: %dms", POLL_DRIVER_STATUS_INTERVAL); \
   LOG_PIN("  INDEX Pin: ", this->index_pin_); \
   LOG_PIN("  STEP Pin: ", this->step_pin_); \
   LOG_PIN("  DIR Pin: ", this->dir_pin_);
@@ -135,6 +135,7 @@ class TMC2209Component : public TMC2209API, public Component {
 #define LOG_TMC2209_CURRENTS(this) \
   const bool ir_ = this->read_field(INTERNAL_RSENSE_FIELD); \
   const bool vs_ = this->read_field(VSENSE_FIELD); \
+  ESP_LOGCONFIG(TAG, "  Analog Scale: VREF is %s", (this->analog_scale_ ? "connected" : "not connected")); \
   ESP_LOGCONFIG(TAG, "  Currents:"); \
   ESP_LOGCONFIG(TAG, "    IRUN: %d (%d mA)", this->read_field(IRUN_FIELD), this->read_run_current_mA()); \
   ESP_LOGCONFIG(TAG, "    IHOLD: %d (%d mA)", this->read_field(IHOLD_FIELD), this->read_hold_current_mA()); \

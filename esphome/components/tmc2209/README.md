@@ -103,21 +103,21 @@ Stepping pulses are handled by the main thread but utilize [increased execution 
 stepper:
   - platform: tmc2209
     id: driver
-    address: 0x00                 # optional, default is 0x00
-    enn_pin: REPLACEME            # optional, mostly not needed
-    diag_pin: REPLACEME           # optional, but highly recommended to set
-    index_pin: REPLACEME          # optional, unless using uart control
-    step_pin: REPLACEME           # optional, unless using step/dir control
-    dir_pin: REPLACEME            # optional, unless using step/dir control
-    rsense: REPLACEME             # optional, check resistor on board
-    vsense: False                 # optional, default is False
-    ottrim: 0                     # optional, default is OTP
-    clock_frequency: 12MHz        # optional, default is 12MHz
-    poll_status_interval: 500ms   # optional, default is 500ms and has no effect if diag_pin is set
-
     max_speed: 500 steps/s
-    acceleration: 2500 steps/s^2  # optional, default is INF (no soft acceleration)
-    deceleration: 2500 steps/s^2  # optional, default is INF (no soft deceleration)
+    acceleration: 2500 steps/s^2        # optional, default is INF (no soft acceleration)
+    deceleration: 2500 steps/s^2        # optional, default is INF (no soft deceleration)
+    address: 0x00                       # optional, default is 0x00
+    enn_pin: REPLACEME                  # optional, mostly not needed
+    diag_pin: REPLACEME                 # optional, but highly recommended to set
+    index_pin: REPLACEME                # optional, unless using uart control
+    step_pin: REPLACEME                 # optional, unless using step/dir control
+    dir_pin: REPLACEME                  # optional, unless using step/dir control
+    override_control_method: 'serial'   # optional
+    rsense: REPLACEME                   # optional, check resistor on board
+    vsense: False                       # optional, default is False
+    ottrim: 0                           # optional, default is OTP
+    clock_frequency: 12MHz              # optional, default is 12MHz
+    poll_driver_status_interval: 500ms  # optional, default is 500ms and has no effect if diag_pin is set
 ```
 * `id` (**Required**, [ID][config-id]): Specify the ID of the stepper so that you can control it.
 
@@ -133,6 +133,18 @@ stepper:
 * `step_pin` (*Optional*, [Output Pin Schema][config-pin]): Provides stepping pulses to the driver.
 
 * `dir_pin` (*Optional*, [Output Pin Schema][config-pin]): Controls direction of the motor.
+
+* `override_control_method` (*Optional*, string): Overrides the inferred control method.
+  <table>
+    <thead>
+      <tr><th><code>override_control_method</code></th><th>Pins required</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>serial</td><td><code>index_pin</code></td></tr>
+      <tr><td>pulses</td><td><code>step_pin</code> and <code>dir_pin</code></td></tr>
+      <tr><td>hybrid</td><td><code>index_pin</code>, <code>step_pin</code> and <code>dir_pin</code></td></tr>
+    </tbody>
+  </table>
 
 * `rsense` (*Optional*, resistance): Motor current sense resistors. Often varies from ~75 to 1000 mOhm. The actual value for your board can be found in the documentation. Leave empty to enable internal sensing using RDSon (170 mOhm). *Don't leave empty if your board has external sense resistors!*
 
@@ -153,88 +165,144 @@ stepper:
 
     > *Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning.*
 
+* `analog_scale` (*Optional*, boolean): Determines the VREF mode.
+
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
 
-* `poll_status_interval` (*Optional*, [Time][config-time]): Interval to poll driver for fault indicators like overtemperature, open load, short etc (***This does not set detection interval for stall***). Default is 500ms. This has no effect if `diag_pin` is configured.
+* `poll_driver_status_interval` (*Optional*, [Time][config-time]): Interval to poll driver for fault indicators like overtemperature, open load, short etc (***This does not set detection interval for stall***). Default is 500ms. This has no effect if `diag_pin` is configured.
 
 * All other from [Base Stepper Component][base-stepper-component]
 
 
 ## Automation
 
-### `on_alert`
-An alert event is fired whenever a driver warning or error is detected. For instance when the motor stalls. This event can be used for sensorless homing. Works both with control over serial (UART) and with stepping and direction pulses.
+### `on_stall`
+
+Will trigger when a stall is detected. This can be used for sensorless homing. Check the [sensorless homing example](#sensorless-homing)*.
 ```yaml
 stepper:
   - platform: tmc2209
     id: driver
     ...
-    on_alert:
+    on_stall:
+        - logger.log: "Motor stalled!"
+        - stepper.stop: driver
+```
+
+> [!IMPORTANT]
+*Incorrect motor parameters and motion jolt/jerk (quick acceleration/deceleration changes) can lead to false stall events. Play around with the parameters for your specific application.*
+
+
+### `on_driver_status`
+An event is fired whenever a driver warning or error is detected. For instance when the driver overheats.
+```yaml
+stepper:
+  - platform: tmc2209
+    id: driver
+    ...
+    on_driver_status:
       - if:
           condition:
-            lambda: return alert == tmc2209::STALLED;
+            lambda: return alert == tmc2209::OVERTEMPERATURE_PREWARNING;
           then:
-            - logger.log: "Motor stalled!"
-            - stepper.stop: driver
+            - logger.log: "Driver is about to overheat"
 ```
 > <small>All events in an [example config](#alert-events)  for easy copy/paste</small>
 
-#### Currently supported alert events
+#### Driver status codes
 
-Most alerts is signaling that the driver is in a given state. The majority of alert events also has a `CLEARED` or similar counterpart signaling that the driver is now not in the given state anymore.
+Most events is signaling that the driver is in a given state. The majority of events also has a `CLEARED` or similar counterpart signaling that the driver is now not in the given state anymore.
 
-  * `DIAG_TRIGGERED` DIAG output is triggered. Primarily driver errors.
-  * `STALLED` Motor is considered stalled when SG_RESULT crosses SGTHRS. Check below for more.
+  * `DIAG_TRIGGERED` DIAG output is triggered. Primarily driver errors, but also stall event.
   * `OVERTEMPERATURE_PREWARNING` | `OVERTEMPERATURE_PREWARNING_CLEARED` Driver is warning about increasing temperature.
   * `OVERTEMPERATURE` | `OVERTEMPERATURE_CLEARED` Driver is at critical high temperature and is shutting down.
   * `TEMPERATURE_ABOVE_120C` | `TEMPERATURE_BELOW_120C` Temperature is higher or lower than 120C.
   * `TEMPERATURE_ABOVE_143C` | `TEMPERATURE_BELOW_143C` Temperature is higher or lower than 143C.
   * `TEMPERATURE_ABOVE_150C` | `TEMPERATURE_BELOW_150C` Temperature is higher or lower than 150C.
   * `TEMPERATURE_ABOVE_157C` | `TEMPERATURE_BELOW_157C` Temperature is higher or lower than 157C.
-  * `A_OPEN_LOAD` | `A_OPEN_LOAD_CLEARED` Open load indicator phase A.
-  * `B_OPEN_LOAD` | `B_OPEN_LOAD_CLEARED` Open load indicator phase B.
-  * `A_LOW_SIDE_SHORT` | `A_LOW_SIDE_SHORT_CLEARED` Low side short indicator phase A.
-  * `B_LOW_SIDE_SHORT` | `B_LOW_SIDE_SHORT_CLEARED` Low side short indicator phase B.
-  * `A_GROUND_SHORT` | `A_GROUND_SHORT_CLEARED` Short to ground indicator phase A.
-  * `B_GROUND_SHORT` | `B_GROUND_SHORT_CLEARED` Short to ground indicator phase B.
+  * `OPEN_LOAD` | `OPEN_LOAD_CLEARED` Open load indicator.
+  * `OPEN_LOAD_A` | `OPEN_LOAD_A_CLEARED` Open load indicator phase A.
+  * `OPEN_LOAD_B` | `OPEN_LOAD_B_CLEARED` Open load indicator phase B.
+  * `LOW_SIDE_SHORT` | `LOW_SIDE_SHORT_CLEARED` Low side short indicator.
+  * `LOW_SIDE_SHORT_A` | `LOW_SIDE_SHORT_A_CLEARED` Low side short indicator phase A.
+  * `LOW_SIDE_SHORT_B` | `LOW_SIDE_SHORT_B_CLEARED` Low side short indicator phase B.
+  * `GROUND_SHORT` | `GROUND_SHORT_CLEARED` Short to ground indicator.
+  * `GROUND_SHORT_A` | `GROUND_SHORT_A_CLEARED` Short to ground indicator phase A.
+  * `GROUND_SHORT_B` | `GROUND_SHORT_B_CLEARED` Short to ground indicator phase B.
   * `CP_UNDERVOLTAGE` | `CP_UNDERVOLTAGE_CLEARED` Undervoltage on chargepump input.
-
-> [!NOTE]
-*`STALLED` is the event you would want for sensorless homing. Check the [sensorless homing example](#sensorless-homing)*.
-
-> [!IMPORTANT]
-*Stall monitoring becomes enabled when the motor has a velocity equal to half of the configured max speed. Since this component/setup is expected to be an open loop system, the velocity is estimated from max speed, acceleration and deceleration and not the actual velocity of the motor. This applies to both UART and pulse control.*
 
 
 ## Actions
 
+> [!NOTE]
+*Registers and fields on the driver persist through an ESPHome device reboot, so previously written states may remain active*
+
 ### `tmc2209.configure` Action
 Example of configuring the driver. For instance on boot.
 ```yaml
-esphome:
-  ...
-  on_boot:
-    - tmc2209.configure:
-        microsteps: 8
-        stallguard_threshold: 50
-        standstill_mode: freewheeling
-        run_current: 800mA
-        hold_current: 0mA
-        tpowerdown: 0
-        iholddelay: 0
+on_...:
+  - tmc2209.configure:
+      direction: clockwise
+      microsteps: 8
+      interpolation: true
+      enable_spreadcycle: true
 ```
 
 * `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
+* `direction` (*Optional*, string, [templatable][config-templatable]): Effectively inverse the rotational direction. Options are `clockwise` or `counterclockwise` and their abbreviations `cw` or `cww`.
+
 * `microsteps` (*Optional*, int, [templatable][config-templatable]): Microstepping. Possible values are `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`.
 
-* `inverse_direction` (*Optional*, bool, [templatable][config-templatable]): Inverse the rotational direction.
-
-* `tcool_threshold` (*Optional*, int, [templatable][config-templatable]): Value for the COOLSTEP TCOOL threshold.
-
-* `stallguard_threshold` (*Optional*, int, [templatable][config-templatable]): Value for the StallGuard4 threshold.
-
 * `interpolation` (*Optional*, bool, [templatable][config-templatable]): The actual microstep resolution (MRES) becomes extrapolated to 256 microsteps for the smoothest motor operation.
+
+* `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `False` allows use of StealthChop. Defaults to OTP.
+
+
+### `tmc2209.enable` Action
+
+This uses *TOFF* (sets to 3) if `enn_pin` is not set to enable the driver. *Driver will automatically be enabled if new target is issued.*
+```yaml
+on_...:
+  - tmc2209.enable: driver
+```
+* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+
+
+
+### `tmc2209.disable` Action
+
+This uses *TOFF* (sets to 0) if `enn_pin` is not set to disable the driver. This will also trigger `stepper.stop`.
+```yaml
+on_...:
+  - tmc2209.disable: driver
+```
+
+* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+
+
+
+### `tmc2209.currents` Action
+Example of configuring currents and standstill mode.
+```yaml
+on_...:
+  - tmc2209.currents:
+      standstill_mode: freewheeling
+      irun: 16
+      ihold: 0
+      tpowerdown: 0
+      iholddelay: 0
+      run_current: 800m
+      hold_current: 0mA
+```
+
+* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+
+* `standstill_mode` (*Optional*, [templatable][config-templatable]): Standstill mode for when movement stops. Default is OTP. Available modes are:
+  * `normal`: Actively breaks the motor.
+  * `freewheeling`: `ihold` and/or `hold_current` must be 0 for true freewheeling. Higher IHOLD enforces high currents thus harder braking effect.
+  * `short_coil_ls`: Similar to `freewheeling`, but with motor coils shorted to low side voltage.
+  * `short_coil_hs`: Similar to `freewheeling`, but with motor coils shorted to high side voltage.
 
 * `irun` (*Optional*, int, [templatable][config-templatable]): IRUN setting. Must be between 0 and 31.
 
@@ -248,45 +316,36 @@ esphome:
 
 * `hold_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IHOLD based on RSense and VSense according to [section 9][datasheet].
 
-* `standstill_mode` (*Optional*, [templatable][config-templatable]): Standstill mode for when movement stops. Default is OTP. Available modes are:
-  * `normal`: Actively breaks the motor.
-  * `freewheeling`: `ihold` and/or `hold_current` must be 0 for true freewheeling. Higher IHOLD enforces high currents thus harder braking effect.
-  * `short_coil_ls`: Similar to `freewheeling`, but with motor coils shorted to low side voltage.
-  * `short_coil_hs`: Similar to `freewheeling`, but with motor coils shorted to high side voltage.
-
-* `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `False` allows use of StealthChop. Defaults to OTP.
-
-* `stall_detection_activation_level` (*Optional*, percentage, [templatable][config-templatable]): Threshold is percentage of *max speed* for when stall detection is active. Default is 50% which should work fine. 0% might cause false triggers on acceleration or deceleration.
-
-
 > [!NOTE]
-*Registers and fields on the driver persist through an ESPHome device reboot, so previously written states may remain active*
-
 *See [section 1.7][datasheet] for visiual graphs of IRUN, TPOWERDOWN and IHOLDDELAY and IHOLD*
 
 
-### `tmc2209.enable` Action
-
-Enables driver on ENN (requires `enn_pin`) or by setting *TOFF* to 3.
-
+### `tmc2209.stallguard` Action
+Example of configuring StallGuard.
 ```yaml
 on_...:
-  - tmc2209.enable: driver
+  - tmc2209.stallguard:
+      stallguard_threshold: 50
 ```
+
 * `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
-> [!NOTE]
-*Driver will automatically be enabled if new target is issued.*
+
+* `stallguard_threshold` (*Optional*, int, [templatable][config-templatable]): Value for the StallGuard4 threshold.
 
 
-### `tmc2209.disable` Action
-
-Disables driver on ENN (requires `enn_pin`) or by setting *TOFF* to 0.
-
+### `tmc2209.coolstep` Action
+Example of configuring CoolStep.
 ```yaml
 on_...:
-  - tmc2209.disable: driver
+  - tmc2209.coolstep:
+      tcool_threshold: 400
 ```
+
 * `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+
+* `tcool_threshold` (*Optional*, int, [templatable][config-templatable]): Value for the COOLSTEP TCOOL threshold.
+
+
 
 
 

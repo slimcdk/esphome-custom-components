@@ -10,10 +10,12 @@ namespace tmc2209 {
 void TMC2209Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
 
-#if defined(USE_UART_CONTROL)
-  ESP_LOGCONFIG(TAG, "  Control: Over UART with feedback on INDEX");
-#elif defined(USE_PULSE_CONTROL)
-  ESP_LOGCONFIG(TAG, "  Control: Pulses on STEP and direction on DIR");
+#if defined(SERIAL_CONTROL)
+  ESP_LOGCONFIG(TAG, "  Control: serial");
+#elif defined(PULSES_CONTROL)
+  ESP_LOGCONFIG(TAG, "  Control: pulses");
+#elif defined(HYBRID_CONTROL)
+  ESP_LOGCONFIG(TAG, "  Control: hybrid");
 #else
   ESP_LOGE(TAG, "No control method defined!");
 #endif
@@ -42,76 +44,87 @@ void TMC2209Stepper::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209 Stepper...");
 
   this->write_field(VACTUAL_FIELD, 0);
+  this->write_field(MULTISTEP_FILT_FIELD, false);
 
-#if defined(USE_UART_CONTROL)
+#if defined(PULSES_CONTROL) or defined(HYBRID_CONTROL)
+  // this->write_field(DEDGE_FIELD, true);
+  ESP_LOGD(TAG, "PULSES_CONTROL");
+#endif
+
+#if defined(SERIAL_CONTROL) or defined(HYBRID_CONTROL)
   /* Configure INDEX for pulse feedback from the driver */
   // Check mux from figure 15.1 from datasheet rev1.09
-  this->write_field(INDEX_STEP_FIELD, true);
+  this->write_field(DEDGE_FIELD, true);
   this->write_field(INDEX_OTPW_FIELD, false);
+  this->write_field(INDEX_STEP_FIELD, true);
   this->ips_.current_position_ptr = &this->current_position;
-  this->ips_.direction_ptr = &this->current_direction_;
-  // this->index_pin_->setup();
-  this->index_pin_->attach_interrupt(IndexPulseStore::pulse_isr, &this->ips_, gpio::INTERRUPT_RISING_EDGE);
-#endif
-
-#if defined(USE_PULSE_CONTROL)
-  // TODO: Test if below is beneficial to have
-  // this->write_field(MULTISTEP_FILT_FIELD, false);
-  // this->write_field(DEDGE_FIELD, true);
-#endif
-
-#if defined(USE_HYBRID_CONTROL)
-
+  this->ips_.direction_ptr = &this->current_direction;
+  this->index_pin_->attach_interrupt(IndexPulseStore::pulse_isr, &this->ips_, gpio::INTERRUPT_ANY_EDGE);
+  ESP_LOGD(TAG, "SERIAL_CONTROL");
 #endif
 
   this->enable(true);
 
+  this->stall_handler_.set_on_rise_callback([this]() { this->on_stall_callback_.call(); });
+
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper setup done.");
+}
+
+void TMC2209Stepper::serial_control_(time_t now = micros()) {
+  this->write_field(DEDGE_FIELD, false);
+  this->write_field(VACTUAL_FIELD, ((int8_t) this->current_direction) * this->current_speed_);
+}
+
+void TMC2209Stepper::pulses_control_(time_t now = micros()) {
+  if (this->current_direction == Direction::STANDSTILL) {
+    return;
+  }
+
+  this->write_field(DEDGE_FIELD, true);
+  this->write_field(VACTUAL_FIELD, 0);
+
+  time_t dt = now - this->last_step_;
+  if (dt >= (1 / this->current_speed_) * 1e6f) {
+    this->last_step_ = now;
+    this->current_position += (int32_t) this->current_direction;
+
+    this->dir_pin_->digital_write(this->current_direction == Direction::BACKWARD);
+    this->step_pin_->digital_write(this->step_state_);
+    this->step_state_ = !this->step_state_;
+  }
 }
 
 void TMC2209Stepper::loop() {
   TMC2209Component::loop();
 
-  const bool standstill = this->read_field(STST_FIELD);
-  if (!standstill && this->current_speed_ >= (this->max_speed_ * this->sdal_)) {
-    this->stalled_handler_.check(this->is_stalled());
+  const bool standstill = this->current_direction == Direction::STANDSTILL;
+  const bool monitor_stall = this->current_speed_ >= (this->max_speed_ * this->sdal_);
+  if (!standstill && monitor_stall) {
+    this->stall_handler_.check(this->is_stalled());
   }
 
-  /** Serial control handling **/
-#if defined(USE_UART_CONTROL)
-  // Compute and set speed and direction to move the motor in
+  const time_t now = micros();
+
+  // Compute speed and direction
+  this->calculate_speed_(now);
   const int32_t to_target = (this->target_position - this->current_position);
-  this->current_direction_ = (to_target != 0 ? (stepper::Direction)(to_target / abs(to_target))
-                                             : stepper::Direction::STANDSTILL);  // yield 1, -1 or 0
+  this->current_direction = (to_target != 0 ? (Direction) (to_target / abs(to_target)) : Direction::STANDSTILL);
 
-  this->calculate_speed_(micros());
-  // -2.8 magically to synchronizes feedback with set velocity
-  const uint32_t velocity = ((int8_t) this->current_direction_) * this->current_speed_ * 2.8;
-  if (this->read_field(VACTUAL_FIELD) != velocity) {
-    this->write_field(VACTUAL_FIELD, velocity);
+#if defined(SERIAL_CONTROL)
+  this->serial_control_(now);
+#endif
+
+#if defined(PULSES_CONTROL)
+  this->pulses_control_(now);
+#endif
+
+#if defined(HYBRID_CONTROL)
+  if (this->current_speed_ == this->max_speed_) {
+    this->serial_control_(now);
+  } else {
+    this->pulses_control_(now);
   }
 #endif
-  /** */
-
-/** Pulse train handling **/
-#if defined(USE_PULSE_CONTROL)
-  // Compute and set speed and direction to move the motor in
-  this->current_direction_ = this->should_step_();
-  if (this->current_direction_ != stepper::Direction::STANDSTILL) {
-    this->dir_pin_->digital_write(this->current_direction_ == stepper::Direction::FORWARD);
-    delayMicroseconds(5);
-    this->step_pin_->digital_write(true);
-    delayMicroseconds(5);
-    this->step_pin_->digital_write(false);
-  }
-#endif
-/** */
-
-/** Pulse train and serial handling **/
-#if defined(USE_HYBRID_CONTROL)
-
-#endif
-  /** */
 }
 
 void TMC2209Stepper::set_target(int32_t steps) {
@@ -119,13 +132,13 @@ void TMC2209Stepper::set_target(int32_t steps) {
     this->enable(true);
   }
 
-  stepper::Stepper::set_target(steps);
+  Stepper::set_target(steps);
 }
 
 void TMC2209Stepper::stop() {
-  stepper::Stepper::stop();
+  Stepper::stop();
 
-#if defined(USE_UART_CONTROL)
+#if defined(SERIAL_CONTROL)
   this->write_field(VACTUAL_FIELD, 0);
 #endif
 }
