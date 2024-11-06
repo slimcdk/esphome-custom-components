@@ -82,6 +82,8 @@ bool TMC2209API::read_write_register_(uint8_t *data, size_t write_length, size_t
 }
 
 void TMC2209API::write_register(uint8_t address, int32_t value) {
+  ESP_LOGVV(TAG, "writing address %x with value 0x%x (%d)", address, value, value);
+
   std::array<uint8_t, 8> data = {0};
 
   data[0] = 0x05;
@@ -98,6 +100,7 @@ void TMC2209API::write_register(uint8_t address, int32_t value) {
 }
 
 int32_t TMC2209API::read_register(uint8_t address) {
+  ESP_LOGVV(TAG, "reading address 0x%x", address);
   uint32_t value;
 
   // Read from cache for registers with write-only access

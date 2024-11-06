@@ -11,6 +11,25 @@ namespace tmc2209 {
 void TMC2209Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209 Component...");
 
+#if defined(HAS_ENN_PIN)
+  this->enn_pin_->setup();
+#endif
+
+#if defined(HAS_INDEX_PIN)
+  this->index_pin_->setup();
+#endif
+
+#if defined(HAS_STEPDIR_PINS)
+  this->step_pin_->setup();
+  this->dir_pin_->setup();
+#endif
+
+#if defined(HAS_DIAG_PIN)
+  this->diag_pin_->setup();
+  this->diag_pin_->attach_interrupt(ISRPinTriggerStore::pin_isr, &this->diag_isr_store_, gpio::INTERRUPT_RISING_EDGE);
+  this->diag_isr_store_.pin_triggered_ptr = &this->diag_triggered_;
+#endif
+
   this->high_freq_.start();
 
   if (!this->read_field(VERSION_FIELD)) {
@@ -24,7 +43,7 @@ void TMC2209Component::setup() {
   this->write_field(SHAFT_FIELD, false);
   this->write_field(MSTEP_REG_SELECT_FIELD, true);
   this->write_field(TEST_MODE_FIELD, false);
-  this->write_register(GSTAT, 1);
+  // this->write_register(GSTAT, 0b111);
 
 #if defined(VSENSE)
   this->write_field(VSENSE_FIELD, VSENSE);
@@ -34,56 +53,25 @@ void TMC2209Component::setup() {
   this->write_field(OTTRIM_FIELD, OTTRIM);
 #endif
 
-#if defined(HAS_ENN_PIN)
-  this->enn_pin_->setup();
-#endif
-
-#if defined(HAS_INDEX_PIN)
-  this->index_pin_->setup();
-#endif
-
-#if defined(HAS_STEP_PIN)
-  this->step_pin_->setup();
-#endif
-
-#if defined(HAS_DIR_PIN)
-  this->dir_pin_->setup();
-#endif
-
-#if defined(HAS_DIAG_PIN)
-  this->diag_pin_->setup();
-  this->diag_pin_->attach_interrupt(ISRPinTriggerStore::pin_isr, &this->diag_isr_store_, gpio::INTERRUPT_RISING_EDGE);
-  this->diag_isr_store_.pin_triggered_ptr = &this->diag_triggered_;
-
   this->diag_handler_.set_callbacks(  // DIAG
       [this]() {
         // TODO: Handle Power-on reset ??
         const int32_t gstat = this->read_register(GSTAT);
-        if (gstat) {
-          ESP_LOGD(TAG, "gstat = " BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY((uint8_t) gstat));
-        }
         this->check_gstat_ = (bool) gstat;
 
-#if defined(ENABLE_STALL_DETECTION)
         // this->stall_handler_.check(gstat == 0b000);
         if (gstat == 0b000) {
           this->on_stall_callback_.call();
         }
-#endif
 
         this->reset_handler_.check((bool) this->extract_field(gstat, RESET_FIELD));
         this->drv_err_handler_.check((bool) this->extract_field(gstat, DRV_ERR_FIELD));
         this->uvcp_handler_.check((bool) this->extract_field(gstat, UV_CP_FIELD));
 
-        // this->write_register(GSTAT, 0b111);
-
         this->on_driver_status_callback_.call(DIAG_TRIGGERED);
       },  // rise
       [this]() {
         const int32_t gstat = this->read_register(GSTAT);
-        if (gstat) {
-          ESP_LOGD(TAG, "gstat = " BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY((uint8_t) gstat));
-        }
         this->check_gstat_ = (bool) gstat;
         this->reset_handler_.check((bool) this->extract_field(gstat, RESET_FIELD));
         this->drv_err_handler_.check((bool) this->extract_field(gstat, DRV_ERR_FIELD));
@@ -92,13 +80,8 @@ void TMC2209Component::setup() {
         this->on_driver_status_callback_.call(DIAG_TRIGGER_CLEARED);
       }  // fall
   );
-#endif
 
-#if defined(ENABLE_STALL_DETECTION)
   this->stall_handler_.set_on_rise_callback([this]() { this->on_stall_callback_.call(); });
-#endif
-
-  // #if defined(ENABLE_DRIVER_STATUS_POLLING)
 
   this->reset_handler_.set_callbacks(  // gstat reset
       [this]() {                       // rise
@@ -145,24 +128,12 @@ void TMC2209Component::setup() {
       });
 
   this->otpw_handler_.set_callbacks(  // drv_status overtemperature prewarning
-      [this]() {
-        this->on_driver_status_callback_.call(OVERTEMPERATURE_PREWARNING);
-        this->status_set_warning("driver is overheating soon!");
-      },
-      [this]() {
-        this->on_driver_status_callback_.call(OVERTEMPERATURE_PREWARNING_CLEARED);
-        this->status_clear_warning();
-      });
+      [this]() { this->on_driver_status_callback_.call(OVERTEMPERATURE_PREWARNING); },
+      [this]() { this->on_driver_status_callback_.call(OVERTEMPERATURE_PREWARNING_CLEARED); });
 
   this->ot_handler_.set_callbacks(  // drv_status overtemperature
-      [this]() {
-        this->on_driver_status_callback_.call(OVERTEMPERATURE);
-        this->status_set_error("driver is overheating!");
-      },
-      [this]() {
-        this->on_driver_status_callback_.call(OVERTEMPERATURE_CLEARED);
-        this->status_clear_error();
-      });
+      [this]() { this->on_driver_status_callback_.call(OVERTEMPERATURE); },
+      [this]() { this->on_driver_status_callback_.call(OVERTEMPERATURE_CLEARED); });
 
   this->t120_handler_.set_callbacks(                                                // drv_status t120 flag
       [this]() { this->on_driver_status_callback_.call(TEMPERATURE_ABOVE_120C); },  // rise
@@ -246,48 +217,32 @@ void TMC2209Component::setup() {
 
   this->set_interval(DRIVER_POLL_INTERVAL, [this] {
     const int32_t gstat = this->read_register(GSTAT);
-    if (gstat) {
-      ESP_LOGD(TAG, "gstat = " BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY((uint8_t) gstat));
-    }
-
     this->check_gstat_ = (bool) gstat;
     this->reset_handler_.check((bool) this->extract_field(gstat, RESET_FIELD));
     this->drv_err_handler_.check((bool) this->extract_field(gstat, DRV_ERR_FIELD));
     this->uvcp_handler_.check((bool) this->extract_field(gstat, UV_CP_FIELD));
   });
-  // #endif
 
   ESP_LOGCONFIG(TAG, "TMC2209 Component setup done.");
 }
 
 void TMC2209Component::loop() {
 #if defined(HAS_DIAG_PIN)
-  /* Use DIAG pin for driver status */
   this->diag_handler_.check(this->diag_triggered_);
   if (this->diag_triggered_) {
     this->diag_triggered_ = this->diag_pin_->digital_read();  // don't clear flag if DIAG is still up
   }
+#else
+  this->diag_handler_.check(this->read_field(DIAG_FIELD) == 1);
+#endif
 
   if (this->check_gstat_) {
     const int32_t gstat = this->read_register(GSTAT);
-    if (gstat) {
-      ESP_LOGD(TAG, "gstat = " BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY((uint8_t) gstat));
-    }
     this->check_gstat_ = (bool) gstat;
     this->reset_handler_.check((bool) this->extract_field(gstat, RESET_FIELD));
     this->drv_err_handler_.check((bool) this->extract_field(gstat, DRV_ERR_FIELD));
     this->uvcp_handler_.check((bool) this->extract_field(gstat, UV_CP_FIELD));
   }
-
-#elif defined(ENABLE_STALL_DETECTION)
-  //   /* Poll driver for stalled status if DIAG is unconfigured */
-  this->is_stalled_buffer_ = (this->is_stalled_buffer_ << 1) | (uint8_t) this->is_stalled();
-  const bool stalled = (this->is_stalled_buffer_ == 0b00000001);
-  if (stalled) {
-    ESP_LOGD(TAG, BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(this->is_stalled_buffer_));
-  }
-  this->stall_handler_.check(stalled);
-#endif
 }
 
 bool TMC2209Component::is_stalled() {

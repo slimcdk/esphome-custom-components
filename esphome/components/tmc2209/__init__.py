@@ -164,11 +164,8 @@ async def register_tmc2209_base(var, config):
         cg.add(var.set_index_pin(await cg.gpio_pin_expression(index_pin)))
 
     if step_pin is not None:
-        cg.add_define("HAS_STEP_PIN")
+        cg.add_define("HAS_STEPDIR_PINS")
         cg.add(var.set_step_pin(await cg.gpio_pin_expression(step_pin)))
-
-    if dir_pin is not None:
-        cg.add_define("HAS_DIR_PIN")
         cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
 
     if (vsense := config.get(CONF_VSENSE, None)) is not None:

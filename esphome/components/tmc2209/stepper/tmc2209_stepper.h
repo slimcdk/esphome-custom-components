@@ -34,12 +34,18 @@ class TMC2209Stepper : public TMC2209Component, public Stepper {
   void stop() override;
   void enable(bool enable) override;
   void set_target(int32_t steps) override;
+  bool is_stalled() override;
 
  protected:
   HighFrequencyLoopRequester high_freq_;
-  IndexPulseStore ips_{};  // index pulse store
 
+#if defined(SERIAL_CONTROL)
+  IndexPulseStore ips_{};  // index pulse store
+#endif
+
+#if defined(PULSES_CONTROL)
   bool step_state_{false};
+#endif
 };
 
 }  // namespace tmc2209_stepper

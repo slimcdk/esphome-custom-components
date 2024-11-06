@@ -43,7 +43,7 @@ class TMC2209Component : public TMC2209API, public Component {
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
   float get_motor_load();
-  bool is_stalled();
+  virtual bool is_stalled();
   void set_tpowerdown_ms(uint32_t delay_in_ms);
   uint32_t get_tpowerdown_ms();
   std::tuple<uint8_t, uint8_t> unpack_ottrim_values(uint8_t ottrim);
@@ -82,7 +82,6 @@ class TMC2209Component : public TMC2209API, public Component {
   GPIOPin *dir_pin_{nullptr};
 
   bool is_enabled_;
-  uint8_t is_stalled_buffer_ = 0b00000000;
   bool check_gstat_ = false;
   bool check_drv_status = false;
 
