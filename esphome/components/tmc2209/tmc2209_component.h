@@ -37,6 +37,8 @@ class TMC2209Component : public TMC2209API, public Component {
   void set_step_pin(GPIOPin *pin) { this->step_pin_ = pin; };
   void set_dir_pin(GPIOPin *pin) { this->dir_pin_ = pin; };
 
+  virtual void enable(bool enable);
+
   float read_vsense();
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
@@ -59,6 +61,10 @@ class TMC2209Component : public TMC2209API, public Component {
   float read_run_current() { return FROM_MILLI(this->read_run_current_mA()); };
   float read_hold_current() { return FROM_MILLI(this->read_hold_current_mA()); };
 
+  // ot, otpw, t157, t150, t143, t120, ola, olb, s2vsa, s2vsb, s2ga, s2gb
+  std::tuple<bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool> read_drv_status();
+
+  void add_on_stall_callback(std::function<void()> &&callback) { this->on_stall_callback_.add(std::move(callback)); }
   void add_on_driver_status_callback(std::function<void(DriverStatusEvent)> &&callback) {
     this->on_driver_status_callback_.add(std::move(callback));
   }
@@ -76,26 +82,30 @@ class TMC2209Component : public TMC2209API, public Component {
   GPIOPin *dir_pin_{nullptr};
 
   bool is_enabled_;
+  uint8_t is_stalled_buffer_ = 0b00000000;
+  bool check_gstat_ = false;
+  bool check_drv_status = false;
 
-  void poll_driver_status_();
-
+  CallbackManager<void()> on_stall_callback_;
   CallbackManager<void(const DriverStatusEvent &event)> on_driver_status_callback_;
-  EventHandler diag_handler_{};  // Event on DIAG
-  // EventHandler stst_handler_{};     // standstill indicator
-  // EventHandler stealth_handler_{};  // StealthChop indicator (0=SpreadCycle mode, 1=StealthChop mode)
-  EventHandler otpw_handler_{};   // overtemperature prewarning flag (Selected limit has been reached)
-  EventHandler ot_handler_{};     // overtemperature flag (Selected limit has been reached)
-  EventHandler t120_handler_{};   // 120°C comparator (Temperature threshold is exceeded)
-  EventHandler t143_handler_{};   // 143°C comparator (Temperature threshold is exceeded)
-  EventHandler t150_handler_{};   // 150°C comparator (Temperature threshold is exceeded)
-  EventHandler t157_handler_{};   // 157°C comparator (Temperature threshold is exceeded)
-  EventHandler olb_handler_{};    // open load indicator phase B
-  EventHandler ola_handler_{};    // open load indicator phase B
-  EventHandler s2vsb_handler_{};  // low side short indicator phase B
-  EventHandler s2vsa_handler_{};  // low side short indicator phase A
-  EventHandler s2gb_handler_{};   // short to ground indicator phase B
-  EventHandler s2ga_handler_{};   // short to ground indicator phase A
-  EventHandler uvcp_handler_{};   // Charge pump undervoltage
+
+  EventHandler stall_handler_;
+  EventHandler reset_handler_;
+  EventHandler drv_err_handler_;
+  EventHandler diag_handler_;   // Event on DIAG
+  EventHandler otpw_handler_;   // overtemperature prewarning flag (Selected limit has been reached)
+  EventHandler ot_handler_;     // overtemperature flag (Selected limit has been reached)
+  EventHandler t120_handler_;   // 120°C comparator (Temperature threshold is exceeded)
+  EventHandler t143_handler_;   // 143°C comparator (Temperature threshold is exceeded)
+  EventHandler t150_handler_;   // 150°C comparator (Temperature threshold is exceeded)
+  EventHandler t157_handler_;   // 157°C comparator (Temperature threshold is exceeded)
+  EventHandler olb_handler_;    // open load indicator phase B
+  EventHandler ola_handler_;    // open load indicator phase B
+  EventHandler s2vsb_handler_;  // low side short indicator phase B
+  EventHandler s2vsa_handler_;  // low side short indicator phase A
+  EventHandler s2gb_handler_;   // short to ground indicator phase B
+  EventHandler s2ga_handler_;   // short to ground indicator phase A
+  EventHandler uvcp_handler_;   // Charge pump undervoltage
 
   ISRPinTriggerStore diag_isr_store_{};
   ISRPinTriggerStore index_isr_store_{};
@@ -127,7 +137,7 @@ class TMC2209Component : public TMC2209API, public Component {
   if (this->diag_pin_) { \
     LOG_PIN("  DIAG Pin: ", this->diag_pin_); \
   } \
-  ESP_LOGCONFIG(TAG, "  Driver status poll interval: %dms", POLL_DRIVER_STATUS_INTERVAL); \
+  ESP_LOGCONFIG(TAG, "  Driver status poll interval: %dms", DRIVER_POLL_INTERVAL); \
   LOG_PIN("  INDEX Pin: ", this->index_pin_); \
   LOG_PIN("  STEP Pin: ", this->step_pin_); \
   LOG_PIN("  DIR Pin: ", this->dir_pin_);
@@ -167,7 +177,7 @@ class TMC2209Component : public TMC2209API, public Component {
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "CHOPCONF:", this->read_register(CHOPCONF)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "DRV_STATUS:", this->read_register(DRV_STATUS)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWMCONF:", this->read_register(PWMCONF)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWMSCALE:", this->read_register(PWMSCALE)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWM_SCALE:", this->read_register(PWM_SCALE)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWM_AUTO:", this->read_register(PWM_AUTO));
 
 #define LOG_TMC2209(this) \

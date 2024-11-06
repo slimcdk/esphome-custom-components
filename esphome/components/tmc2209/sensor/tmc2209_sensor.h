@@ -6,7 +6,9 @@
 #include "esphome/core/helpers.h"
 
 namespace esphome {
-namespace tmc2209 {
+namespace tmc2209_sensor {
+
+using namespace tmc2209;
 
 class StallGuardResultSensor : public PollingComponent, public sensor::Sensor, public Parented<TMC2209Component> {
   void dump_config();
@@ -23,5 +25,25 @@ class ActualCurrentSensor : public PollingComponent, public sensor::Sensor, publ
   void update() override;
 };
 
-}  // namespace tmc2209
+class PWMScaleSumSensor : public PollingComponent, public sensor::Sensor, public Parented<TMC2209Component> {
+  void dump_config();
+  void update() override;
+};
+
+class PWMScaleAutoSensor : public PollingComponent, public sensor::Sensor, public Parented<TMC2209Component> {
+  void dump_config();
+  void update() override;
+};
+
+class PWMOFSAutoSensor : public PollingComponent, public sensor::Sensor, public Parented<TMC2209Component> {
+  void dump_config();
+  void update() override;
+};
+
+class PWMGradAutoSensor : public PollingComponent, public sensor::Sensor, public Parented<TMC2209Component> {
+  void dump_config();
+  void update() override;
+};
+
+}  // namespace tmc2209_sensor
 }  // namespace esphome

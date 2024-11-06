@@ -56,7 +56,7 @@ struct esphome::tmc2209::RegisterField {
 #define CHOPCONF 0x6C
 #define DRV_STATUS 0x6F
 #define PWMCONF 0x70
-#define PWMSCALE 0x71
+#define PWM_SCALE 0x71
 #define PWM_AUTO 0x72
 
 // Register fields in TMC2209

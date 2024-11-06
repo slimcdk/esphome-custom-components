@@ -13,6 +13,8 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
   TEMPLATABLE_VALUE(int, microsteps)
   TEMPLATABLE_VALUE(bool, microstep_interpolation)
   TEMPLATABLE_VALUE(bool, enable_spreadcycle)
+  TEMPLATABLE_VALUE(int, tcool_threshold)
+  TEMPLATABLE_VALUE(int, tpwm_threshold)
 
   void play(Ts... x) override {
     if (this->inverse_direction_.has_value())
@@ -26,6 +28,22 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
 
     if (this->enable_spreadcycle_.has_value())
       this->parent_->write_field(EN_SPREADCYCLE_FIELD, this->enable_spreadcycle_.value(x...));
+
+    if (this->tcool_threshold_.has_value())
+      this->parent_->write_register(TCOOLTHRS, this->tcool_threshold_.value(x...));
+
+    if (this->tpwm_threshold_.has_value())
+      this->parent_->write_field(TPWMTHRS_FIELD, this->tpwm_threshold_.value(x...));
+  }
+};
+
+template<typename... Ts> class ActivationAction : public Action<Ts...>, public Parented<TMC2209Component> {
+  TEMPLATABLE_VALUE(bool, activate)
+
+  void play(Ts... x) override {
+    if (this->activate_.has_value()) {
+      this->parent_->enable(this->activate_.value(x...));
+    }
   }
 };
 
@@ -67,13 +85,91 @@ template<typename... Ts> class CurrentsAction : public Action<Ts...>, public Par
   }
 };
 
-template<typename... Ts> class CoolstepAction : public Action<Ts...>, public Parented<TMC2209Component> {
+template<typename... Ts> class StallGuardAction : public Action<Ts...>, public Parented<TMC2209Component> {
  public:
-  TEMPLATABLE_VALUE(int, tcool_threshold)
+  TEMPLATABLE_VALUE(int32_t, stallguard_threshold)
 
   void play(Ts... x) override {
-    if (this->tcool_threshold_.has_value())
-      this->parent_->write_register(TCOOLTHRS, this->tcool_threshold_.value(x...));
+    if (this->stallguard_threshold_.has_value())
+      this->parent_->write_register(SGTHRS, this->stallguard_threshold_.value(x...));
+  }
+};
+
+template<typename... Ts> class CoolConfAction : public Action<Ts...>, public Parented<TMC2209Component> {
+ public:
+  TEMPLATABLE_VALUE(uint8_t, seimin)
+  TEMPLATABLE_VALUE(uint8_t, semax)
+  TEMPLATABLE_VALUE(uint8_t, semin)
+  TEMPLATABLE_VALUE(uint8_t, sedn)
+  TEMPLATABLE_VALUE(uint8_t, seup)
+
+  void play(Ts... x) override {
+    if (this->seimin_.has_value())
+      this->parent_->write_field(SEIMIN_FIELD, this->seimin_.value(x...));
+
+    if (this->semax_.has_value())
+      this->parent_->write_field(SEMAX_FIELD, this->semax_.value(x...));
+
+    if (this->semin_.has_value())
+      this->parent_->write_field(SEMIN_FIELD, this->semin_.value(x...));
+
+    if (this->sedn_.has_value())
+      this->parent_->write_field(SEDN_FIELD, this->sedn_.value(x...));
+
+    if (this->seup_.has_value())
+      this->parent_->write_field(SEUP_FIELD, this->seup_.value(x...));
+  }
+};
+
+template<typename... Ts> class ChopConfAction : public Action<Ts...>, public Parented<TMC2209Component> {
+ public:
+  TEMPLATABLE_VALUE(uint8_t, tbl)
+  TEMPLATABLE_VALUE(uint8_t, hend)
+  TEMPLATABLE_VALUE(uint8_t, hstrt)
+
+  void play(Ts... x) override {
+    if (this->tbl_.has_value())
+      this->parent_->write_field(TBL_FIELD, this->tbl_.value(x...));
+
+    if (this->hend_.has_value())
+      this->parent_->write_field(HEND_FIELD, this->hend_.value(x...));
+
+    if (this->hstrt_.has_value())
+      this->parent_->write_field(HSTRT_FIELD, this->hstrt_.value(x...));
+  }
+};
+
+template<typename... Ts> class PWMConfAction : public Action<Ts...>, public Parented<TMC2209Component> {
+ public:
+  TEMPLATABLE_VALUE(uint8_t, pwmlim)
+  TEMPLATABLE_VALUE(uint8_t, pwmreg)
+  TEMPLATABLE_VALUE(uint8_t, pwmautograd)
+  TEMPLATABLE_VALUE(uint8_t, pwmautoscale)
+  TEMPLATABLE_VALUE(uint8_t, pwmfreq)
+  TEMPLATABLE_VALUE(uint8_t, pwmgrad)
+  TEMPLATABLE_VALUE(uint8_t, pwmofs)
+
+  void play(Ts... x) override {
+    if (this->pwmlim_.has_value())
+      this->parent_->write_field(PWM_LIM_FIELD, this->pwmlim_.value(x...));
+
+    if (this->pwmreg_.has_value())
+      this->parent_->write_field(PWM_REG_FIELD, this->pwmreg_.value(x...));
+
+    if (this->pwmautograd_.has_value())
+      this->parent_->write_field(PWM_AUTOGRAD_FIELD, this->pwmautograd_.value(x...));
+
+    if (this->pwmautoscale_.has_value())
+      this->parent_->write_field(PWM_AUTOSCALE_FIELD, this->pwmautoscale_.value(x...));
+
+    if (this->pwmfreq_.has_value())
+      this->parent_->write_field(PWM_FREQ_FIELD, this->pwmfreq_.value(x...));
+
+    if (this->pwmgrad_.has_value())
+      this->parent_->write_field(PWM_GRAD_FIELD, this->pwmgrad_.value(x...));
+
+    if (this->pwmofs_.has_value())
+      this->parent_->write_field(PWM_OFS_FIELD, this->pwmofs_.value(x...));
   }
 };
 
@@ -81,6 +177,13 @@ class OnDriverStatusTrigger : public Trigger<DriverStatusEvent> {
  public:
   explicit OnDriverStatusTrigger(TMC2209Component *parent) {
     parent->add_on_driver_status_callback([this](DriverStatusEvent code) { this->trigger(code); });
+  }
+};
+
+class OnStallTrigger : public Trigger<> {
+ public:
+  explicit OnStallTrigger(TMC2209Component *parent) {
+    parent->add_on_stall_callback([this]() { this->trigger(); });
   }
 };
 
