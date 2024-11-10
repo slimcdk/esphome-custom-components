@@ -207,7 +207,7 @@ stepper:
           then:
             - logger.log: "Driver is about to overheat"
 ```
-> <small>All events in an [example config](#alert-events)  for easy copy/paste</small>
+> <small>All events in an [example config](#status-events)  for easy copy/paste</small>
 
 #### Driver status codes
 
@@ -799,19 +799,22 @@ Long wires connected to ENN might pick up interference causing the driver to mak
 ## TODOs
 * Reconfigure driver if driver was power cycled.
 * OTTRIM not setting or reading properly.
-* Generate step pulses outside of main loop.
+* Implement hardware timer for step pulse generation.
 * Use index for warning if stepper is controlled with step/dir.
 
 ## MISC
 
-### Alert events
-All alert events configured for easy copy-pasta.
+### Status events
+All status events configured for easy copy-pasta.
 ```yaml
 stepper:
   - platform: tmc2209
     id: driver
     ...
-    on_alert:
+    on_status:
+      - logger.log:
+          format: "Driver is reporting an update! (code %d)"
+          args: ["code"]
       - if:
           condition:
             lambda: return code == tmc2209::DIAG_TRIGGERED;
