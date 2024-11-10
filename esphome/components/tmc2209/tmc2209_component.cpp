@@ -11,6 +11,8 @@ namespace tmc2209 {
 void TMC2209Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209 Component...");
 
+  this->high_freq_.start();
+
 #if defined(HAS_ENN_PIN)
   this->enn_pin_->setup();
 #endif
@@ -29,8 +31,6 @@ void TMC2209Component::setup() {
   this->diag_pin_->attach_interrupt(ISRPinTriggerStore::pin_isr, &this->diag_isr_store_, gpio::INTERRUPT_RISING_EDGE);
   this->diag_isr_store_.pin_triggered_ptr = &this->diag_triggered_;
 #endif
-
-  this->high_freq_.start();
 
   if (!this->read_field(VERSION_FIELD)) {
     this->status_set_error("Failed to communicate with driver");
@@ -55,6 +55,7 @@ void TMC2209Component::setup() {
 
   this->diag_handler_.set_callbacks(  // DIAG
       [this]() {
+        ESP_LOGV(TAG, "Executing DIAG rise event");
         // TODO: Handle Power-on reset ??
         const int32_t gstat = this->read_register(GSTAT);
         this->check_gstat_ = (bool) gstat;
@@ -71,6 +72,7 @@ void TMC2209Component::setup() {
         this->on_driver_status_callback_.call(DIAG_TRIGGERED);
       },  // rise
       [this]() {
+        ESP_LOGV(TAG, "Executing DIAG fall event");
         const int32_t gstat = this->read_register(GSTAT);
         this->check_gstat_ = (bool) gstat;
         this->reset_handler_.check((bool) this->extract_field(gstat, RESET_FIELD));
@@ -113,7 +115,7 @@ void TMC2209Component::setup() {
         this->on_driver_status_callback_.call(DRIVER_ERROR);
       },
       [this]() {  // fall
-        this->write_field(DRV_ERR_FIELD, 1);
+        ESP_LOGV(TAG, "Executing driver err fall event");
         this->on_driver_status_callback_.call(DRIVER_ERROR_CLEARED);
       });
 
@@ -123,7 +125,7 @@ void TMC2209Component::setup() {
         this->on_driver_status_callback_.call(CP_UNDERVOLTAGE);
       },
       [this]() {  // fall
-        this->write_field(UV_CP_FIELD, 1);
+        ESP_LOGV(TAG, "Executing GSTAT UCVP fall event");
         this->on_driver_status_callback_.call(CP_UNDERVOLTAGE_CLEARED);
       });
 
@@ -215,34 +217,24 @@ void TMC2209Component::setup() {
         this->on_driver_status_callback_.call(GROUND_SHORT_B_CLEARED);
       });
 
-  this->set_interval(DRIVER_POLL_INTERVAL, [this] {
-    const int32_t gstat = this->read_register(GSTAT);
-    this->check_gstat_ = (bool) gstat;
-    this->reset_handler_.check((bool) this->extract_field(gstat, RESET_FIELD));
-    this->drv_err_handler_.check((bool) this->extract_field(gstat, DRV_ERR_FIELD));
-    this->uvcp_handler_.check((bool) this->extract_field(gstat, UV_CP_FIELD));
-  });
-
   ESP_LOGCONFIG(TAG, "TMC2209 Component setup done.");
 }
 
 void TMC2209Component::loop() {
+#if defined(ENABLE_DRIVER_HEALTH_CHECK) or defined(ENABLE_STALL_DETECTION)
+
 #if defined(HAS_DIAG_PIN)
   this->diag_handler_.check(this->diag_triggered_);
   if (this->diag_triggered_) {
     this->diag_triggered_ = this->diag_pin_->digital_read();  // don't clear flag if DIAG is still up
   }
 #else
-  this->diag_handler_.check(this->read_field(DIAG_FIELD) == 1);
+  const int32_t ioin = this->read_register(IOIN);
+  this->diag_handler_.check((bool) this->extract_field(ioin, DIAG_FIELD));
+  // TODO: maybe do something with INDEX for warnings
 #endif
 
-  if (this->check_gstat_) {
-    const int32_t gstat = this->read_register(GSTAT);
-    this->check_gstat_ = (bool) gstat;
-    this->reset_handler_.check((bool) this->extract_field(gstat, RESET_FIELD));
-    this->drv_err_handler_.check((bool) this->extract_field(gstat, DRV_ERR_FIELD));
-    this->uvcp_handler_.check((bool) this->extract_field(gstat, UV_CP_FIELD));
-  }
+#endif
 }
 
 bool TMC2209Component::is_stalled() {

@@ -12,7 +12,6 @@ from .. import (
     CONF_INDEX_PIN,
     CONF_DIR_PIN,
     CONF_STEP_PIN,
-    tmc2209_ns,
     TMC2209Component,
     TMC2209_BASE_CONFIG_SCHEMA,
     TMC2209_FINAL_VALIDATE_SCHEMA,

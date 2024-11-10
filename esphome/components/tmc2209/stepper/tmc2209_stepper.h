@@ -40,11 +40,13 @@ class TMC2209Stepper : public TMC2209Component, public Stepper {
   HighFrequencyLoopRequester high_freq_;
 
 #if defined(SERIAL_CONTROL)
-  IndexPulseStore ips_{};  // index pulse store
+  IndexPulseStore ips_;  // index pulse store
+  int32_t vactual_ = 0;
 #endif
 
 #if defined(PULSES_CONTROL)
-  bool step_state_{false};
+  bool step_state_ = false;
+  Direction direction_;
 #endif
 };
 

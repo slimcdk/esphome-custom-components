@@ -118,9 +118,6 @@ TMC2209_BASE_CONFIG_SCHEMA = (
             cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.All(
                 cv.positive_int, cv.frequency
             ),
-            cv.Optional(
-                CONF_DRIVER_POLL_INTERVAL, default="500ms"
-            ): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_ON_DRIVER_STATUS): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
@@ -174,12 +171,10 @@ async def register_tmc2209_base(var, config):
     if (ottrim := config.get(CONF_OTTRIM, None)) is not None:
         cg.add_define("OTTRIM", ottrim)
 
-    cg.add_define("DRIVER_POLL_INTERVAL", config[CONF_DRIVER_POLL_INTERVAL])
-
     for conf in config.get(CONF_ON_DRIVER_STATUS, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(DriverStatusEvent, "code")], conf)
-        cg.add_define("ENABLE_DRIVER_STATUS_POLLING")
+        cg.add_define("ENABLE_DRIVER_HEALTH_CHECK")
 
     for conf in config.get(CONF_ON_STALL, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
@@ -440,8 +435,6 @@ def tmc2209_chopconf_to_code(config, action_id, template_arg, args):
             cv.Optional(CONF_PWM_REG): cv.int_range(
                 min=0, max=2**4, max_included=False
             ),
-            cv.Optional(CONF_PWM_AUTOGRAD): cv.boolean,
-            cv.Optional(CONF_PWM_AUTOSCALE): cv.boolean,
             cv.Optional(CONF_PWM_FREQ): cv.int_range(
                 min=0, max=2**2, max_included=False
             ),
@@ -451,6 +444,8 @@ def tmc2209_chopconf_to_code(config, action_id, template_arg, args):
             cv.Optional(CONF_PWM_OFS): cv.int_range(
                 min=0, max=2**8, max_included=False
             ),
+            cv.Optional(CONF_PWM_AUTOGRAD): cv.boolean,
+            cv.Optional(CONF_PWM_AUTOSCALE): cv.boolean,
         }
     ),
 )
@@ -466,14 +461,6 @@ def tmc2209_pwmconf_to_code(config, action_id, template_arg, args):
         template_ = yield cg.templatable(pwmreg, args, int)
         cg.add(var.set_pwmreg(template_))
 
-    if (pwmautograd := config.get(CONF_PWM_AUTOGRAD, None)) is not None:
-        template_ = yield cg.templatable(pwmautograd, args, bool)
-        cg.add(var.set_pwmautograd(template_))
-
-    if (pwmautoscale := config.get(CONF_PWM_AUTOSCALE, None)) is not None:
-        template_ = yield cg.templatable(pwmautoscale, args, bool)
-        cg.add(var.set_pwmautoscale(template_))
-
     if (pwmfreq := config.get(CONF_PWM_FREQ, None)) is not None:
         template_ = yield cg.templatable(pwmfreq, args, int)
         cg.add(var.set_pwmfreq(template_))
@@ -485,6 +472,14 @@ def tmc2209_pwmconf_to_code(config, action_id, template_arg, args):
     if (pwmofs := config.get(CONF_PWM_OFS, None)) is not None:
         template_ = yield cg.templatable(pwmofs, args, int)
         cg.add(var.set_pwmofs(template_))
+
+    if (pwmautograd := config.get(CONF_PWM_AUTOGRAD, None)) is not None:
+        template_ = yield cg.templatable(pwmautograd, args, bool)
+        cg.add(var.set_pwmautograd(template_))
+
+    if (pwmautoscale := config.get(CONF_PWM_AUTOSCALE, None)) is not None:
+        template_ = yield cg.templatable(pwmautoscale, args, bool)
+        cg.add(var.set_pwmautoscale(template_))
 
     yield var
 

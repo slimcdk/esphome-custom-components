@@ -24,6 +24,7 @@ void TMC2209Stepper::dump_config() {
 
   ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps());
   ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz", this->clk_frequency_);
+  ESP_LOGCONFIG(TAG, "  Velocity compensation: %f", this->vactual_factor_);
   const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(OTTRIM_FIELD));
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot);
 
@@ -34,8 +35,10 @@ void TMC2209Stepper::dump_config() {
 }
 
 void TMC2209Stepper::setup() {
-  TMC2209Component::setup();
   ESP_LOGCONFIG(TAG, "Setting up TMC2209 Stepper...");
+  TMC2209Component::setup();
+
+  this->high_freq_.start();
 
   this->write_field(VACTUAL_FIELD, 0);
 
@@ -69,19 +72,27 @@ void TMC2209Stepper::loop() {
   const int32_t to_target = (this->target_position - this->current_position);
   this->current_direction = (to_target != 0 ? (Direction) (to_target / abs(to_target)) : Direction::STANDSTILL);
 
+  int32_t vactual_ = this->speed_to_vactual(this->current_speed_);
+
 #if defined(SERIAL_CONTROL)
-  const int32_t velocity = ((int8_t) this->current_direction) * this->current_speed_;
-  this->write_field(VACTUAL_FIELD, velocity);
+  vactual_ *= this->current_direction;
+  if (this->vactual_ != vactual_) {
+    this->write_field(VACTUAL_FIELD, vactual_);
+    this->vactual_ = vactual_;
+  }
 #endif
 
 #if defined(PULSES_CONTROL)
   time_t dt = now - this->last_step_;
-  if (dt >= (1 / this->current_speed_) * 1e6f) {
-    this->last_step_ = now;
-    this->current_position += (int32_t) this->current_direction;
-    this->dir_pin_->digital_write(this->current_direction == Direction::BACKWARD);
+  if (dt >= (1 / (float) vactual_) * 1e6f) {
+    if (this->direction_ != this->current_direction) {
+      this->dir_pin_->digital_write(this->current_direction == Direction::BACKWARD);
+      this->direction_ = this->current_direction;
+    }
     this->step_pin_->digital_write(this->step_state_);
     this->step_state_ = !this->step_state_;
+    this->current_position += (int32_t) this->current_direction;
+    this->last_step_ = now;
   }
 #endif
 }

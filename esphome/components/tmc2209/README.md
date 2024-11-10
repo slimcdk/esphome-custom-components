@@ -1,7 +1,21 @@
+> [!IMPORTANT]
+**Breaking changes!** *Ignore this part if you don't have a setup yet or want to use the new improved version.*
+
+Append `#0035ce5` (commit hash) to `source` if you wish to continue with the previous version. The rest can remain as is.
+```yaml
+external_components:
+  - source: github://slimcdk/esphome-custom-components#0035ce5 # <- include '#0035ce5'
+    components: ...
+```
+
+Breaking changes are mainly speed changes new splitted structure for configuration options.
+
+
+
+
 # TMC2209
 
 ESPHome component to interact with a TMC2209 stepper motor driver over UART and regular step/dir.
-
 
 <p align="center">
   <img src="./docs/trinamic-bob-module.jpg" alt="Trinamic BOB" width="19%" />
@@ -237,15 +251,18 @@ Most events is signaling that the driver is in a given state. The majority of ev
 > [!NOTE]
 *Registers and fields on the driver persist through an ESPHome device reboot, so previously written states may remain active*
 
+
 ### `tmc2209.configure` Action
 Example of configuring the driver. For instance on boot.
 ```yaml
 on_...:
   - tmc2209.configure:
-      direction: clockwise
-      microsteps: 8
-      interpolation: true
-      enable_spreadcycle: true
+      direction: REPLACEME
+      microsteps: REPLACME
+      interpolation: REPLACEME
+      enable_spreadcycle: REPLACEME
+      tcool_threshold: REPLACEME
+      tpwm_threshold: REPLACEME
 ```
 
 * `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
@@ -258,28 +275,9 @@ on_...:
 
 * `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `False` allows use of StealthChop. Defaults to OTP.
 
+* `tcool_threshold` (*Optional*, int): Sets **TCOOLTHRS**
 
-### `tmc2209.enable` Action
-
-This uses *TOFF* (sets to 3) if `enn_pin` is not set to enable the driver. *Driver will automatically be enabled if new target is issued.*
-```yaml
-on_...:
-  - tmc2209.enable: driver
-```
-* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
-
-
-
-### `tmc2209.disable` Action
-
-This uses *TOFF* (sets to 0) if `enn_pin` is not set to disable the driver. This will also trigger `stepper.stop`.
-```yaml
-on_...:
-  - tmc2209.disable: driver
-```
-
-* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
-
+* `tpwm_threshold` (*Optional*, int): Sets **TPWMTHRS**
 
 
 ### `tmc2209.currents` Action
@@ -320,34 +318,114 @@ on_...:
 *See [section 1.7][datasheet] for visiual graphs of IRUN, TPOWERDOWN and IHOLDDELAY and IHOLD*
 
 
+
 ### `tmc2209.stallguard` Action
 Example of configuring StallGuard.
 ```yaml
 on_...:
   - tmc2209.stallguard:
-      stallguard_threshold: 50
+      threshold: 50
 ```
 
 * `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
-* `stallguard_threshold` (*Optional*, int, [templatable][config-templatable]): Value for the StallGuard4 threshold.
+* `threshold` (*Optional*, int, [templatable][config-templatable]): Value for the StallGuard4 threshold.
 
 
-### `tmc2209.coolstep` Action
-Example of configuring CoolStep.
+
+### `tmc2209.coolconf` Action
 ```yaml
 on_...:
-  - tmc2209.coolstep:
-      tcool_threshold: 400
+  - tmc2209.coolconf:
+      seimin: REPLACEME
+      semax: REPLACEME
+      semin: REPLACEME
+      sedn: REPLACEME
+      seup: REPLACEME
 ```
 
 * `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
-* `tcool_threshold` (*Optional*, int, [templatable][config-templatable]): Value for the COOLSTEP TCOOL threshold.
+* `seimin` (*Optional*, int): Sets **SEIMIN**
+
+* `semax` (*Optional*, int): Sets **SEMAX**
+
+* `semin` (*Optional*, int): Sets **SEMIN**
+
+* `sedn` (*Optional*, int): Sets **SEDN**
+
+* `seup` (*Optional*, int): Sets **SEUP**
 
 
 
 
+### `tmc2209.chopconf` Action
+```yaml
+on_...:
+  - tmc2209.chopconf:
+      tbl: REPLACEME
+      hend: REPLACEME
+      hstrt: REPLACEME
+```
+
+* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+
+* `tbl` (*Optional*, int): Sets CHOPCONF **TBL**
+
+* `hend` (*Optional*, int): Sets CHOPCONF **HEND**
+
+* `hstrt` (*Optional*, int): Sets CHOPCONF **HSTRT**
+
+
+
+### `tmc2209.pwmconf` Action
+```yaml
+on_...:
+  - tmc2209.pwmconf:
+      lim: REPLACEME
+      reg: REPLACEME
+      freq: REPLACEME
+      ofs: REPLACEME
+      autograd: REPLACEME
+      autoscale: REPLACEME
+```
+
+* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+
+* `lim` (*Optional*, int): Sets PWMCONF **PWM_LIM**
+
+* `reg` (*Optional*, int): Sets PWMCONF **PWM_REG**
+
+* `freq` (*Optional*, int): Sets PWMCONF **PWM_FREQ**
+
+* `ofs` (*Optional*, int): Sets PWMCONF **PWM_OFS**
+
+* `autograd` (*Optional*, boolean): Sets PWMCONF **PWM_AUTOGRAD**
+
+* `autoscale` (*Optional*, boolean): Sets PWMCONF **PWM_AUTOSCALE**
+
+
+
+### `tmc2209.enable` Action
+
+This uses *TOFF* (sets to 3) if `enn_pin` is not set to enable the driver. *Driver will automatically be enabled if new target is issued.*
+```yaml
+on_...:
+  - tmc2209.enable: driver
+```
+* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+
+
+
+### `tmc2209.disable` Action
+
+This uses *TOFF* (sets to 0) if `enn_pin` is not set to disable the driver. This will also trigger `stepper.stop`.
+```yaml
+on_...:
+  - tmc2209.disable: driver
+```
+
+* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
 
 ### Sensors
@@ -380,9 +458,12 @@ sensor:
   * `stallguard_result` Stator angle shift detected by the driver.
   * `motor_load` Percentage off stall calculated from StallGuard result and set StallGuard threshold. 100% = stalled
   * `actual_current` Active current setting. Either IRUN or IHOLD value.
+  * `pwm_scale_sum` Actual PWM duty cycle. This value is used for scaling the values CUR_A and CUR_B read from the sine wave table.
+  * `pwm_scale_auto` 9 Bit signed offset added to the calculated PWM duty cycle. This is the result of the automatic amplitude regulation based on current measurement.
+  * `pwm_ofs_auto` Automatically determined offset value.
+  * `pwm_grad_auto` Automatically determined gradient value.
 
 * All other from [Sensor][base-sensor-component]
-
 
 
 ### Sensorless homing

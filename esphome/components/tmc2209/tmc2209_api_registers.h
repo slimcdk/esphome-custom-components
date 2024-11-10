@@ -11,15 +11,6 @@ namespace tmc2209 {
  * This software is proprietary to Analog Devices, Inc. and its licensors.
  *******************************************************************************/
 
-/*
-struct esphome::tmc2209::RegisterField {
-  uint32_t mask;
-  uint8_t shift;
-  uint8_t address;
-  bool is_signed;
-};
-*/
-
 // constants
 #define REGISTER_COUNT 128
 #define TMC_WRITE_BIT 0x80

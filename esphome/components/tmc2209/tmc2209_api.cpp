@@ -70,7 +70,6 @@ bool TMC2209API::read_write_register_(uint8_t *data, size_t write_length, size_t
     this->write_array(data, write_length);
     this->read_array(data, write_length);
     this->flush();
-    // TODO: maybe do something with IFCNT for write verification
   }
 
   optional<bool> ok;
@@ -82,7 +81,7 @@ bool TMC2209API::read_write_register_(uint8_t *data, size_t write_length, size_t
 }
 
 void TMC2209API::write_register(uint8_t address, int32_t value) {
-  ESP_LOGVV(TAG, "writing address %x with value 0x%x (%d)", address, value, value);
+  ESP_LOGVV(TAG, "writing address 0x%x with value 0x%x (%d)", address, value, value);
 
   std::array<uint8_t, 8> data = {0};
 
@@ -96,6 +95,8 @@ void TMC2209API::write_register(uint8_t address, int32_t value) {
   data[7] = this->crc8_(data.data(), 7);
 
   this->read_write_register_(&data[0], 8, 0);
+  // TODO: maybe do something with IFCNT for write verification
+
   this->cache_(CACHE_WRITE, address, (uint32_t *) &value);
 }
 
