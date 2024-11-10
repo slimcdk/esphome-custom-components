@@ -63,6 +63,8 @@ class TMC2209API : public uart::UARTDevice {
 
  protected:
   const uint8_t address_;
+
+ private:
   uint8_t dirty_bits_[REGISTER_COUNT / 8] = {0};
   int32_t shadow_register_[REGISTER_COUNT];
 

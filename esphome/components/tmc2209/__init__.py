@@ -26,11 +26,36 @@ CONF_CLOCK_FREQUENCY = "clock_frequency"
 CONF_OTTRIM = "ottrim"
 CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
 CONF_RSENSE = "rsense"  # sense resistors
-CONF_INTERNAL_RSENSE = "internal_rsense"  # use rdson to sense
 CONF_ANALOG_SCALE = "analog_scaling"
-CONF_DRIVER_POLL_INTERVAL = "status_poll_interval"
-CONF_ON_DRIVER_STATUS = "on_status"
 CONF_ON_STALL = "on_stall"
+CONF_ON_DRIVER_STATUS = "on_status"
+CONF_MICROSTEPS = "microsteps"  # CHOPCONF.mres
+CONF_INTERPOLATION = "interpolation"  # CHOPCONF.intpol
+CONF_IRUN = "irun"
+CONF_RUN_CURRENT = "run_current"  # translates to IRUN
+CONF_IHOLD = "ihold"
+CONF_HOLD_CURRENT = "hold_current"  # translates to IHOLD
+CONF_IHOLDDELAY = "iholddelay"
+CONF_TPOWERDOWN = "tpowerdown"
+CONF_ENABLE_SPREADCYCLE = "enable_spreadcycle"
+CONF_TCOOL_THRESHOLD = "tcool_threshold"
+CONF_TPWM_THRESHOLD = "tpwm_threshold"
+CONF_STANDSTILL_MODE = "standstill_mode"
+CONF_SEIMIN = "seimin"
+CONF_SEDN = "sedn"
+CONF_SEMAX = "semax"
+CONF_SEUP = "seup"
+CONF_SEMIN = "semin"
+CONF_TBL = "tbl"
+CONF_HEND = "hend"
+CONF_HSTRT = "hstrt"
+CONF_PWM_LIM = "lim"
+CONF_PWM_REG = "reg"
+CONF_PWM_AUTOGRAD = "autograd"
+CONF_PWM_AUTOSCALE = "autoscale"
+CONF_PWM_FREQ = "freq"
+CONF_PWM_GRAD = "grad"
+CONF_PWM_OFS = "ofs"
 
 OPT_CLOCKWISE = "clockwise"
 OPT_CW = "cw"
@@ -47,38 +72,6 @@ STANDSTILL_MODES = {
     OPT_STANDSTILL_MODE_COIL_SHORT_LS: 2,
     OPT_STANDSTILL_MODE_COIL_SHORT_HS: 3,
 }
-
-CONF_VELOCITY = "velocity"
-CONF_MICROSTEPS = "microsteps"  # CHOPCONF.mres
-CONF_INTERPOLATION = "interpolation"  # CHOPCONF.intpol
-CONF_RUN_CURRENT = "run_current"  # translates to IRUN
-CONF_HOLD_CURRENT = "hold_current"  # translates to IHOLD
-CONF_IRUN = "irun"
-CONF_IHOLD = "ihold"
-CONF_IHOLDDELAY = "iholddelay"
-CONF_TPOWERDOWN = "tpowerdown"
-CONF_ENABLE_SPREADCYCLE = "enable_spreadcycle"
-CONF_TCOOL_THRESHOLD = "tcool_threshold"
-CONF_TPWM_THRESHOLD = "tpwm_threshold"
-CONF_STANDSTILL_MODE = "standstill_mode"
-
-
-CONF_SEIMIN = "seimin"
-CONF_SEDN = "sedn"
-CONF_SEMAX = "semax"
-CONF_SEUP = "seup"
-CONF_SEMIN = "semin"
-CONF_TBL = "tbl"
-CONF_HEND = "hend"
-CONF_HSTRT = "hstrt"
-
-CONF_PWM_LIM = "lim"
-CONF_PWM_REG = "reg"
-CONF_PWM_AUTOGRAD = "autograd"
-CONF_PWM_AUTOSCALE = "autoscale"
-CONF_PWM_FREQ = "freq"
-CONF_PWM_GRAD = "grad"
-CONF_PWM_OFS = "ofs"
 
 
 tmc2209_ns = cg.esphome_ns.namespace("tmc2209")
@@ -192,6 +185,30 @@ def validate_tmc2209_base(config):
 
 
 @automation.register_action(
+    "tmc2209.enable",
+    ActivationAction,
+    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209Component)}),
+)
+def tmc2209_enable_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
+    cg.add(var.set_activate(True))
+    return var
+
+
+@automation.register_action(
+    "tmc2209.disable",
+    ActivationAction,
+    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209Component)}),
+)
+def tmc2209_disable_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    yield cg.register_parented(var, config[CONF_ID])
+    cg.add(var.set_activate(False))
+    return var
+
+
+@automation.register_action(
     "tmc2209.configure",
     ConfigureAction,
     maybe_simple_id(
@@ -245,30 +262,6 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
         cg.add(var.set_tpwm_threshold(template_))
 
     yield var
-
-
-@automation.register_action(
-    "tmc2209.enable",
-    ActivationAction,
-    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209Component)}),
-)
-def tmc2209_enable_to_code(config, action_id, template_arg, args):
-    var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
-    cg.add(var.set_activate(True))
-    return var
-
-
-@automation.register_action(
-    "tmc2209.disable",
-    ActivationAction,
-    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209Component)}),
-)
-def tmc2209_disable_to_code(config, action_id, template_arg, args):
-    var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
-    cg.add(var.set_activate(False))
-    return var
 
 
 @automation.register_action(
@@ -357,11 +350,21 @@ def tmc2209_stallguard_to_code(config, action_id, template_arg, args):
     maybe_simple_id(
         {
             cv.GenerateID(): cv.use_id(TMC2209Component),
-            cv.Optional(CONF_SEIMIN): cv.All(cv.boolean, cv.int_range(min=0, max=1)),
-            cv.Optional(CONF_SEMAX): cv.int_range(min=0, max=2**4, max_included=False),
-            cv.Optional(CONF_SEMIN): cv.int_range(min=0, max=2**4, max_included=False),
-            cv.Optional(CONF_SEDN): cv.int_range(min=0, max=2**2, max_included=False),
-            cv.Optional(CONF_SEUP): cv.int_range(min=0, max=2**2, max_included=False),
+            cv.Optional(CONF_SEIMIN): cv.templatable(
+                cv.All(cv.boolean, cv.int_range(min=0, max=1))
+            ),
+            cv.Optional(CONF_SEMAX): cv.templatable(
+                cv.int_range(min=0, max=2**4, max_included=False)
+            ),
+            cv.Optional(CONF_SEMIN): cv.templatable(
+                cv.int_range(min=0, max=2**4, max_included=False)
+            ),
+            cv.Optional(CONF_SEDN): cv.templatable(
+                cv.int_range(min=0, max=2**2, max_included=False)
+            ),
+            cv.Optional(CONF_SEUP): cv.templatable(
+                cv.int_range(min=0, max=2**2, max_included=False)
+            ),
         }
     ),
 )
@@ -398,9 +401,15 @@ def tmc2209_coolconf_to_code(config, action_id, template_arg, args):
     maybe_simple_id(
         {
             cv.GenerateID(): cv.use_id(TMC2209Component),
-            cv.Optional(CONF_TBL): cv.int_range(min=0, max=2**2, max_included=False),
-            cv.Optional(CONF_HEND): cv.int_range(min=0, max=2**4, max_included=False),
-            cv.Optional(CONF_HSTRT): cv.int_range(min=0, max=2**3, max_included=False),
+            cv.Optional(CONF_TBL): cv.templatable(
+                cv.int_range(min=0, max=2**2, max_included=False)
+            ),
+            cv.Optional(CONF_HEND): cv.templatable(
+                cv.int_range(min=0, max=2**4, max_included=False)
+            ),
+            cv.Optional(CONF_HSTRT): cv.templatable(
+                cv.int_range(min=0, max=2**3, max_included=False)
+            ),
         }
     ),
 )
@@ -429,23 +438,23 @@ def tmc2209_chopconf_to_code(config, action_id, template_arg, args):
     maybe_simple_id(
         {
             cv.GenerateID(): cv.use_id(TMC2209Component),
-            cv.Optional(CONF_PWM_LIM): cv.int_range(
-                min=0, max=2**4, max_included=False
+            cv.Optional(CONF_PWM_LIM): cv.templatable(
+                cv.int_range(min=0, max=2**4, max_included=False)
             ),
-            cv.Optional(CONF_PWM_REG): cv.int_range(
-                min=0, max=2**4, max_included=False
+            cv.Optional(CONF_PWM_REG): cv.templatable(
+                cv.int_range(min=0, max=2**4, max_included=False)
             ),
-            cv.Optional(CONF_PWM_FREQ): cv.int_range(
-                min=0, max=2**2, max_included=False
+            cv.Optional(CONF_PWM_FREQ): cv.templatable(
+                cv.int_range(min=0, max=2**2, max_included=False)
             ),
-            cv.Optional(CONF_PWM_GRAD): cv.int_range(
-                min=0, max=2**8, max_included=False
+            cv.Optional(CONF_PWM_GRAD): cv.templatable(
+                cv.int_range(min=0, max=2**8, max_included=False)
             ),
-            cv.Optional(CONF_PWM_OFS): cv.int_range(
-                min=0, max=2**8, max_included=False
+            cv.Optional(CONF_PWM_OFS): cv.templatable(
+                cv.int_range(min=0, max=2**8, max_included=False)
             ),
-            cv.Optional(CONF_PWM_AUTOGRAD): cv.boolean,
-            cv.Optional(CONF_PWM_AUTOSCALE): cv.boolean,
+            cv.Optional(CONF_PWM_AUTOGRAD): cv.templatable(cv.boolean),
+            cv.Optional(CONF_PWM_AUTOSCALE): cv.templatable(cv.boolean),
         }
     ),
 )

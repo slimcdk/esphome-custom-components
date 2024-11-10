@@ -7,10 +7,7 @@ external_components:
   - source: github://slimcdk/esphome-custom-components#0035ce5 # <- include '#0035ce5'
     components: ...
 ```
-
-Breaking changes are mainly speed changes new splitted structure for configuration options.
-
-
+*Breaking changes are mainly fixes to speed, better handling for step/dir control and new splitted structure for configuration options.*
 
 
 # TMC2209
@@ -36,9 +33,15 @@ ESPHome component to interact with a TMC2209 stepper motor driver over UART and 
     - [Control via UART](#control-the-position-using-serial-uart)
     - [Control via pulses](#control-the-position-using-traditional-stepping-pulses-and-direction)
 - [Automation](#automation)
-  - [`on_alert` Trigger](#on_alert)
+  - [`on_stall` Trigger](#on_stall)
+  - [`on_status` Trigger](#on_status)
 - [Actions](#actions)
   - [`tmc2209.configure` Action](#tmc2209configure-action)
+  - [`tmc2209.currents` Action](#tmc2209currents-action)
+  - [`tmc2209.stallguard` Action](#tmc2209stallguard-action)
+  - [`tmc2209.coolconf` Action](#tmc2209coolconf-action)
+  - [`tmc2209.chopconf` Action](#tmc2209chopconf-action)
+  - [`tmc2209.pwmconf` Action](#tmc2209pwmconf-action)
   - [`tmc2209.enable` Action](#tmc2209enable-action)
   - [`tmc2209.disable` Action](#tmc2209disable-action)
 - [Driver Sensors](#sensors)
@@ -49,7 +52,6 @@ ESPHome component to interact with a TMC2209 stepper motor driver over UART and 
   - [Pulse Control Wiring](#pulse-control)
 - [Resources](#resources)
 - [Troubleshooting](#troubleshooting)
-
 
 
 ## Config
@@ -68,7 +70,7 @@ external_components:
 uart:
   tx_pin: REPLACEME
   rx_pin: REPLACEME
-  baud_rate: 512000 # 9600 -> 500k
+  baud_rate: 500000 # 9600 -> 500k
 ```
 
 * `baud_rate` (**Required**, int): The baud rate of the UART bus. TMC2209 will auto-detect baud rates from 9600 to 500k with the internal clock/oscillator. An external clock/oscillator is needed for baud rates higher than 500k.
@@ -80,7 +82,7 @@ uart:
 
 * `rx_pin` (*Optional*, [Input Pin Schema][config-pin]): This is the ESPHome device's receive pin. This should be connected directly to `PDN_UART` on the TMC2209.
 
-> [!IMPORTANT]
+> [!NOTE]
 *Avoid selecting a UART which is utilized for other purposes. For instance boot log as the TMC2209 will try to interpret the output.*
 
 ---
@@ -108,7 +110,7 @@ Stepping pulses are handled by the main thread but utilize [increased execution 
 > *More components take up more resources slowing the main thread.*
 
 > [!IMPORTANT]
-*Configure `step_pin` and `dir_pin` and not `index_pin` for this method. Stay below 8 microstepping for best performance.*
+*Configure `step_pin` and `dir_pin` (`index_pin` is optional) for this method. Stay below 8 microstepping for best performance.*
 
 
 ####
@@ -118,20 +120,18 @@ stepper:
   - platform: tmc2209
     id: driver
     max_speed: 500 steps/s
-    acceleration: 2500 steps/s^2        # optional, default is INF (no soft acceleration)
-    deceleration: 2500 steps/s^2        # optional, default is INF (no soft deceleration)
-    address: 0x00                       # optional, default is 0x00
-    enn_pin: REPLACEME                  # optional, mostly not needed
-    diag_pin: REPLACEME                 # optional, but highly recommended to set
-    index_pin: REPLACEME                # optional, unless using uart control
-    step_pin: REPLACEME                 # optional, unless using step/dir control
-    dir_pin: REPLACEME                  # optional, unless using step/dir control
-    override_control_method: 'serial'   # optional
-    rsense: REPLACEME                   # optional, check resistor on board
-    vsense: False                       # optional, default is False
-    ottrim: 0                           # optional, default is OTP
-    clock_frequency: 12MHz              # optional, default is 12MHz
-    poll_driver_status_interval: 500ms  # optional, default is 500ms and has no effect if diag_pin is set
+    acceleration: 2500 steps/s^2
+    deceleration: 2500 steps/s^2
+    address: 0x00
+    enn_pin: REPLACEME
+    diag_pin: REPLACEME
+    index_pin: REPLACEME
+    step_pin: REPLACEME
+    dir_pin: REPLACEME
+    rsense: REPLACEME
+    vsense: False
+    ottrim: 0
+    clock_frequency: 12MHz
 ```
 * `id` (**Required**, [ID][config-id]): Specify the ID of the stepper so that you can control it.
 
@@ -142,23 +142,11 @@ stepper:
 
 * `diag_pin` (*Optional*, [Input Pin Schema][config-pin]): Driver error signaling from the driver.
 
-* `index_pin` (*Optional*, [Input Pin Schema][config-pin]): Serves as stepping feedback from the internal step pulse generator.
+* `index_pin` (*Optional*, [Input Pin Schema][config-pin]): Serves as stepping feedback from the internal step pulse generator (not serving any purpose if `step_pin` and `dir_pin` is configured).
 
 * `step_pin` (*Optional*, [Output Pin Schema][config-pin]): Provides stepping pulses to the driver.
 
 * `dir_pin` (*Optional*, [Output Pin Schema][config-pin]): Controls direction of the motor.
-
-* `override_control_method` (*Optional*, string): Overrides the inferred control method.
-  <table>
-    <thead>
-      <tr><th><code>override_control_method</code></th><th>Pins required</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>serial</td><td><code>index_pin</code></td></tr>
-      <tr><td>pulses</td><td><code>step_pin</code> and <code>dir_pin</code></td></tr>
-      <tr><td>hybrid</td><td><code>index_pin</code>, <code>step_pin</code> and <code>dir_pin</code></td></tr>
-    </tbody>
-  </table>
 
 * `rsense` (*Optional*, resistance): Motor current sense resistors. Often varies from ~75 to 1000 mOhm. The actual value for your board can be found in the documentation. Leave empty to enable internal sensing using RDSon (170 mOhm). *Don't leave empty if your board has external sense resistors!*
 
@@ -179,11 +167,9 @@ stepper:
 
     > *Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning.*
 
-* `analog_scale` (*Optional*, boolean): Determines the VREF mode.
+* `analog_scale` (*Optional*, boolean): Determines the VREF mode. Defaults to `True`.
 
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
-
-* `poll_driver_status_interval` (*Optional*, [Time][config-time]): Interval to poll driver for fault indicators like overtemperature, open load, short etc (***This does not set detection interval for stall***). Default is 500ms. This has no effect if `diag_pin` is configured.
 
 * All other from [Base Stepper Component][base-stepper-component]
 
@@ -207,17 +193,17 @@ stepper:
 *Incorrect motor parameters and motion jolt/jerk (quick acceleration/deceleration changes) can lead to false stall events. Play around with the parameters for your specific application.*
 
 
-### `on_driver_status`
+### `on_status`
 An event is fired whenever a driver warning or error is detected. For instance when the driver overheats.
 ```yaml
 stepper:
   - platform: tmc2209
     id: driver
     ...
-    on_driver_status:
+    on_status:
       - if:
           condition:
-            lambda: return alert == tmc2209::OVERTEMPERATURE_PREWARNING;
+            lambda: return code == tmc2209::OVERTEMPERATURE_PREWARNING;
           then:
             - logger.log: "Driver is about to overheat"
 ```
@@ -227,7 +213,10 @@ stepper:
 
 Most events is signaling that the driver is in a given state. The majority of events also has a `CLEARED` or similar counterpart signaling that the driver is now not in the given state anymore.
 
-  * `DIAG_TRIGGERED` DIAG output is triggered. Primarily driver errors, but also stall event.
+  * `DIAG_TRIGGERED` | `DIAG_TRIGGER_CLEARED`  DIAG output is triggered. Primarily driver errors, but also stall event.
+  * `RESET` | `RESET_CLEARED` Driver has been reset since last power on.
+  * `DRIVER_ERROR` | `DRIVER_ERROR_CLEARED` A driver error was detected.
+  * `CP_UNDERVOLTAGE` | `CP_UNDERVOLTAGE_CLEARED` Undervoltage on chargepump input.
   * `OVERTEMPERATURE_PREWARNING` | `OVERTEMPERATURE_PREWARNING_CLEARED` Driver is warning about increasing temperature.
   * `OVERTEMPERATURE` | `OVERTEMPERATURE_CLEARED` Driver is at critical high temperature and is shutting down.
   * `TEMPERATURE_ABOVE_120C` | `TEMPERATURE_BELOW_120C` Temperature is higher or lower than 120C.
@@ -236,20 +225,19 @@ Most events is signaling that the driver is in a given state. The majority of ev
   * `TEMPERATURE_ABOVE_157C` | `TEMPERATURE_BELOW_157C` Temperature is higher or lower than 157C.
   * `OPEN_LOAD` | `OPEN_LOAD_CLEARED` Open load indicator.
   * `OPEN_LOAD_A` | `OPEN_LOAD_A_CLEARED` Open load indicator phase A.
-  * `OPEN_LOAD_B` | `OPEN_LOAD_B_CLEARED` Open load indicator phase B.
+  * `OPEN_LOAD_B` | `OPEN_LOAD_B_CLEARED`  Open load indicator phase B.
   * `LOW_SIDE_SHORT` | `LOW_SIDE_SHORT_CLEARED` Low side short indicator.
   * `LOW_SIDE_SHORT_A` | `LOW_SIDE_SHORT_A_CLEARED` Low side short indicator phase A.
   * `LOW_SIDE_SHORT_B` | `LOW_SIDE_SHORT_B_CLEARED` Low side short indicator phase B.
   * `GROUND_SHORT` | `GROUND_SHORT_CLEARED` Short to ground indicator.
   * `GROUND_SHORT_A` | `GROUND_SHORT_A_CLEARED` Short to ground indicator phase A.
   * `GROUND_SHORT_B` | `GROUND_SHORT_B_CLEARED` Short to ground indicator phase B.
-  * `CP_UNDERVOLTAGE` | `CP_UNDERVOLTAGE_CLEARED` Undervoltage on chargepump input.
 
 
 ## Actions
 
 > [!NOTE]
-*Registers and fields on the driver persist through an ESPHome device reboot, so previously written states may remain active*
+*Registers and fields on the driver persist through an ESPHome device reboot, so previously written states may remain active. They are set to OTP/defaults or cleared when the driver power cycles.*
 
 
 ### `tmc2209.configure` Action
@@ -304,15 +292,16 @@ on_...:
 
 * `irun` (*Optional*, int, [templatable][config-templatable]): IRUN setting. Must be between 0 and 31.
 
+* `run_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IRUN based on RSense and VSense according to [section 9][datasheet].
+
 * `ihold` (*Optional*, int, [templatable][config-templatable]): IHOLD setting. Must be between 0 and 31.
+
+* `hold_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IHOLD based on RSense and VSense according to [section 9][datasheet].
 
 * `tpowerdown` (*Optional*, int, [templatable][config-templatable]): TPOWERDOWN setting. Must be between 0 and 31.
 
 * `iholddelay` (*Optional*, int, [templatable][config-templatable]): IHOLDDELAY setting. Must be between 0 and 31.
 
-* `run_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IRUN based on RSense and VSense according to [section 9][datasheet].
-
-* `hold_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IHOLD based on RSense and VSense according to [section 9][datasheet].
 
 > [!NOTE]
 *See [section 1.7][datasheet] for visiual graphs of IRUN, TPOWERDOWN and IHOLDDELAY and IHOLD*
@@ -329,8 +318,7 @@ on_...:
 
 * `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
-* `threshold` (*Optional*, int, [templatable][config-templatable]): Value for the StallGuard4 threshold.
-
+* `threshold` (*Optional*, int, [templatable][config-templatable]):  Sets **SGTHRS**. Value for the StallGuard4 threshold.
 
 
 ### `tmc2209.coolconf` Action
@@ -355,7 +343,6 @@ on_...:
 * `sedn` (*Optional*, int): Sets **SEDN**
 
 * `seup` (*Optional*, int): Sets **SEUP**
-
 
 
 
@@ -405,7 +392,6 @@ on_...:
 * `autoscale` (*Optional*, boolean): Sets PWMCONF **PWM_AUTOSCALE**
 
 
-
 ### `tmc2209.enable` Action
 
 This uses *TOFF* (sets to 3) if `enn_pin` is not set to enable the driver. *Driver will automatically be enabled if new target is issued.*
@@ -414,7 +400,6 @@ on_...:
   - tmc2209.enable: driver
 ```
 * `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
-
 
 
 ### `tmc2209.disable` Action
@@ -451,6 +436,26 @@ sensor:
     type: actual_current
     name: Actual current
     update_interval: 250ms
+
+  - platform: tmc2209
+    type: pwm_scale_sum
+    name: PWM Scale Sum
+    update_interval: 250ms
+
+  - platform: tmc2209
+    type: pwm_scale_auto
+    name: PWM Scale Auto
+    update_interval: 250ms
+
+  - platform: tmc2209
+    type: pwm_ofs_auto
+    name: PWM OFS Auto
+    update_interval: 250ms
+
+  - platform: tmc2209
+    type: pwm_grad_auto
+    name: PWM Grad Auto
+    update_interval: 250ms
 ```
 * `tmc2209_id` (*Optional*, [ID][config-id]): Manually specify the ID of the `stepper.tmc2209` you want to use this sensor.
 
@@ -486,24 +491,20 @@ stepper:
   - platform: tmc2209
     id: driver
     ...
-    on_alert:
+    on_stall:
+      - logger.log: "Motor stalled!"
+      - stepper.stop: driver
       - if:
           condition:
-            lambda: return alert == tmc2209::STALLED;
+            lambda: return !id(has_homed);
           then:
-            - logger.log: "Motor stalled!"
-            - stepper.stop: driver
-            - if:
-                condition:
-                  lambda: return !id(has_homed);
-                then:
-                  - stepper.report_position:
-                      id: driver
-                      position: 0
-                  - globals.set:
-                      id: has_homed
-                      value: "true"
-                  - logger.log: "Home position set"
+            - stepper.report_position:
+                id: driver
+                position: 0
+            - globals.set:
+                id: has_homed
+                value: "true"
+            - logger.log: "Home position set"
 
 button:
   - platform: template
@@ -517,7 +518,6 @@ button:
           id: driver
           target: -9999999
 ```
-
 
 
 ## Example config
@@ -537,9 +537,12 @@ esphome:
   on_boot:
     - tmc2209.configure:
         microsteps: 8
-        stallguard_threshold: 50
+        interpolation: true
+    - tmc2209.stallguard:
+        threshold: 50
+    - tmc2209.currents:
         standstill_mode: freewheeling
-        irun: 12
+        irun: 16
         ihold: 0
         tpowerdown: 0
         iholddelay: 0
@@ -547,7 +550,7 @@ esphome:
 uart:
   tx_pin: 16
   rx_pin: 17
-  baud_rate: 512000
+  baud_rate: 500000
 
 
 stepper:
@@ -560,13 +563,9 @@ stepper:
     vsense: False
     index_pin: 42
     diag_pin: 41
-    on_alert:
-      - if:
-          condition:
-            lambda: return alert == tmc2209::STALLED;
-          then:
-            - logger.log: "Motor stalled!"
-            - stepper.stop: driver
+    on_stall:
+      - logger.log: "Motor stalled!"
+      - stepper.stop: driver
 
 button:
   - platform: template
@@ -611,54 +610,54 @@ sensor:
 Output of above configuration. Registers could differ due to OTP.
 ```console
 ...
-[00:00:00][C][tmc2209:427]: TMC2209 Stepper:
-[00:00:00][C][tmc2209:430]:   Control: Over UART with feedback on INDEX
-[00:00:00][C][tmc2209:436]:   Acceleration: 1500 steps/s^2
-[00:00:00][C][tmc2209:436]:   Deceleration: 500 steps/s^2
-[00:00:00][C][tmc2209:436]:   Max Speed: 900 steps/s
-[00:00:00][C][tmc2209:443]:   Detected IC version: 0x21
-[00:00:00][C][tmc2209:451]:   Enable/disable driver with TOFF
-[00:00:00][C][tmc2209:454]:   DIAG Pin: GPIO41
-[00:00:00][C][tmc2209:458]:   INDEX Pin: GPIO42
-[00:00:00][C][tmc2209:462]:   Address: 0x00
-[00:00:00][C][tmc2209:463]:   Microsteps: 8
-[00:00:00][C][tmc2209:465]:   Currents:
-[00:00:00][C][tmc2209:469]:     RSense: 0.110 Ohm (external sense resistors)
-[00:00:00][C][tmc2209:473]:     VSense: Configured for high heat dissipation (false)
-[00:00:00][C][tmc2209:477]:     Currently set IRUN: 12 (718 mA)
-[00:00:00][C][tmc2209:479]:     Currently set IHOLD: 0 (0 mA)
-[00:00:00][C][tmc2209:480]:     Maximum allowable: 1767 mA
-[00:00:00][C][tmc2209:483]:   Overtemperature: prewarning = 120C | shutdown = 143C
-[00:00:00][C][tmc2209:484]:   Clock frequency: 12000000 Hz
-[00:00:00][C][tmc2209:486]:   Activate stall detection: At 450 steps/s (50% of max speed)
-[00:00:00][C][tmc2209:488]:   Register dump:
-[00:00:00][C][tmc2209:489]:     GCONF:        0x000001E0
-[00:00:00][C][tmc2209:490]:     GSTAT:        0x00000001
-[00:00:00][C][tmc2209:491]:     IFCNT:        0x00000016
-[00:00:00][C][tmc2209:492]:     SLAVECONF:    0x00000000
-[00:00:00][C][tmc2209:493]:     OTP_PROG:     0x00000000
-[00:00:00][C][tmc2209:494]:     OTP_READ:     0x0000000A
-[00:00:00][C][tmc2209:495]:     IOIN:         0x21000240
-[00:00:00][C][tmc2209:496]:     FACTORY_CONF: 0x0000000A
-[00:00:00][C][tmc2209:497]:     IHOLD_IRUN:   0x00000C00
-[00:00:00][C][tmc2209:498]:     TPOWERDOWN:   0x00000000
-[00:00:00][C][tmc2209:499]:     TSTEP:        0x000FFFFF
-[00:00:00][C][tmc2209:500]:     TPWMTHRS:     0x00000000
-[00:00:00][C][tmc2209:501]:     TCOOLTHRS:    0x00000000
-[00:00:00][C][tmc2209:502]:     VACTUAL:      0x00000000
-[00:00:00][C][tmc2209:503]:     SGTHRS:       0x00000032
-[00:00:00][C][tmc2209:504]:     SG_RESULT:    0x00000014
-[00:00:00][C][tmc2209:505]:     COOLCONF:     0x00000000
-[00:00:00][C][tmc2209:506]:     MSCNT:        0x00000370
-[00:00:00][C][tmc2209:507]:     MSCURACT:     0x009D0141
-[00:00:00][C][tmc2209:508]:     CHOPCONF:     0x15010053
-[00:00:00][C][tmc2209:509]:     DRV_STATUS:   0xC0000000
-[00:00:00][C][tmc2209:510]:     PWMCONF:      0xC81D0E24
-[00:00:00][C][tmc2209:511]:     PWMSCALE:     0x00200021
-[00:00:00][C][tmc2209:512]:     PWM_AUTO:     0x000E0024
+[00:00:00][C][tmc2209:011]: TMC2209 Stepper:
+[00:00:00][C][tmc2209:014]:   Control: serial
+[00:00:00][C][tmc2209:021]:   ENN Pin: GPIO21
+[00:00:00][C][tmc2209:021]:   DIAG Pin: GPIO16
+[00:00:00][C][tmc2209:021]:   INDEX Pin: GPIO11
+[00:00:00][C][tmc2209:022]:   Address: 0x00
+[00:00:00][C][tmc2209:023]:   Detected IC version: 0x21
+[00:00:00][C][tmc2209:025]:   Microsteps: 8
+[00:00:00][C][tmc2209:026]:   Clock frequency: 12000000 Hz
+[00:00:00][C][tmc2209:027]:   Velocity compensation: 0.715256
+[00:00:00][C][tmc2209:029]:   Overtemperature: prewarning = 120C | shutdown = 143C
+[00:00:00][C][tmc2209:031]:   Acceleration: 1500 steps/s^2
+[00:00:00][C][tmc2209:031]:   Deceleration: 500 steps/s^2
+[00:00:00][C][tmc2209:031]:   Max Speed: 900 steps/s
+[00:00:00][C][tmc2209:033]:   Analog Scale: VREF is connected
+[00:00:00][C][tmc2209:033]:   Currents:
+[00:00:00][C][tmc2209:033]:     IRUN: 16 (939 mA)
+[00:00:00][C][tmc2209:033]:     IHOLD: 0 (0 mA)
+[00:00:00][C][tmc2209:033]:     Limits: 1767 mA
+[00:00:00][C][tmc2209:033]:     VSense: False (high heat dissipation)
+[00:00:00][C][tmc2209:033]:     RSense: 0.110 Ohm (external sense resistors)
+[00:00:00][C][tmc2209:034]:   Register dump:
+[00:00:00][C][tmc2209:034]:    GCONF:        0x000001E0
+[00:00:00][C][tmc2209:034]:    GSTAT:        0x00000001
+[00:00:00][C][tmc2209:034]:    IFCNT:        0x00000027
+[00:00:00][C][tmc2209:034]:    SLAVECONF:    0xA5A5A5A5
+[00:00:00][C][tmc2209:034]:    OTP_PROG:     0xA5A5A5A5
+[00:00:00][C][tmc2209:034]:    OTP_READ:     0x0000000F
+[00:00:00][C][tmc2209:034]:    IOIN:         0x21000040
+[00:00:00][C][tmc2209:034]:    FACTORY_CONF: 0x0000000F
+[00:00:00][C][tmc2209:034]:    IHOLD_IRUN:   0xA5A0B0A0
+[00:00:00][C][tmc2209:034]:    TPOWERDOWN:   0xA5A5A500
+[00:00:00][C][tmc2209:034]:    TSTEP:        0x000FFFFF
+[00:00:00][C][tmc2209:034]:    TPWMTHRS:     0xA5A5A5A5
+[00:00:00][C][tmc2209:034]:    TCOOLTHRS:    0xA5A5A5A5
+[00:00:00][C][tmc2209:034]:    VACTUAL:      0xA5000000
+[00:00:00][C][tmc2209:034]:    SGTHRS:       0x00000032
+[00:00:00][C][tmc2209:034]:    SG_RESULT:    0x00000000
+[00:00:00][C][tmc2209:034]:    COOLCONF:     0xA5A5A5A5
+[00:00:00][C][tmc2209:034]:    MSCNT:        0x00000030
+[00:00:00][C][tmc2209:034]:    MSCURACT:     0x00EC0048
+[00:00:00][C][tmc2209:034]:    CHOPCONF:     0x15010053
+[00:00:00][C][tmc2209:034]:    DRV_STATUS:   0xC0000040
+[00:00:00][C][tmc2209:034]:    PWMCONF:      0xC81D0E24
+[00:00:00][C][tmc2209:034]:    PWMSCALE:     0x00750078
+[00:00:00][C][tmc2209:034]:    PWM_AUTO:     0x000E007B
 ...
 ```
-
 
 
 ### Advanced
@@ -670,13 +669,36 @@ Writing to and reading from registers and register fields from the driver can ea
 >*Definitions ending in `_MASK` or `_SHIFT` should not be used.*
 
 The `tmc2209` base component exposes four methods:
-* `void write_register(uint8_t address, int32_t value)` write/overwrite an entire register.
-* `int32_t read_register(uint8_t address)` read an entire registers.
-* `void write_field(RegisterField field, uint32_t value)` write/overwrite a register field.
-* `uint32_t read_field(RegisterField field)` read a register field.
+  * `void write_register(uint8_t address, int32_t value)` write/overwrite an entire register.
+  * `int32_t read_register(uint8_t address)` read an entire registers.
+  * `void write_field(RegisterField field, uint32_t value)` write/overwrite a register field.
+  * `uint32_t read_field(RegisterField field)` read a register field.
+  * `uint32_t extract_field(uint32_t data, RegisterField field)` extract field value from register value.
 
 > [!CAUTION]
-*Overwriting some registers may cause instability in the ESPHome component.*
+*Overwriting below registers may cause instability in the ESPHome component and should be avoided.*
+  * `VACTUAL_FIELD`
+  * `TOFF_FIELD`
+  * `VSENSE_FIELD`
+  * `OTTRIM_FIELD`
+  * `DEDGE_FIELD`
+  * `INDEX_OTPW_FIELD`
+  * `INDEX_STEP_FIELD`
+  * `MULTISTEP_FILT_FIELD`
+  * `PDN_DISABLE_FIELD`
+  * `INTERNAL_RSENSE_FIELD`
+  * `I_SCALE_ANALOG_FIELD`
+  * `SHAFT_FIELD`
+  * `MSTEP_REG_SELECT_FIELD`
+  * `TEST_MODE_FIELD`
+  * `RESET_FIELD`
+  * `RESET_FIELD`
+  * `DRV_ERR_FIELD`
+  * `UV_CP_FIELD`
+  * `MRES_FIELD`
+  * `IRUN_FIELD`
+  * `IHOLD_FIELD`
+  * `TPOWERDOWN_FIELD`
 
 
 Example usage in lambdas
@@ -686,12 +708,12 @@ sensor:
     // Read stallguard result (register) into a sensor
   - platform: template
     name: Stallguard result
-    lambda: return id(driver)->read_register(TMC2209_SG_RESULT);
+    lambda: return id(driver)->read_register(SG_RESULT);
 
     // Read microstep selection index into a sensor. This is a binary exponent like 0,1,2,3,... and microsteps can be calculated like 2**<exponent>
   - platform: template
     name: Microstep selection index
-    lambda: return id(driver)->read_field(TMC2209_MRES_FIELD);
+    lambda: return id(driver)->read_field(MRES_FIELD);
 
 
 number:
@@ -703,9 +725,9 @@ number:
     min_value: 0
     max_value: 255
     step: 5
-    lambda: return id(driver)->read_register(TMC2209_SGTHRS);
+    lambda: return id(driver)->read_register(SGTHRS);
     set_action:
-      - lambda: id(driver)->write_register(TMC2209_SGTHRS, x);
+      - lambda: id(driver)->write_register(SGTHRS, x);
 
 
 button:
@@ -714,7 +736,7 @@ button:
   - platform: template
     name: Set microstepping to 8
     on_press:
-      - lambda: id(driver)->write_field(TMC2209_MRES_FIELD, 3);
+      - lambda: id(driver)->write_field(MRES_FIELD, 3);
 
 ```
 
@@ -792,155 +814,194 @@ stepper:
     on_alert:
       - if:
           condition:
-            lambda: return alert == tmc2209::DIAG_TRIGGERED;
+            lambda: return code == tmc2209::DIAG_TRIGGERED;
           then:
             - logger.log: DIAG_TRIGGERED
       - if:
           condition:
-            lambda: return alert == tmc2209::STALLED;
+            lambda: return code == tmc2209::DIAG_TRIGGER_CLEARED;
           then:
-            - logger.log: STALLED
-            - stepper.stop: motor
+            - logger.log: DIAG_TRIGGER_CLEARED
       - if:
           condition:
-            lambda: return alert == tmc2209::OVERTEMPERATURE_PREWARNING;
+            lambda: return code == tmc2209::RESET;
           then:
-            - logger.log: OVERTEMPERATURE_PREWARNING
+            - logger.log: RESET
       - if:
           condition:
-            lambda: return alert == tmc2209::OVERTEMPERATURE_PREWARNING_CLEARED;
+            lambda: return code == tmc2209::RESET_CLEARED;
           then:
-            - logger.log: OVERTEMPERATURE_PREWARNING_CLEARED
+            - logger.log: RESET_CLEARED
       - if:
           condition:
-            lambda: return alert == tmc2209::OVERTEMPERATURE;
+            lambda: return code == tmc2209::DRIVER_ERROR;
           then:
-            - logger.log: OVERTEMPERATURE_CLEARED
+            - logger.log: DRIVER_ERROR
       - if:
           condition:
-            lambda: return alert == tmc2209::TEMPERATURE_ABOVE_120C;
+            lambda: return code == tmc2209::DRIVER_ERROR_CLEARED;
           then:
-            - logger.log: TEMPERATURE_ABOVE_120C
+            - logger.log: DRIVER_ERROR_CLEARED
       - if:
           condition:
-            lambda: return alert == tmc2209::TEMPERATURE_BELOW_120C;
-          then:
-            - logger.log: TEMPERATURE_BELOW_120C
-      - if:
-          condition:
-            lambda: return alert == tmc2209::TEMPERATURE_ABOVE_143C;
-          then:
-            - logger.log: TEMPERATURE_ABOVE_143C
-      - if:
-          condition:
-            lambda: return alert == tmc2209::TEMPERATURE_BELOW_143C;
-          then:
-            - logger.log: TEMPERATURE_BELOW_143C
-      - if:
-          condition:
-            lambda: return alert == tmc2209::TEMPERATURE_ABOVE_150C;
-          then:
-            - logger.log: TEMPERATURE_ABOVE_150C
-      - if:
-          condition:
-            lambda: return alert == tmc2209::TEMPERATURE_BELOW_150C;
-          then:
-            - logger.log: TEMPERATURE_BELOW_150C
-      - if:
-          condition:
-            lambda: return alert == tmc2209::TEMPERATURE_ABOVE_157C;
-          then:
-            - logger.log: TEMPERATURE_ABOVE_157C
-      - if:
-          condition:
-            lambda: return alert == tmc2209::TEMPERATURE_BELOW_157C;
-          then:
-            - logger.log: TEMPERATURE_BELOW_157C
-      - if:
-          condition:
-            lambda: return alert == tmc2209::A_OPEN_LOAD;
-          then:
-            - logger.log: A_OPEN_LOAD
-      - if:
-          condition:
-            lambda: return alert == tmc2209::A_OPEN_LOAD_CLEARED;
-          then:
-            - logger.log: A_OPEN_LOAD_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2209::B_OPEN_LOAD;
-          then:
-            - logger.log: B_OPEN_LOAD
-      - if:
-          condition:
-            lambda: return alert == tmc2209::B_OPEN_LOAD_CLEARED;
-          then:
-            - logger.log: B_OPEN_LOAD_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2209::A_OPEN_LOAD;
-          then:
-            - logger.log: A_OPEN_LOAD
-      - if:
-          condition:
-            lambda: return alert == tmc2209::A_OPEN_LOAD_CLEARED;
-          then:
-            - logger.log: A_OPEN_LOAD_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2209::B_OPEN_LOAD;
-          then:
-            - logger.log: B_OPEN_LOAD
-      - if:
-          condition:
-            lambda: return alert == tmc2209::B_OPEN_LOAD_CLEARED;
-          then:
-            - logger.log: B_OPEN_LOAD_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2209::A_LOW_SIDE_SHORT;
-          then:
-            - logger.log: A_LOW_SIDE_SHORT
-      - if:
-          condition:
-            lambda: return alert == tmc2209::A_LOW_SIDE_SHORT_CLEARED;
-          then:
-            - logger.log: A_LOW_SIDE_SHORT_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2209::B_LOW_SIDE_SHORT;
-          then:
-            - logger.log: B_LOW_SIDE_SHORT
-      - if:
-          condition:
-            lambda: return alert == tmc2209::B_LOW_SIDE_SHORT_CLEARED;
-          then:
-            - logger.log: B_LOW_SIDE_SHORT_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2209::A_GROUND_SHORT_CLEARED;
-          then:
-            - logger.log: A_GROUND_SHORT_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2209::B_GROUND_SHORT;
-          then:
-            - logger.log: B_GROUND_SHORT
-      - if:
-          condition:
-            lambda: return alert == tmc2209::B_GROUND_SHORT_CLEARED;
-          then:
-            - logger.log: B_GROUND_SHORT_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2209::CP_UNDERVOLTAGE;
+            lambda: return code == tmc2209::CP_UNDERVOLTAGE;
           then:
             - logger.log: CP_UNDERVOLTAGE
       - if:
           condition:
-            lambda: return alert == tmc2209::CP_UNDERVOLTAGE_CLEARED;
+            lambda: return code == tmc2209::CP_UNDERVOLTAGE_CLEARED;
           then:
             - logger.log: CP_UNDERVOLTAGE_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2209::OVERTEMPERATURE_PREWARNING;
+          then:
+            - logger.log: OVERTEMPERATURE_PREWARNING
+      - if:
+          condition:
+            lambda: return code == tmc2209::OVERTEMPERATURE_PREWARNING_CLEARED;
+          then:
+            - logger.log: OVERTEMPERATURE_PREWARNING_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2209::OVERTEMPERATURE;
+          then:
+            - logger.log: OVERTEMPERATURE
+      - if:
+          condition:
+            lambda: return code == tmc2209::OVERTEMPERATURE_CLEARED;
+          then:
+            - logger.log: OVERTEMPERATURE_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2209::TEMPERATURE_ABOVE_120C;
+          then:
+            - logger.log: TEMPERATURE_ABOVE_120C
+      - if:
+          condition:
+            lambda: return code == tmc2209::TEMPERATURE_BELOW_120C;
+          then:
+            - logger.log: TEMPERATURE_BELOW_120C
+      - if:
+          condition:
+            lambda: return code == tmc2209::TEMPERATURE_ABOVE_143C;
+          then:
+            - logger.log: TEMPERATURE_ABOVE_143C
+      - if:
+          condition:
+            lambda: return code == tmc2209::TEMPERATURE_BELOW_143C;
+          then:
+            - logger.log: TEMPERATURE_BELOW_143C
+      - if:
+          condition:
+            lambda: return code == tmc2209::TEMPERATURE_ABOVE_150C;
+          then:
+            - logger.log: TEMPERATURE_ABOVE_150C
+      - if:
+          condition:
+            lambda: return code == tmc2209::TEMPERATURE_BELOW_150C;
+          then:
+            - logger.log: TEMPERATURE_BELOW_150C
+      - if:
+          condition:
+            lambda: return code == tmc2209::TEMPERATURE_ABOVE_157C;
+          then:
+            - logger.log: TEMPERATURE_ABOVE_157C
+      - if:
+          condition:
+            lambda: return code == tmc2209::TEMPERATURE_BELOW_157C;
+          then:
+            - logger.log: TEMPERATURE_BELOW_157C
+      - if:
+          condition:
+            lambda: return code == tmc2209::OPEN_LOAD;
+          then:
+            - logger.log: OPEN_LOAD
+      - if:
+          condition:
+            lambda: return code == tmc2209::OPEN_LOAD_CLEARED;
+          then:
+            - logger.log: OPEN_LOAD_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2209::OPEN_LOAD_A;
+          then:
+            - logger.log: OPEN_LOAD_A
+      - if:
+          condition:
+            lambda: return code == tmc2209::OPEN_LOAD_A_CLEARED;
+          then:
+            - logger.log: OPEN_LOAD_A_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2209::OPEN_LOAD_B;
+          then:
+            - logger.log: OPEN_LOAD_B
+      - if:
+          condition:
+            lambda: return code == tmc2209::OPEN_LOAD_B_CLEARED;
+          then:
+            - logger.log: OPEN_LOAD_B_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2209::LOW_SIDE_SHORT;
+          then:
+            - logger.log: LOW_SIDE_SHORT
+      - if:
+          condition:
+            lambda: return code == tmc2209::LOW_SIDE_SHORT_CLEARED;
+          then:
+            - logger.log: LOW_SIDE_SHORT_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2209::LOW_SIDE_SHORT_A;
+          then:
+            - logger.log: LOW_SIDE_SHORT_A
+      - if:
+          condition:
+            lambda: return code == tmc2209::LOW_SIDE_SHORT_A_CLEARED;
+          then:
+            - logger.log: LOW_SIDE_SHORT_A_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2209::LOW_SIDE_SHORT_B;
+          then:
+            - logger.log: LOW_SIDE_SHORT_B
+      - if:
+          condition:
+            lambda: return code == tmc2209::LOW_SIDE_SHORT_B_CLEARED;
+          then:
+            - logger.log: LOW_SIDE_SHORT_B_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2209::GROUND_SHORT;
+          then:
+            - logger.log: GROUND_SHORT
+      - if:
+          condition:
+            lambda: return code == tmc2209::GROUND_SHORT_CLEARED;
+          then:
+            - logger.log: GROUND_SHORT_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2209::GROUND_SHORT_A;
+          then:
+            - logger.log: GROUND_SHORT_A
+      - if:
+          condition:
+            lambda: return code == tmc2209::GROUND_SHORT_A_CLEARED;
+          then:
+            - logger.log: GROUND_SHORT_A_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2209::GROUND_SHORT_B;
+          then:
+            - logger.log: GROUND_SHORT_B
+      - if:
+          condition:
+            lambda: return code == tmc2209::GROUND_SHORT_B_CLEARED;
+          then:
+            - logger.log: GROUND_SHORT_B_CLEARED
 ```
 
 

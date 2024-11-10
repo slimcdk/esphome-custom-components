@@ -72,7 +72,7 @@ class TMC2209Component : public TMC2209API, public Component {
   int32_t vactual_to_speed(int32_t vactual) { return std::round((float) vactual * this->vactual_factor_); }
   int32_t speed_to_vactual(int32_t speed) { return std::round((float) speed / this->vactual_factor_); }
   int32_t read_speed() { return this->vactual_to_speed((int32_t) this->read_field(VACTUAL_FIELD)); }
-  void write_speed(int32_t speed) { this->write_register(VACTUAL, this->speed_to_vactual(speed)); }
+  void write_speed(int32_t speed) { this->write_field(VACTUAL_FIELD, this->speed_to_vactual(speed)); }
 
  protected:
   const uint32_t clk_frequency_;
