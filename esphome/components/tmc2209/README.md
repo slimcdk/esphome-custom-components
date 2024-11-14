@@ -694,7 +694,6 @@ The `tmc2209` base component exposes four methods:
   * `VACTUAL_FIELD`
   * `TOFF_FIELD`
   * `VSENSE_FIELD`
-  * `OTTRIM_FIELD`
   * `DEDGE_FIELD`
   * `INDEX_OTPW_FIELD`
   * `INDEX_STEP_FIELD`
@@ -702,17 +701,7 @@ The `tmc2209` base component exposes four methods:
   * `PDN_DISABLE_FIELD`
   * `INTERNAL_RSENSE_FIELD`
   * `I_SCALE_ANALOG_FIELD`
-  * `SHAFT_FIELD`
-  * `MSTEP_REG_SELECT_FIELD`
   * `TEST_MODE_FIELD`
-  * `RESET_FIELD`
-  * `RESET_FIELD`
-  * `DRV_ERR_FIELD`
-  * `UV_CP_FIELD`
-  * `MRES_FIELD`
-  * `IRUN_FIELD`
-  * `IHOLD_FIELD`
-  * `TPOWERDOWN_FIELD`
 
 
 Example usage in lambdas
