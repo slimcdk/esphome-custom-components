@@ -1024,5 +1024,5 @@ stepper:
 
 [highfrequencylooprequester]: <https://github.com/esphome/esphome/blob/9713458368dfb9fd9aab8016cfe8c85d77b04887/esphome/core/helpers.h#L609> "HighFrequencyLoopRequester class"
 
-[tmcapi-tmc2209-hwa]: <https://github.com/slimcdk/TMC-API/blob/master/tmc/ic/TMC2209/TMC2209_HW_Abstraction.h> "TMC-API TMC2209 Hardware Abstractions"
+[tmcapi-tmc2209-hwa]: <./tmc2209_api_registers.h> "TMC-API TMC2209 Hardware Abstractions"
 
