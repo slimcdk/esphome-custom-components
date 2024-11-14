@@ -44,7 +44,7 @@ bool TMC2209API::get_dirty_bit_(uint8_t index) {
 
 bool TMC2209API::cache_(CacheOperation operation, uint8_t address, uint32_t *value) {
   if (operation == CACHE_READ) {
-    if (IS_READABLE(this->register_access_[address]))
+    if (IS_READABLE(register_access_[address]))
       return false;
 
     // Grab the value from the cache
@@ -65,42 +65,29 @@ bool TMC2209API::cache_(CacheOperation operation, uint8_t address, uint32_t *val
   return false;
 }
 
-bool TMC2209API::read_write_register_(uint8_t *data, size_t write_length, size_t read_length) {
-  if (write_length > 0) {
-    this->write_array(data, write_length);
-    this->read_array(data, write_length);
-    this->flush();
-  }
-
-  optional<bool> ok;
-  if (read_length > 0) {
-    ok = this->read_array(data, read_length);
-  }
-
-  return ok.value_or(false);
-}
-
 void TMC2209API::write_register(uint8_t address, int32_t value) {
   ESP_LOGVV(TAG, "writing address 0x%x with value 0x%x (%d)", address, value, value);
 
   std::array<uint8_t, 8> data = {0};
 
-  data[0] = 0x05;
-  data[1] = this->address_;
-  data[2] = address | TMC_WRITE_BIT;
-  data[3] = (value >> 24) & 0xFF;
-  data[4] = (value >> 16) & 0xFF;
-  data[5] = (value >> 8) & 0xFF;
-  data[6] = (value) &0xFF;
-  data[7] = this->crc8_(data.data(), 7);
+  data.at(0) = 0x05;
+  data.at(1) = this->address_;
+  data.at(2) = address | TMC_WRITE_BIT;
+  data.at(3) = (value >> 24) & 0xFF;
+  data.at(4) = (value >> 16) & 0xFF;
+  data.at(5) = (value >> 8) & 0xFF;
+  data.at(6) = (value) &0xFF;
+  data.at(7) = this->crc8_(data.data(), 7);
 
-  this->read_write_register_(&data[0], 8, 0);
   // TODO: maybe do something with IFCNT for write verification
+  this->write_array(data.data(), 8);
+  this->read_array(data.data(), 8);  // transmitting on one-wire fills up receiver
+  this->flush();
 
   this->cache_(CACHE_WRITE, address, (uint32_t *) &value);
 }
 
-int32_t TMC2209API::read_register(uint8_t address) {
+optional<int32_t> TMC2209API::read_register(uint8_t address) {
   ESP_LOGVV(TAG, "reading address 0x%x", address);
   uint32_t value;
 
@@ -110,32 +97,35 @@ int32_t TMC2209API::read_register(uint8_t address) {
 
   address = address & TMC_ADDRESS_MASK;
   std::array<uint8_t, 8> data = {0};
+  data.at(0) = 0x05;
+  data.at(1) = this->address_;
+  data.at(2) = address;
+  data.at(3) = this->crc8_(data.data(), 3);
 
-  data[0] = 0x05;
-  data[1] = this->address_;
-  data[2] = address;
-  data[3] = this->crc8_(data.data(), 3);
+  this->write_array(data.data(), 4);
+  this->read_array(data.data(), 4);  // transmitting on one-wire fills up receiver
+  this->flush();
 
-  if (!this->read_write_register_(&data[0], 4, 8))
+  if (!this->read_array(data.data(), 8))
     return 0;
 
   // Byte 0: Sync nibble correct?
-  if (data[0] != 0x05)
+  if (data.at(0) != 0x05)
     return 0;
 
   // Byte 1: Master address correct?
-  if (data[1] != 0xFF)
+  if (data.at(1) != 0xFF)
     return 0;
 
   // Byte 2: Address correct?
-  if (data[2] != address)
+  if (data.at(2) != address)
     return 0;
 
   // Byte 7: CRC correct?
-  if (data[7] != this->crc8_(data.data(), 7))
+  if (data.at(7) != this->crc8_(data.data(), 7))
     return 0;
 
-  return encode_uint32(data[3], data[4], data[5], data[6]);
+  return encode_uint32(data.at(3), data.at(4), data.at(5), data.at(6));
 }
 
 uint32_t TMC2209API::update_field(uint32_t data, RegisterField field, uint32_t value) {

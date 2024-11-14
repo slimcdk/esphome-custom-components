@@ -417,9 +417,6 @@ on_...:
 
 Some metrics from the driver is exposed as a ready-to-use sensor component.
 
-> [!IMPORTANT]
-*Only intended for diagnostic purposes*
-
 ```yaml
 sensor:
   - platform: tmc2209
@@ -517,6 +514,23 @@ button:
       - stepper.set_target:
           id: driver
           target: -9999999
+```
+
+Example of monitoring motor load. It is possible, but not advised.
+```yaml
+sensor:
+  - platform: tmc2209
+    type: motor_load
+    internal: true
+    update_interval: 0s
+    filters:
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 10
+    on_value_range:
+      - above: 100.0
+        then:
+          - stepper.stop: driver
 ```
 
 
