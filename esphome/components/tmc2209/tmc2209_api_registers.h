@@ -3,25 +3,14 @@
 namespace esphome {
 namespace tmc2209 {
 
-/*******************************************************************************
- * Copyright © 2019 TRINAMIC Motion Control GmbH & Co. KG
- * (now owned by Analog Devices Inc.),
- *
- * Copyright © 2024 Analog Devices Inc. All Rights Reserved.
- * This software is proprietary to Analog Devices, Inc. and its licensors.
- *******************************************************************************/
-
 // clang-format off
 
-// constants
 #define REGISTER_COUNT    128
 #define TMC_WRITE_BIT     0x80
 #define TMC_ADDRESS_MASK  0x7F
-#define MAX_VELOCITY      (int32_t) 2147483647
+#define MAX_VELOCITY      (int32_t)  2147483647
 #define MAX_ACCELERATION  (uint32_t) 16777215uL
 #define IC_VERSION_GEN1   0x21
-
-// ===== TMC2209 & 2202 & TMC2209 & 2220 & 2225 "Donkey Kong" family register set =====
 
 #define GCONF         0x00
 #define GSTAT         0x01
@@ -31,19 +20,15 @@ namespace tmc2209 {
 #define OTP_READ      0x05
 #define IOIN          0x06
 #define FACTORY_CONF  0x07
-
 #define IHOLD_IRUN    0x10
 #define TPOWERDOWN    0x11
 #define TSTEP         0x12
 #define TPWMTHRS      0x13
 #define TCOOLTHRS     0x14
-
 #define VACTUAL       0x22
-
 #define SGTHRS        0x40
 #define SG_RESULT     0x41
 #define COOLCONF      0x42
-
 #define MSCNT         0x6A
 #define MSCURACT      0x6B
 #define CHOPCONF      0x6C

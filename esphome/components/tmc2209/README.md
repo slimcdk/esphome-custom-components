@@ -54,6 +54,13 @@ ESPHome component to interact with a TMC2209 stepper motor driver over UART and 
 - [Troubleshooting](#troubleshooting)
 
 
+## Acknowledgements
+
+This project includes code from the Analog Devices Inc. [TMC-API codebase](https://github.com/analogdevicesinc/TMC-API), licensed under the MIT License.
+
+Copyright (c) 2023 Analog Devices, Inc.
+
+
 ## Config
 
 Import the component(s).
