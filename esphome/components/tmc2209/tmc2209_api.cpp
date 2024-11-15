@@ -68,26 +68,26 @@ bool TMC2209API::cache_(CacheOperation operation, uint8_t address, uint32_t *val
 void TMC2209API::write_register(uint8_t address, int32_t value) {
   ESP_LOGVV(TAG, "writing address 0x%x with value 0x%x (%d)", address, value, value);
 
-  std::array<uint8_t, 8> data = {0};
+  std::array<uint8_t, 8> buffer = {0};
 
-  data.at(0) = 0x05;
-  data.at(1) = this->address_;
-  data.at(2) = address | TMC_WRITE_BIT;
-  data.at(3) = (value >> 24) & 0xFF;
-  data.at(4) = (value >> 16) & 0xFF;
-  data.at(5) = (value >> 8) & 0xFF;
-  data.at(6) = (value) &0xFF;
-  data.at(7) = this->crc8_(data.data(), 7);
+  buffer.at(0) = 0x05;
+  buffer.at(1) = this->address_;
+  buffer.at(2) = address | TMC_WRITE_BIT;
+  buffer.at(3) = (value >> 24) & 0xFF;
+  buffer.at(4) = (value >> 16) & 0xFF;
+  buffer.at(5) = (value >> 8) & 0xFF;
+  buffer.at(6) = (value) &0xFF;
+  buffer.at(7) = this->crc8_(buffer.data(), 7);
 
   // TODO: maybe do something with IFCNT for write verification
-  this->write_array(data.data(), 8);
-  this->read_array(data.data(), 8);  // transmitting on one-wire fills up receiver
+  this->write_array(buffer.data(), 8);
+  this->read_array(buffer.data(), 8);  // transmitting on one-wire fills up receiver
   this->flush();
 
   this->cache_(CACHE_WRITE, address, (uint32_t *) &value);
 }
 
-optional<int32_t> TMC2209API::read_register(uint8_t address) {
+int32_t TMC2209API::read_register(uint8_t address) {
   ESP_LOGVV(TAG, "reading address 0x%x", address);
   uint32_t value;
 
@@ -96,36 +96,36 @@ optional<int32_t> TMC2209API::read_register(uint8_t address) {
     return value;
 
   address = address & TMC_ADDRESS_MASK;
-  std::array<uint8_t, 8> data = {0};
-  data.at(0) = 0x05;
-  data.at(1) = this->address_;
-  data.at(2) = address;
-  data.at(3) = this->crc8_(data.data(), 3);
+  std::array<uint8_t, 8> buffer = {0};
+  buffer.at(0) = 0x05;
+  buffer.at(1) = this->address_;
+  buffer.at(2) = address;
+  buffer.at(3) = this->crc8_(buffer.data(), 3);
 
-  this->write_array(data.data(), 4);
-  this->read_array(data.data(), 4);  // transmitting on one-wire fills up receiver
+  this->write_array(buffer.data(), 4);
+  this->read_array(buffer.data(), 4);  // transmitting on one-wire fills up receiver
   this->flush();
 
-  if (!this->read_array(data.data(), 8))
+  if (!this->read_array(buffer.data(), 8))
     return 0;
 
   // Byte 0: Sync nibble correct?
-  if (data.at(0) != 0x05)
+  if (buffer.at(0) != 0x05)
     return 0;
 
   // Byte 1: Master address correct?
-  if (data.at(1) != 0xFF)
+  if (buffer.at(1) != 0xFF)
     return 0;
 
   // Byte 2: Address correct?
-  if (data.at(2) != address)
+  if (buffer.at(2) != address)
     return 0;
 
   // Byte 7: CRC correct?
-  if (data.at(7) != this->crc8_(data.data(), 7))
+  if (buffer.at(7) != this->crc8_(buffer.data(), 7))
     return 0;
 
-  return encode_uint32(data.at(3), data.at(4), data.at(5), data.at(6));
+  return encode_uint32(buffer.at(3), buffer.at(4), buffer.at(5), buffer.at(6));
 }
 
 uint32_t TMC2209API::update_field(uint32_t data, RegisterField field, uint32_t value) {
