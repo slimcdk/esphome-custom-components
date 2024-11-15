@@ -417,8 +417,8 @@ namespace tmc2209 {
   ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "MSCURACT:", this->read_register(MSCURACT)); \
   ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "CHOPCONF:", this->read_register(CHOPCONF)); \
   ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "DRV_STATUS:", this->read_register(DRV_STATUS)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "PWMCONF:", this->read_register(PWMCONF)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "PWMSCALE:", this->read_register(PWM_SCALE)); \
+  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "PWM_CONF:", this->read_register(PWM_CONF)); \
+  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "PWM_SCALE:", this->read_register(PWM_SCALE)); \
   ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "PWM_AUTO:", this->read_register(PWM_AUTO));
 
 #define LOG_TMC2209(this) \

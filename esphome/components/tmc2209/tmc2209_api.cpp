@@ -72,7 +72,7 @@ void TMC2209API::write_register(uint8_t address, int32_t value) {
 
   buffer.at(0) = 0x05;
   buffer.at(1) = this->address_;
-  buffer.at(2) = address | TMC_WRITE_BIT;
+  buffer.at(2) = address | WRITE_BIT;
   buffer.at(3) = (value >> 24) & 0xFF;
   buffer.at(4) = (value >> 16) & 0xFF;
   buffer.at(5) = (value >> 8) & 0xFF;
@@ -95,7 +95,7 @@ int32_t TMC2209API::read_register(uint8_t address) {
   if (this->cache_(CACHE_READ, address, &value))
     return value;
 
-  address = address & TMC_ADDRESS_MASK;
+  address = address & ADDRESS_MASK;
   std::array<uint8_t, 8> buffer = {0};
   buffer.at(0) = 0x05;
   buffer.at(1) = this->address_;
