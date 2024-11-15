@@ -19,7 +19,7 @@ namespace tmc2209 {
 #define TMC_ADDRESS_MASK  0x7F
 #define MAX_VELOCITY      (int32_t) 2147483647
 #define MAX_ACCELERATION  (uint32_t) 16777215uL
-#define IC_VERSION_33     0x21
+#define IC_VERSION_GEN1   0x21
 
 // ===== TMC2209 & 2202 & TMC2209 & 2220 & 2225 "Donkey Kong" family register set =====
 

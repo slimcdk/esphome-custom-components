@@ -8,7 +8,7 @@ namespace tmc2209 {
 
 #define LOG_TMC2209_VERSION(this) \
   const int8_t icv_ = this->read_field(VERSION_FIELD); \
-  if (icv_ == IC_VERSION_33) { \
+  if (icv_ == IC_VERSION_GEN1) { \
     ESP_LOGCONFIG(TAG, "  Detected IC version: 0x%02X", icv_); \
   } else { \
     if (icv_ == 0) { \
