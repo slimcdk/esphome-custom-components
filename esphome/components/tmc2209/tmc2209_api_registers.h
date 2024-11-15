@@ -11,7 +11,7 @@ namespace tmc2209 {
  * This software is proprietary to Analog Devices, Inc. and its licensors.
  *******************************************************************************/
 
-// NOLINTBEGIN
+// clang-format off
 
 // constants
 #define REGISTER_COUNT    128
@@ -306,7 +306,7 @@ namespace tmc2209 {
 #define PWM_GRAD_AUTO_SHIFT          16 // min.: 0, max.: 255, default: 0
 #define PWM_GRAD_AUTO_FIELD          ((esphome::tmc2209::RegisterField) { PWM_GRAD_AUTO_MASK, PWM_GRAD_AUTO_SHIFT, PWM_AUTO, false })
 
-// NOLINTEND
+// clang-format on
 
 }  // namespace tmc2209
 }  // namespace esphome
