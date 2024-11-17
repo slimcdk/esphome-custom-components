@@ -1,7 +1,18 @@
+> [!IMPORTANT]
+**Breaking changes!** *Ignore this part if you don't have a setup yet or want to use the new improved version.*
+
+Append `#0035ce5` (commit hash) to `source` if you wish to continue with the previous version. The rest can remain as is.
+```yaml
+external_components:
+  - source: github://slimcdk/esphome-custom-components#0035ce5 # <- include '#0035ce5'
+    components: ...
+```
+*Breaking changes are mainly fixes to speed, better handling for step/dir control and new splitted structure for configuration options.*
+
+
 # TMC2300
 
 ESPHome component to interact with a TMC2300 stepper motor driver over UART and regular step/dir.
-
 
 <p align="center">
   <img src="./docs/trinamic-bob-module.jpg" alt="Trinamic BOB" width="19%" />
@@ -22,9 +33,15 @@ ESPHome component to interact with a TMC2300 stepper motor driver over UART and 
     - [Control via UART](#control-the-position-using-serial-uart)
     - [Control via pulses](#control-the-position-using-traditional-stepping-pulses-and-direction)
 - [Automation](#automation)
-  - [`on_alert` Trigger](#on_alert)
+  - [`on_stall` Trigger](#on_stall)
+  - [`on_status` Trigger](#on_status)
 - [Actions](#actions)
   - [`tmc2300.configure` Action](#tmc2300configure-action)
+  - [`tmc2300.currents` Action](#tmc2300currents-action)
+  - [`tmc2300.stallguard` Action](#tmc2300stallguard-action)
+  - [`tmc2300.coolconf` Action](#tmc2300coolconf-action)
+  - [`tmc2300.chopconf` Action](#tmc2300chopconf-action)
+  - [`tmc2300.pwmconf` Action](#tmc2300pwmconf-action)
   - [`tmc2300.enable` Action](#tmc2300enable-action)
   - [`tmc2300.disable` Action](#tmc2300disable-action)
 - [Driver Sensors](#sensors)
@@ -35,7 +52,6 @@ ESPHome component to interact with a TMC2300 stepper motor driver over UART and 
   - [Pulse Control Wiring](#pulse-control)
 - [Resources](#resources)
 - [Troubleshooting](#troubleshooting)
-
 
 
 ## Config
@@ -54,7 +70,7 @@ external_components:
 uart:
   tx_pin: REPLACEME
   rx_pin: REPLACEME
-  baud_rate: 512000 # 9600 -> 500k
+  baud_rate: 500000 # 9600 -> 500k
 ```
 
 * `baud_rate` (**Required**, int): The baud rate of the UART bus. TMC2300 will auto-detect baud rates from 9600 to 500k with the internal clock/oscillator. An external clock/oscillator is needed for baud rates higher than 500k.
@@ -66,7 +82,7 @@ uart:
 
 * `rx_pin` (*Optional*, [Input Pin Schema][config-pin]): This is the ESPHome device's receive pin. This should be connected directly to `PDN_UART` on the TMC2300.
 
-> [!IMPORTANT]
+> [!NOTE]
 *Avoid selecting a UART which is utilized for other purposes. For instance boot log as the TMC2300 will try to interpret the output.*
 
 ---
@@ -94,7 +110,7 @@ Stepping pulses are handled by the main thread but utilize [increased execution 
 > *More components take up more resources slowing the main thread.*
 
 > [!IMPORTANT]
-*Configure `step_pin` and `dir_pin` and not `index_pin` for this method. Stay below 8 microstepping for best performance.*
+*Configure `step_pin` and `dir_pin` (`index_pin` is optional) for this method. Stay below 8 microstepping for best performance.*
 
 
 ####
@@ -103,29 +119,30 @@ Stepping pulses are handled by the main thread but utilize [increased execution 
 stepper:
   - platform: tmc2300
     id: driver
-    address: 0x00                 # optional, default is 0x00
-    enable_pin: REPLACEME         # optional, mostly not needed
-    nstdby_pin: REPLACEME         # optional, mostly not needed
-    diag_pin: REPLACEME           # optional, unless using uart control
-    step_pin: REPLACEME           # optional, unless using step/dir control
-    dir_pin: REPLACEME            # optional, unless using step/dir control
-    rsense: REPLACEME             # optional, check resistor on board
-    clock_frequency: 12MHz        # optional, default is 12MHz
-    poll_status_interval: 500ms   # optional, default is 500ms and has no effect if diag_pin is set
-
     max_speed: 500 steps/s
-    acceleration: 2500 steps/s^2  # optional, default is INF (no soft acceleration)
-    deceleration: 2500 steps/s^2  # optional, default is INF (no soft deceleration)
+    acceleration: 2500 steps/s^2
+    deceleration: 2500 steps/s^2
+    address: 0x00
+    enn_pin: REPLACEME
+    diag_pin: REPLACEME
+    index_pin: REPLACEME
+    step_pin: REPLACEME
+    dir_pin: REPLACEME
+    rsense: REPLACEME
+    vsense: False
+    ottrim: 0
+    clock_frequency: 12MHz
 ```
 * `id` (**Required**, [ID][config-id]): Specify the ID of the stepper so that you can control it.
 
 * `address` (*Optional*, hex): UART address of the IC. Configured by setting MS1_AD0 or MS2_AD1 high or low. Default is `0x00`.
 
-* `enable_pin` (*Optional*, [Output Pin Schema][config-pin]): Enable input pin for the driver.
+* `enn_pin` (*Optional*, [Output Pin Schema][config-pin]): Enable not input pin for the driver.
+    > *Driver can't be enabled if ENN is left floating. Either configure it if it's actually connected or wire it to GND.*
 
-* `nstdby_pin` (*Optional*, [Output Pin Schema][config-pin]): Standby input pin for the driver.
+* `diag_pin` (*Optional*, [Input Pin Schema][config-pin]): Driver error signaling from the driver.
 
-* `diag_pin` (*Optional*, [Input Pin Schema][config-pin]): Serves as stepping feedback from the internal step pulse generator.
+* `index_pin` (*Optional*, [Input Pin Schema][config-pin]): Serves as stepping feedback from the internal step pulse generator (not serving any purpose if `step_pin` and `dir_pin` is configured).
 
 * `step_pin` (*Optional*, [Output Pin Schema][config-pin]): Provides stepping pulses to the driver.
 
@@ -133,86 +150,139 @@ stepper:
 
 * `rsense` (*Optional*, resistance): Motor current sense resistors. Often varies from ~75 to 1000 mOhm. The actual value for your board can be found in the documentation. Leave empty to enable internal sensing using RDSon (170 mOhm). *Don't leave empty if your board has external sense resistors!*
 
-* `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
+* `vsense` (*Optional*, boolean): Reduce currents/power to ~55% if smaller (<1/4 W) RSense resistors are used. Defaults to OTP. RSense must be configued as well.
 
-* `poll_status_interval` (*Optional*, [Time][config-time]): Interval to poll driver for fault indicators like overtemperature, open load, short etc (***This does not set detection interval for stall***). Default is 500ms. This has no effect if `diag_pin` is configured.
+* `ottrim` (*Optional*, int): Limits for warning and shutdown temperatures. Default is OTP. OTP is 0 from factory. See below table for values.
+  <table>
+    <thead>
+      <tr><th>OTTRIM</th><th>Prewarning</th><th>Shutdown</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>0</td><td>120C</td><td>143C</td></tr>
+      <tr><td>1</td><td>120C</td><td>150C</td></tr>
+      <tr><td>2</td><td>143C</td><td>150C</td></tr>
+      <tr><td>3</td><td>143C</td><td>157C</td></tr>
+    </tbody>
+  </table>
+
+    > *Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning.*
+
+* `analog_scale` (*Optional*, boolean): Determines the VREF mode. Defaults to `True`.
+
+* `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
 
 * All other from [Base Stepper Component][base-stepper-component]
 
 
 ## Automation
 
-### `on_alert`
-An alert event is fired whenever a driver warning or error is detected. For instance when the motor stalls. This event can be used for sensorless homing. Works both with control over serial (UART) and with stepping and direction pulses.
+### `on_stall`
+
+Will trigger when a stall is detected. This can be used for sensorless homing. Check the [sensorless homing example](#sensorless-homing)*.
 ```yaml
 stepper:
   - platform: tmc2300
     id: driver
     ...
-    on_alert:
-      - if:
-          condition:
-            lambda: return alert == tmc2300::STALLED;
-          then:
-            - logger.log: "Motor stalled!"
-            - stepper.stop: driver
+    on_stall:
+        - logger.log: "Motor stalled!"
+        - stepper.stop: driver
 ```
-> <small>All events in an [example config](#alert-events)  for easy copy/paste</small>
-
-#### Currently supported alert events
-
-Most alerts is signaling that the driver is in a given state. The majority of alert events also has a `CLEARED` or similar counterpart signaling that the driver is now not in the given state anymore.
-
-  * `STALLED` Motor is considered stalled when SG_RESULT crosses SGTHRS. Check below for more.
-
-> [!NOTE]
-*`STALLED` is the event you would want for sensorless homing. Check the [sensorless homing example](#sensorless-homing)*.
 
 > [!IMPORTANT]
-*Stall monitoring becomes enabled when the motor has a velocity equal to the configured max speed. Since this component/setup is expected to be an open loop system, the velocity is estimated from max speed, acceleration and deceleration and not the actual velocity of the motor. This applies to both UART and pulse control.*
+*Incorrect motor parameters and motion jolt/jerk (quick acceleration/deceleration changes) can lead to false stall events. Play around with the parameters for your specific application.*
+
+
+### `on_status`
+An event is fired whenever a driver warning or error is detected. For instance when the driver overheats.
+```yaml
+stepper:
+  - platform: tmc2300
+    id: driver
+    ...
+    on_status:
+      - if:
+          condition:
+            lambda: return code == tmc2300::OVERTEMPERATURE_PREWARNING;
+          then:
+            - logger.log: "Driver is about to overheat"
+```
+> <small>All events in an [example config](#status-events)  for easy copy/paste</small>
+
+#### Driver status codes
+
+Most events is signaling that the driver is in a given state. The majority of events also has a `CLEARED` or similar counterpart signaling that the driver is now not in the given state anymore.
+
+  * `DIAG_TRIGGERED` | `DIAG_TRIGGER_CLEARED`  DIAG output is triggered. Primarily driver errors, but also stall event.
+  * `RESET` | `RESET_CLEARED` Driver has been reset since last power on.
+  * `DRIVER_ERROR` | `DRIVER_ERROR_CLEARED` A driver error was detected.
+  * `CP_UNDERVOLTAGE` | `CP_UNDERVOLTAGE_CLEARED` Undervoltage on chargepump input.
+  * `OVERTEMPERATURE_PREWARNING` | `OVERTEMPERATURE_PREWARNING_CLEARED` Driver is warning about increasing temperature.
+  * `OVERTEMPERATURE` | `OVERTEMPERATURE_CLEARED` Driver is at critical high temperature and is shutting down.
+  * `TEMPERATURE_ABOVE_120C` | `TEMPERATURE_BELOW_120C` Temperature is higher or lower than 120C.
+  * `TEMPERATURE_ABOVE_143C` | `TEMPERATURE_BELOW_143C` Temperature is higher or lower than 143C.
+  * `TEMPERATURE_ABOVE_150C` | `TEMPERATURE_BELOW_150C` Temperature is higher or lower than 150C.
+  * `TEMPERATURE_ABOVE_157C` | `TEMPERATURE_BELOW_157C` Temperature is higher or lower than 157C.
+  * `OPEN_LOAD` | `OPEN_LOAD_CLEARED` Open load indicator.
+  * `OPEN_LOAD_A` | `OPEN_LOAD_A_CLEARED` Open load indicator phase A.
+  * `OPEN_LOAD_B` | `OPEN_LOAD_B_CLEARED`  Open load indicator phase B.
+  * `LOW_SIDE_SHORT` | `LOW_SIDE_SHORT_CLEARED` Low side short indicator.
+  * `LOW_SIDE_SHORT_A` | `LOW_SIDE_SHORT_A_CLEARED` Low side short indicator phase A.
+  * `LOW_SIDE_SHORT_B` | `LOW_SIDE_SHORT_B_CLEARED` Low side short indicator phase B.
+  * `GROUND_SHORT` | `GROUND_SHORT_CLEARED` Short to ground indicator.
+  * `GROUND_SHORT_A` | `GROUND_SHORT_A_CLEARED` Short to ground indicator phase A.
+  * `GROUND_SHORT_B` | `GROUND_SHORT_B_CLEARED` Short to ground indicator phase B.
 
 
 ## Actions
 
+> [!NOTE]
+*Registers and fields on the driver persist through an ESPHome device reboot, so previously written states may remain active. They are set to OTP/defaults or cleared when the driver power cycles.*
+
+
 ### `tmc2300.configure` Action
 Example of configuring the driver. For instance on boot.
 ```yaml
-esphome:
-  ...
-  on_boot:
-    - tmc2300.configure:
-        microsteps: 8
-        stallguard_threshold: 50
-        standstill_mode: freewheeling
-        run_current: 800mA
-        hold_current: 0mA
-        tpowerdown: 0
-        iholddelay: 0
+on_...:
+  - tmc2300.configure:
+      direction: REPLACEME
+      microsteps: REPLACME
+      interpolation: REPLACEME
+      enable_spreadcycle: REPLACEME
+      tcool_threshold: REPLACEME
+      tpwm_threshold: REPLACEME
 ```
 
 * `id` (**Required**, ID): Reference to the stepper tmc2300 component. Can be left out if only a single TMC2300 is configured.
 
+* `direction` (*Optional*, string, [templatable][config-templatable]): Effectively inverse the rotational direction. Options are `clockwise` or `counterclockwise` and their abbreviations `cw` or `cww`.
+
 * `microsteps` (*Optional*, int, [templatable][config-templatable]): Microstepping. Possible values are `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`.
-
-* `inverse_direction` (*Optional*, bool, [templatable][config-templatable]): Inverse the rotational direction.
-
-* `tcool_threshold` (*Optional*, int, [templatable][config-templatable]): Value for the COOLSTEP TCOOL threshold.
-
-* `stallguard_threshold` (*Optional*, int, [templatable][config-templatable]): Value for the StallGuard4 threshold.
 
 * `interpolation` (*Optional*, bool, [templatable][config-templatable]): The actual microstep resolution (MRES) becomes extrapolated to 256 microsteps for the smoothest motor operation.
 
-* `irun` (*Optional*, int, [templatable][config-templatable]): IRUN setting. Must be between 0 and 31.
+* `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `False` allows use of StealthChop. Defaults to OTP.
 
-* `ihold` (*Optional*, int, [templatable][config-templatable]): IHOLD setting. Must be between 0 and 31.
+* `tcool_threshold` (*Optional*, int): Sets **TCOOLTHRS**
 
-* `tpowerdown` (*Optional*, int, [templatable][config-templatable]): TPOWERDOWN setting. Must be between 0 and 31.
+* `tpwm_threshold` (*Optional*, int): Sets **TPWMTHRS**
 
-* `iholddelay` (*Optional*, int, [templatable][config-templatable]): IHOLDDELAY setting. Must be between 0 and 31.
 
-* `run_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IRUN based on RSense according to [section 9][datasheet].
+### `tmc2300.currents` Action
+Example of configuring currents and standstill mode.
+```yaml
+on_...:
+  - tmc2300.currents:
+      standstill_mode: freewheeling
+      irun: 16
+      ihold: 0
+      tpowerdown: 0
+      iholddelay: 0
+      run_current: 800m
+      hold_current: 0mA
+```
 
-* `hold_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IHOLD based on RSense according to [section 9][datasheet].
+* `id` (**Required**, ID): Reference to the stepper tmc2300 component. Can be left out if only a single TMC2300 is configured.
 
 * `standstill_mode` (*Optional*, [templatable][config-templatable]): Standstill mode for when movement stops. Default is OTP. Available modes are:
   * `normal`: Actively breaks the motor.
@@ -220,43 +290,127 @@ esphome:
   * `short_coil_ls`: Similar to `freewheeling`, but with motor coils shorted to low side voltage.
   * `short_coil_hs`: Similar to `freewheeling`, but with motor coils shorted to high side voltage.
 
-* `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `False` allows use of StealthChop. Defaults to OTP.
+* `irun` (*Optional*, int, [templatable][config-templatable]): IRUN setting. Must be between 0 and 31.
+
+* `run_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IRUN based on RSense and VSense according to [section 9][datasheet].
+
+* `ihold` (*Optional*, int, [templatable][config-templatable]): IHOLD setting. Must be between 0 and 31.
+
+* `hold_current` (*Optional*, current, [templatable][config-templatable]): Converts a RMS current setting to IHOLD based on RSense and VSense according to [section 9][datasheet].
+
+* `tpowerdown` (*Optional*, int, [templatable][config-templatable]): TPOWERDOWN setting. Must be between 0 and 31.
+
+* `iholddelay` (*Optional*, int, [templatable][config-templatable]): IHOLDDELAY setting. Must be between 0 and 31.
 
 
 > [!NOTE]
-*Registers and fields on the driver persist through an ESPHome device reboot, so previously written states may remain active*
-
 *See [section 1.7][datasheet] for visiual graphs of IRUN, TPOWERDOWN and IHOLDDELAY and IHOLD*
+
+
+
+### `tmc2300.stallguard` Action
+Example of configuring StallGuard.
+```yaml
+on_...:
+  - tmc2300.stallguard:
+      threshold: 50
+```
+
+* `id` (**Required**, ID): Reference to the stepper tmc2300 component. Can be left out if only a single TMC2300 is configured.
+
+* `threshold` (*Optional*, int, [templatable][config-templatable]):  Sets **SGTHRS**. Value for the StallGuard4 threshold.
+
+
+### `tmc2300.coolconf` Action
+```yaml
+on_...:
+  - tmc2300.coolconf:
+      seimin: REPLACEME
+      semax: REPLACEME
+      semin: REPLACEME
+      sedn: REPLACEME
+      seup: REPLACEME
+```
+
+* `id` (**Required**, ID): Reference to the stepper tmc2300 component. Can be left out if only a single TMC2300 is configured.
+
+* `seimin` (*Optional*, int): Sets **SEIMIN**
+
+* `semax` (*Optional*, int): Sets **SEMAX**
+
+* `semin` (*Optional*, int): Sets **SEMIN**
+
+* `sedn` (*Optional*, int): Sets **SEDN**
+
+* `seup` (*Optional*, int): Sets **SEUP**
+
+
+
+### `tmc2300.chopconf` Action
+```yaml
+on_...:
+  - tmc2300.chopconf:
+      tbl: REPLACEME
+      hend: REPLACEME
+      hstrt: REPLACEME
+```
+
+* `id` (**Required**, ID): Reference to the stepper tmc2300 component. Can be left out if only a single TMC2300 is configured.
+
+* `tbl` (*Optional*, int): Sets CHOPCONF **TBL**
+
+* `hend` (*Optional*, int): Sets CHOPCONF **HEND**
+
+* `hstrt` (*Optional*, int): Sets CHOPCONF **HSTRT**
+
+
+
+### `tmc2300.pwmconf` Action
+```yaml
+on_...:
+  - tmc2300.pwmconf:
+      lim: REPLACEME
+      reg: REPLACEME
+      freq: REPLACEME
+      ofs: REPLACEME
+      autograd: REPLACEME
+      autoscale: REPLACEME
+```
+
+* `id` (**Required**, ID): Reference to the stepper tmc2300 component. Can be left out if only a single TMC2300 is configured.
+
+* `lim` (*Optional*, int): Sets PWMCONF **PWM_LIM**
+
+* `reg` (*Optional*, int): Sets PWMCONF **PWM_REG**
+
+* `freq` (*Optional*, int): Sets PWMCONF **PWM_FREQ**
+
+* `ofs` (*Optional*, int): Sets PWMCONF **PWM_OFS**
+
+* `autograd` (*Optional*, boolean): Sets PWMCONF **PWM_AUTOGRAD**
+
+* `autoscale` (*Optional*, boolean): Sets PWMCONF **PWM_AUTOSCALE**
 
 
 ### `tmc2300.enable` Action
 
-Enables driver on ENN.
-
+This uses *TOFF* (sets to 3) if `enn_pin` is not set to enable the driver. *Driver will automatically be enabled if new target is issued.*
 ```yaml
 on_...:
   - tmc2300.enable: driver
 ```
 * `id` (**Required**, ID): Reference to the stepper tmc2300 component. Can be left out if only a single TMC2300 is configured.
 
-> [!IMPORTANT]
-*This action has no effect if `enn_pin` isn't set.*
-
-
 
 ### `tmc2300.disable` Action
 
-Disables driver on ENN. *Stop* is also called.
-
+This uses *TOFF* (sets to 0) if `enn_pin` is not set to disable the driver. This will also trigger `stepper.stop`.
 ```yaml
 on_...:
   - tmc2300.disable: driver
 ```
+
 * `id` (**Required**, ID): Reference to the stepper tmc2300 component. Can be left out if only a single TMC2300 is configured.
-
-> [!IMPORTANT]
-*This action has no effect on ENN if `enn_pin` isn't set.* *Driver will be automatically be enabled if new target is issued.*
-
 
 
 ### Sensors
@@ -282,6 +436,26 @@ sensor:
     type: actual_current
     name: Actual current
     update_interval: 250ms
+
+  - platform: tmc2300
+    type: pwm_scale_sum
+    name: PWM Scale Sum
+    update_interval: 250ms
+
+  - platform: tmc2300
+    type: pwm_scale_auto
+    name: PWM Scale Auto
+    update_interval: 250ms
+
+  - platform: tmc2300
+    type: pwm_ofs_auto
+    name: PWM OFS Auto
+    update_interval: 250ms
+
+  - platform: tmc2300
+    type: pwm_grad_auto
+    name: PWM Grad Auto
+    update_interval: 250ms
 ```
 * `tmc2300_id` (*Optional*, [ID][config-id]): Manually specify the ID of the `stepper.tmc2300` you want to use this sensor.
 
@@ -289,9 +463,12 @@ sensor:
   * `stallguard_result` Stator angle shift detected by the driver.
   * `motor_load` Percentage off stall calculated from StallGuard result and set StallGuard threshold. 100% = stalled
   * `actual_current` Active current setting. Either IRUN or IHOLD value.
+  * `pwm_scale_sum` Actual PWM duty cycle. This value is used for scaling the values CUR_A and CUR_B read from the sine wave table.
+  * `pwm_scale_auto` 9 Bit signed offset added to the calculated PWM duty cycle. This is the result of the automatic amplitude regulation based on current measurement.
+  * `pwm_ofs_auto` Automatically determined offset value.
+  * `pwm_grad_auto` Automatically determined gradient value.
 
 * All other from [Sensor][base-sensor-component]
-
 
 
 ### Sensorless homing
@@ -314,24 +491,20 @@ stepper:
   - platform: tmc2300
     id: driver
     ...
-    on_alert:
+    on_stall:
+      - logger.log: "Motor stalled!"
+      - stepper.stop: driver
       - if:
           condition:
-            lambda: return alert == tmc2300::STALLED;
+            lambda: return !id(has_homed);
           then:
-            - logger.log: "Motor stalled!"
-            - stepper.stop: driver
-            - if:
-                condition:
-                  lambda: return !id(has_homed);
-                then:
-                  - stepper.report_position:
-                      id: driver
-                      position: 0
-                  - globals.set:
-                      id: has_homed
-                      value: "true"
-                  - logger.log: "Home position set"
+            - stepper.report_position:
+                id: driver
+                position: 0
+            - globals.set:
+                id: has_homed
+                value: "true"
+            - logger.log: "Home position set"
 
 button:
   - platform: template
@@ -345,7 +518,6 @@ button:
           id: driver
           target: -9999999
 ```
-
 
 
 ## Example config
@@ -366,38 +538,34 @@ esphome:
     - tmc2300.configure:
         microsteps: 8
         interpolation: true
-        tcool_threshold: 400
-        stallguard_threshold: 50
+    - tmc2300.stallguard:
+        threshold: 50
+    - tmc2300.currents:
         standstill_mode: freewheeling
-        run_current: 800mA
-        hold_current: 0mA
+        irun: 16
+        ihold: 0
         tpowerdown: 0
         iholddelay: 0
 
 uart:
   tx_pin: 16
   rx_pin: 17
-  baud_rate: 512000
+  baud_rate: 500000
 
 
 stepper:
   - platform: tmc2300
     id: driver
-    max_speed: 800 steps/s
-    acceleration: 7500 steps/s^2
-    deceleration: 7500 steps/s^2
+    max_speed: 900 steps/s
+    acceleration: 1500 steps/s^2
+    deceleration: 500 steps/s^2
     rsense: 110 mOhm
     vsense: False
-    ottrim: 0
     index_pin: 42
     diag_pin: 41
-    on_alert:
-      - if:
-          condition:
-            lambda: return alert == tmc2300::STALLED;
-          then:
-            - logger.log: "Motor stalled!"
-            - stepper.stop: driver
+    on_stall:
+      - logger.log: "Motor stalled!"
+      - stepper.stop: driver
 
 button:
   - platform: template
@@ -442,47 +610,54 @@ sensor:
 Output of above configuration. Registers could differ due to OTP.
 ```console
 ...
-[00:00:00][C][tmc2300:421]: TMC2300 Stepper:
-[00:00:00][C][tmc2300:424]:   Control: Serial with feedback
-[00:00:00][C][tmc2300:430]:   Acceleration: 500 steps/s^2
-[00:00:00][C][tmc2300:430]:   Deceleration: 500 steps/s^2
-[00:00:00][C][tmc2300:430]:   Max Speed: 800 steps/s
-[00:00:00][C][tmc2300:432]:   ENN Pin: GPIO38
-[00:00:00][C][tmc2300:434]:   INDEX Pin: GPIO42
-[00:00:00][C][tmc2300:437]:   Address: 0x00
-[00:00:00][C][tmc2300:438]:   Microsteps: 2
-[00:00:00][C][tmc2300:445]:   Detected IC version: 0x21
-[00:00:00][C][tmc2300:451]:   Overtemperature: prewarning = 120C | shutdown = 143C
-[00:00:00][C][tmc2300:452]:   Clock frequency: 12000000 Hz
-[00:00:00][C][tmc2300:453]:   Driver status poll interval: 1000ms
-[00:00:00][C][tmc2300:455]:   Register dump:
-[00:00:00][C][tmc2300:456]:     GCONF: 0xE0
-[00:00:00][C][tmc2300:457]:     GSTAT: 0x1
-[00:00:00][C][tmc2300:458]:     IFCNT: 0x18
-[00:00:00][C][tmc2300:459]:     SLAVECONF: 0x0
-[00:00:00][C][tmc2300:460]:     OTP_PROG: 0x0
-[00:00:00][C][tmc2300:461]:     OTP_READ: 0xA
-[00:00:00][C][tmc2300:462]:     IOIN: 0x21000240
-[00:00:00][C][tmc2300:463]:     FACTORY_CONF: 0xA
-[00:00:00][C][tmc2300:464]:     IHOLD_IRUN: 0x1000
-[00:00:00][C][tmc2300:465]:     TPOWERDOWN: 0x0
-[00:00:00][C][tmc2300:466]:     TSTEP: 0xFFFFF
-[00:00:00][C][tmc2300:467]:     TPWMTHRS: 0x0
-[00:00:00][C][tmc2300:468]:     TCOOLTHRS: 0x0
-[00:00:00][C][tmc2300:469]:     VACTUAL: 0x0
-[00:00:00][C][tmc2300:470]:     SGTHRS: 0x32
-[00:00:00][C][tmc2300:471]:     SG_RESULT: 0x0
-[00:00:00][C][tmc2300:472]:     COOLCONF: 0x0
-[00:00:00][C][tmc2300:473]:     MSCNT: 0x40
-[00:00:00][C][tmc2300:474]:     MSCURACT: 0xE4005F
-[00:00:00][C][tmc2300:475]:     CHOPCONF: 0x17010053
-[00:00:00][C][tmc2300:476]:     DRV_STATUS: 0xC0000000
-[00:00:00][C][tmc2300:477]:     PWMCONF: 0xC80D0E24
-[00:00:00][C][tmc2300:478]:     PWMSCALE: 0x180019
-[00:00:00][C][tmc2300:479]:     PWM_AUTO: 0xE002F
+[00:00:00][C][tmc2300:011]: TMC2300 Stepper:
+[00:00:00][C][tmc2300:014]:   Control: serial
+[00:00:00][C][tmc2300:021]:   ENN Pin: GPIO21
+[00:00:00][C][tmc2300:021]:   DIAG Pin: GPIO16
+[00:00:00][C][tmc2300:021]:   INDEX Pin: GPIO11
+[00:00:00][C][tmc2300:022]:   Address: 0x00
+[00:00:00][C][tmc2300:023]:   Detected IC version: 0x21
+[00:00:00][C][tmc2300:025]:   Microsteps: 8
+[00:00:00][C][tmc2300:026]:   Clock frequency: 12000000 Hz
+[00:00:00][C][tmc2300:027]:   Velocity compensation: 0.715256
+[00:00:00][C][tmc2300:029]:   Overtemperature: prewarning = 120C | shutdown = 143C
+[00:00:00][C][tmc2300:031]:   Acceleration: 1500 steps/s^2
+[00:00:00][C][tmc2300:031]:   Deceleration: 500 steps/s^2
+[00:00:00][C][tmc2300:031]:   Max Speed: 900 steps/s
+[00:00:00][C][tmc2300:033]:   Analog Scale: VREF is connected
+[00:00:00][C][tmc2300:033]:   Currents:
+[00:00:00][C][tmc2300:033]:     IRUN: 16 (939 mA)
+[00:00:00][C][tmc2300:033]:     IHOLD: 0 (0 mA)
+[00:00:00][C][tmc2300:033]:     Limits: 1767 mA
+[00:00:00][C][tmc2300:033]:     VSense: False (high heat dissipation)
+[00:00:00][C][tmc2300:033]:     RSense: 0.110 Ohm (external sense resistors)
+[00:00:00][C][tmc2300:034]:   Register dump:
+[00:00:00][C][tmc2300:034]:    GCONF:        0x000001E0
+[00:00:00][C][tmc2300:034]:    GSTAT:        0x00000001
+[00:00:00][C][tmc2300:034]:    IFCNT:        0x00000027
+[00:00:00][C][tmc2300:034]:    SLAVECONF:    0xA5A5A5A5
+[00:00:00][C][tmc2300:034]:    OTP_PROG:     0xA5A5A5A5
+[00:00:00][C][tmc2300:034]:    OTP_READ:     0x0000000F
+[00:00:00][C][tmc2300:034]:    IOIN:         0x21000040
+[00:00:00][C][tmc2300:034]:    FACTORY_CONF: 0x0000000F
+[00:00:00][C][tmc2300:034]:    IHOLD_IRUN:   0xA5A0B0A0
+[00:00:00][C][tmc2300:034]:    TPOWERDOWN:   0xA5A5A500
+[00:00:00][C][tmc2300:034]:    TSTEP:        0x000FFFFF
+[00:00:00][C][tmc2300:034]:    TPWMTHRS:     0xA5A5A5A5
+[00:00:00][C][tmc2300:034]:    TCOOLTHRS:    0xA5A5A5A5
+[00:00:00][C][tmc2300:034]:    VACTUAL:      0xA5000000
+[00:00:00][C][tmc2300:034]:    SGTHRS:       0x00000032
+[00:00:00][C][tmc2300:034]:    SG_RESULT:    0x00000000
+[00:00:00][C][tmc2300:034]:    COOLCONF:     0xA5A5A5A5
+[00:00:00][C][tmc2300:034]:    MSCNT:        0x00000030
+[00:00:00][C][tmc2300:034]:    MSCURACT:     0x00EC0048
+[00:00:00][C][tmc2300:034]:    CHOPCONF:     0x15010053
+[00:00:00][C][tmc2300:034]:    DRV_STATUS:   0xC0000040
+[00:00:00][C][tmc2300:034]:    PWMCONF:      0xC81D0E24
+[00:00:00][C][tmc2300:034]:    PWMSCALE:     0x00750078
+[00:00:00][C][tmc2300:034]:    PWM_AUTO:     0x000E007B
 ...
 ```
-
 
 
 ### Advanced
@@ -494,13 +669,36 @@ Writing to and reading from registers and register fields from the driver can ea
 >*Definitions ending in `_MASK` or `_SHIFT` should not be used.*
 
 The `tmc2300` base component exposes four methods:
-* `void write_register(uint8_t address, int32_t value)` write/overwrite an entire register.
-* `int32_t read_register(uint8_t address)` read an entire registers.
-* `void write_field(RegisterField field, uint32_t value)` write/overwrite a register field.
-* `uint32_t read_field(RegisterField field)` read a register field.
+  * `void write_register(uint8_t address, int32_t value)` write/overwrite an entire register.
+  * `int32_t read_register(uint8_t address)` read an entire registers.
+  * `void write_field(RegisterField field, uint32_t value)` write/overwrite a register field.
+  * `uint32_t read_field(RegisterField field)` read a register field.
+  * `uint32_t extract_field(uint32_t data, RegisterField field)` extract field value from register value.
 
 > [!CAUTION]
-*Overwriting some registers may cause instability in the ESPHome component.*
+*Overwriting below registers may cause instability in the ESPHome component and should be avoided.*
+  * `VACTUAL_FIELD`
+  * `TOFF_FIELD`
+  * `VSENSE_FIELD`
+  * `OTTRIM_FIELD`
+  * `DEDGE_FIELD`
+  * `INDEX_OTPW_FIELD`
+  * `INDEX_STEP_FIELD`
+  * `MULTISTEP_FILT_FIELD`
+  * `PDN_DISABLE_FIELD`
+  * `INTERNAL_RSENSE_FIELD`
+  * `I_SCALE_ANALOG_FIELD`
+  * `SHAFT_FIELD`
+  * `MSTEP_REG_SELECT_FIELD`
+  * `TEST_MODE_FIELD`
+  * `RESET_FIELD`
+  * `RESET_FIELD`
+  * `DRV_ERR_FIELD`
+  * `UV_CP_FIELD`
+  * `MRES_FIELD`
+  * `IRUN_FIELD`
+  * `IHOLD_FIELD`
+  * `TPOWERDOWN_FIELD`
 
 
 Example usage in lambdas
@@ -510,12 +708,12 @@ sensor:
     // Read stallguard result (register) into a sensor
   - platform: template
     name: Stallguard result
-    lambda: return id(driver)->read_register(TMC2300_SG_RESULT);
+    lambda: return id(driver)->read_register(SG_RESULT);
 
     // Read microstep selection index into a sensor. This is a binary exponent like 0,1,2,3,... and microsteps can be calculated like 2**<exponent>
   - platform: template
     name: Microstep selection index
-    lambda: return id(driver)->read_field(TMC2300_MRES_FIELD);
+    lambda: return id(driver)->read_field(MRES_FIELD);
 
 
 number:
@@ -527,9 +725,9 @@ number:
     min_value: 0
     max_value: 255
     step: 5
-    lambda: return id(driver)->read_register(TMC2300_SGTHRS);
+    lambda: return id(driver)->read_register(SGTHRS);
     set_action:
-      - lambda: id(driver)->write_register(TMC2300_SGTHRS, x);
+      - lambda: id(driver)->write_register(SGTHRS, x);
 
 
 button:
@@ -538,7 +736,7 @@ button:
   - platform: template
     name: Set microstepping to 8
     on_press:
-      - lambda: id(driver)->write_field(TMC2300_MRES_FIELD, 3);
+      - lambda: id(driver)->write_field(MRES_FIELD, 3);
 
 ```
 
@@ -600,171 +798,213 @@ Long wires connected to ENN might pick up interference causing the driver to mak
 
 ## TODOs
 * Reconfigure driver if driver was power cycled.
-* OTTRIM not setting or reading properly
-* Generate step pulses outside of main loop
-
+* OTTRIM not setting or reading properly.
+* Implement hardware timer for step pulse generation.
+* Use index for warning if stepper is controlled with step/dir.
 
 ## MISC
 
-### Alert events
-All alert events configured for easy copy-pasta.
+### Status events
+All status events configured for easy copy-pasta.
 ```yaml
 stepper:
   - platform: tmc2300
     id: driver
     ...
-    on_alert:
+    on_status:
+      - logger.log:
+          format: "Driver is reporting an update! (code %d)"
+          args: ["code"]
       - if:
           condition:
-            lambda: return alert == tmc2300::DIAG_TRIGGERED;
+            lambda: return code == tmc2300::DIAG_TRIGGERED;
           then:
             - logger.log: DIAG_TRIGGERED
       - if:
           condition:
-            lambda: return alert == tmc2300::STALLED;
+            lambda: return code == tmc2300::DIAG_TRIGGER_CLEARED;
           then:
-            - logger.log: STALLED
-            - stepper.stop: motor
+            - logger.log: DIAG_TRIGGER_CLEARED
       - if:
           condition:
-            lambda: return alert == tmc2300::OVERTEMPERATURE_PREWARNING;
+            lambda: return code == tmc2300::RESET;
           then:
-            - logger.log: OVERTEMPERATURE_PREWARNING
+            - logger.log: RESET
       - if:
           condition:
-            lambda: return alert == tmc2300::OVERTEMPERATURE_PREWARNING_CLEARED;
+            lambda: return code == tmc2300::RESET_CLEARED;
           then:
-            - logger.log: OVERTEMPERATURE_PREWARNING_CLEARED
+            - logger.log: RESET_CLEARED
       - if:
           condition:
-            lambda: return alert == tmc2300::OVERTEMPERATURE;
+            lambda: return code == tmc2300::DRIVER_ERROR;
           then:
-            - logger.log: OVERTEMPERATURE_CLEARED
+            - logger.log: DRIVER_ERROR
       - if:
           condition:
-            lambda: return alert == tmc2300::TEMPERATURE_ABOVE_120C;
+            lambda: return code == tmc2300::DRIVER_ERROR_CLEARED;
           then:
-            - logger.log: TEMPERATURE_ABOVE_120C
+            - logger.log: DRIVER_ERROR_CLEARED
       - if:
           condition:
-            lambda: return alert == tmc2300::TEMPERATURE_BELOW_120C;
-          then:
-            - logger.log: TEMPERATURE_BELOW_120C
-      - if:
-          condition:
-            lambda: return alert == tmc2300::TEMPERATURE_ABOVE_143C;
-          then:
-            - logger.log: TEMPERATURE_ABOVE_143C
-      - if:
-          condition:
-            lambda: return alert == tmc2300::TEMPERATURE_BELOW_143C;
-          then:
-            - logger.log: TEMPERATURE_BELOW_143C
-      - if:
-          condition:
-            lambda: return alert == tmc2300::TEMPERATURE_ABOVE_150C;
-          then:
-            - logger.log: TEMPERATURE_ABOVE_150C
-      - if:
-          condition:
-            lambda: return alert == tmc2300::TEMPERATURE_BELOW_150C;
-          then:
-            - logger.log: TEMPERATURE_BELOW_150C
-      - if:
-          condition:
-            lambda: return alert == tmc2300::TEMPERATURE_ABOVE_157C;
-          then:
-            - logger.log: TEMPERATURE_ABOVE_157C
-      - if:
-          condition:
-            lambda: return alert == tmc2300::TEMPERATURE_BELOW_157C;
-          then:
-            - logger.log: TEMPERATURE_BELOW_157C
-      - if:
-          condition:
-            lambda: return alert == tmc2300::A_OPEN_LOAD;
-          then:
-            - logger.log: A_OPEN_LOAD
-      - if:
-          condition:
-            lambda: return alert == tmc2300::A_OPEN_LOAD_CLEARED;
-          then:
-            - logger.log: A_OPEN_LOAD_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2300::B_OPEN_LOAD;
-          then:
-            - logger.log: B_OPEN_LOAD
-      - if:
-          condition:
-            lambda: return alert == tmc2300::B_OPEN_LOAD_CLEARED;
-          then:
-            - logger.log: B_OPEN_LOAD_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2300::A_OPEN_LOAD;
-          then:
-            - logger.log: A_OPEN_LOAD
-      - if:
-          condition:
-            lambda: return alert == tmc2300::A_OPEN_LOAD_CLEARED;
-          then:
-            - logger.log: A_OPEN_LOAD_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2300::B_OPEN_LOAD;
-          then:
-            - logger.log: B_OPEN_LOAD
-      - if:
-          condition:
-            lambda: return alert == tmc2300::B_OPEN_LOAD_CLEARED;
-          then:
-            - logger.log: B_OPEN_LOAD_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2300::A_LOW_SIDE_SHORT;
-          then:
-            - logger.log: A_LOW_SIDE_SHORT
-      - if:
-          condition:
-            lambda: return alert == tmc2300::A_LOW_SIDE_SHORT_CLEARED;
-          then:
-            - logger.log: A_LOW_SIDE_SHORT_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2300::B_LOW_SIDE_SHORT;
-          then:
-            - logger.log: B_LOW_SIDE_SHORT
-      - if:
-          condition:
-            lambda: return alert == tmc2300::B_LOW_SIDE_SHORT_CLEARED;
-          then:
-            - logger.log: B_LOW_SIDE_SHORT_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2300::A_GROUND_SHORT_CLEARED;
-          then:
-            - logger.log: A_GROUND_SHORT_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2300::B_GROUND_SHORT;
-          then:
-            - logger.log: B_GROUND_SHORT
-      - if:
-          condition:
-            lambda: return alert == tmc2300::B_GROUND_SHORT_CLEARED;
-          then:
-            - logger.log: B_GROUND_SHORT_CLEARED
-      - if:
-          condition:
-            lambda: return alert == tmc2300::CP_UNDERVOLTAGE;
+            lambda: return code == tmc2300::CP_UNDERVOLTAGE;
           then:
             - logger.log: CP_UNDERVOLTAGE
       - if:
           condition:
-            lambda: return alert == tmc2300::CP_UNDERVOLTAGE_CLEARED;
+            lambda: return code == tmc2300::CP_UNDERVOLTAGE_CLEARED;
           then:
             - logger.log: CP_UNDERVOLTAGE_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2300::OVERTEMPERATURE_PREWARNING;
+          then:
+            - logger.log: OVERTEMPERATURE_PREWARNING
+      - if:
+          condition:
+            lambda: return code == tmc2300::OVERTEMPERATURE_PREWARNING_CLEARED;
+          then:
+            - logger.log: OVERTEMPERATURE_PREWARNING_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2300::OVERTEMPERATURE;
+          then:
+            - logger.log: OVERTEMPERATURE
+      - if:
+          condition:
+            lambda: return code == tmc2300::OVERTEMPERATURE_CLEARED;
+          then:
+            - logger.log: OVERTEMPERATURE_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2300::TEMPERATURE_ABOVE_120C;
+          then:
+            - logger.log: TEMPERATURE_ABOVE_120C
+      - if:
+          condition:
+            lambda: return code == tmc2300::TEMPERATURE_BELOW_120C;
+          then:
+            - logger.log: TEMPERATURE_BELOW_120C
+      - if:
+          condition:
+            lambda: return code == tmc2300::TEMPERATURE_ABOVE_143C;
+          then:
+            - logger.log: TEMPERATURE_ABOVE_143C
+      - if:
+          condition:
+            lambda: return code == tmc2300::TEMPERATURE_BELOW_143C;
+          then:
+            - logger.log: TEMPERATURE_BELOW_143C
+      - if:
+          condition:
+            lambda: return code == tmc2300::TEMPERATURE_ABOVE_150C;
+          then:
+            - logger.log: TEMPERATURE_ABOVE_150C
+      - if:
+          condition:
+            lambda: return code == tmc2300::TEMPERATURE_BELOW_150C;
+          then:
+            - logger.log: TEMPERATURE_BELOW_150C
+      - if:
+          condition:
+            lambda: return code == tmc2300::TEMPERATURE_ABOVE_157C;
+          then:
+            - logger.log: TEMPERATURE_ABOVE_157C
+      - if:
+          condition:
+            lambda: return code == tmc2300::TEMPERATURE_BELOW_157C;
+          then:
+            - logger.log: TEMPERATURE_BELOW_157C
+      - if:
+          condition:
+            lambda: return code == tmc2300::OPEN_LOAD;
+          then:
+            - logger.log: OPEN_LOAD
+      - if:
+          condition:
+            lambda: return code == tmc2300::OPEN_LOAD_CLEARED;
+          then:
+            - logger.log: OPEN_LOAD_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2300::OPEN_LOAD_A;
+          then:
+            - logger.log: OPEN_LOAD_A
+      - if:
+          condition:
+            lambda: return code == tmc2300::OPEN_LOAD_A_CLEARED;
+          then:
+            - logger.log: OPEN_LOAD_A_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2300::OPEN_LOAD_B;
+          then:
+            - logger.log: OPEN_LOAD_B
+      - if:
+          condition:
+            lambda: return code == tmc2300::OPEN_LOAD_B_CLEARED;
+          then:
+            - logger.log: OPEN_LOAD_B_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2300::LOW_SIDE_SHORT;
+          then:
+            - logger.log: LOW_SIDE_SHORT
+      - if:
+          condition:
+            lambda: return code == tmc2300::LOW_SIDE_SHORT_CLEARED;
+          then:
+            - logger.log: LOW_SIDE_SHORT_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2300::LOW_SIDE_SHORT_A;
+          then:
+            - logger.log: LOW_SIDE_SHORT_A
+      - if:
+          condition:
+            lambda: return code == tmc2300::LOW_SIDE_SHORT_A_CLEARED;
+          then:
+            - logger.log: LOW_SIDE_SHORT_A_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2300::LOW_SIDE_SHORT_B;
+          then:
+            - logger.log: LOW_SIDE_SHORT_B
+      - if:
+          condition:
+            lambda: return code == tmc2300::LOW_SIDE_SHORT_B_CLEARED;
+          then:
+            - logger.log: LOW_SIDE_SHORT_B_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2300::GROUND_SHORT;
+          then:
+            - logger.log: GROUND_SHORT
+      - if:
+          condition:
+            lambda: return code == tmc2300::GROUND_SHORT_CLEARED;
+          then:
+            - logger.log: GROUND_SHORT_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2300::GROUND_SHORT_A;
+          then:
+            - logger.log: GROUND_SHORT_A
+      - if:
+          condition:
+            lambda: return code == tmc2300::GROUND_SHORT_A_CLEARED;
+          then:
+            - logger.log: GROUND_SHORT_A_CLEARED
+      - if:
+          condition:
+            lambda: return code == tmc2300::GROUND_SHORT_B;
+          then:
+            - logger.log: GROUND_SHORT_B
+      - if:
+          condition:
+            lambda: return code == tmc2300::GROUND_SHORT_B_CLEARED;
+          then:
+            - logger.log: GROUND_SHORT_B_CLEARED
 ```
 
 

@@ -9,20 +9,38 @@ from esphome.const import (
     ICON_PERCENT,
 )
 
-from ..stepper import tmc2300_ns, TMC2300, DEVICE_SCHEMA, CONF_TMC2300_ID
+from .. import TMC2300Component, DEVICE_SCHEMA, CONF_TMC2300_ID
 
 CODEOWNERS = ["@slimcdk"]
 
-sensor_base = (cg.PollingComponent, sensor.Sensor, cg.Parented.template(TMC2300))
-StallGuardResultSensor = tmc2300_ns.class_("StallGuardResultSensor", *sensor_base)
-MotorLoadSensor = tmc2300_ns.class_("MotorLoadSensor", *sensor_base)
-ActualCurrentSensor = tmc2300_ns.class_("ActualCurrentSensor", *sensor_base)
+tmc2300_sensor_ns = cg.esphome_ns.namespace("tmc2300_sensor")
+
+sensor_base = (
+    cg.PollingComponent,
+    sensor.Sensor,
+    cg.Parented.template(TMC2300Component),
+)
+
+StallGuardResultSensor = tmc2300_sensor_ns.class_(
+    "StallGuardResultSensor", *sensor_base
+)
+MotorLoadSensor = tmc2300_sensor_ns.class_("MotorLoadSensor", *sensor_base)
+ActualCurrentSensor = tmc2300_sensor_ns.class_("ActualCurrentSensor", *sensor_base)
+PWMScaleSumSensor = tmc2300_sensor_ns.class_("PWMScaleSumSensor", *sensor_base)
+PWMScaleAutoSensor = tmc2300_sensor_ns.class_("PWMScaleAutoSensor", *sensor_base)
+PWMOFSAutoSensor = tmc2300_sensor_ns.class_("PWMOFSAutoSensor", *sensor_base)
+PWMGradAutoSensor = tmc2300_sensor_ns.class_("PWMGradAutoSensor", *sensor_base)
+
 
 UNIT_MILLIVOLT = "mV"
 
 TYPE_MOTOR_LOAD = "motor_load"
 TYPE_STALLGUARD_RESULT = "stallguard_result"
 TYPE_ACTUAL_CURRENT = "actual_current"
+TYPE_PWM_SCALE_SUM = "pwm_scale_sum"
+TYPE_PWM_SCALE_AUTO = "pwm_scale_auto"
+TYPE_PWM_OFS_AUTO = "pwm_ofs_auto"
+TYPE_PWM_GRAD_AUTO = "pwm_grad_auto"
 
 CONFIG_SCHEMA = cv.typed_schema(
     {
@@ -42,6 +60,30 @@ CONFIG_SCHEMA = cv.typed_schema(
         TYPE_ACTUAL_CURRENT: sensor.sensor_schema(
             ActualCurrentSensor,
             unit_of_measurement=UNIT_MILLIAMP,
+            accuracy_decimals=0,
+            state_class=STATE_CLASS_MEASUREMENT,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        ).extend(DEVICE_SCHEMA, cv.polling_component_schema("30s")),
+        TYPE_PWM_SCALE_SUM: sensor.sensor_schema(
+            PWMScaleSumSensor,
+            accuracy_decimals=0,
+            state_class=STATE_CLASS_MEASUREMENT,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        ).extend(DEVICE_SCHEMA, cv.polling_component_schema("30s")),
+        TYPE_PWM_SCALE_AUTO: sensor.sensor_schema(
+            PWMScaleAutoSensor,
+            accuracy_decimals=0,
+            state_class=STATE_CLASS_MEASUREMENT,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        ).extend(DEVICE_SCHEMA, cv.polling_component_schema("30s")),
+        TYPE_PWM_OFS_AUTO: sensor.sensor_schema(
+            PWMOFSAutoSensor,
+            accuracy_decimals=0,
+            state_class=STATE_CLASS_MEASUREMENT,
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        ).extend(DEVICE_SCHEMA, cv.polling_component_schema("30s")),
+        TYPE_PWM_GRAD_AUTO: sensor.sensor_schema(
+            PWMGradAutoSensor,
             accuracy_decimals=0,
             state_class=STATE_CLASS_MEASUREMENT,
             entity_category=ENTITY_CATEGORY_DIAGNOSTIC,

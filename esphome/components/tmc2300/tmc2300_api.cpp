@@ -1,4 +1,6 @@
+#include "tmc2300_api_registers.h"
 #include "tmc2300_api.h"
+#include "esphome/core/helpers.h"
 
 namespace esphome {
 namespace tmc2300 {
@@ -68,7 +70,6 @@ bool TMC2300API::read_write_register_(uint8_t *data, size_t write_length, size_t
     this->write_array(data, write_length);
     this->read_array(data, write_length);
     this->flush();
-    // TODO: maybe do something with IFCNT for write verification
   }
 
   optional<bool> ok;
@@ -80,22 +81,29 @@ bool TMC2300API::read_write_register_(uint8_t *data, size_t write_length, size_t
 }
 
 void TMC2300API::write_register(uint8_t address, int32_t value) {
-  std::array<uint8_t, 8> data = {0};
+  ESP_LOGVV(TAG, "writing address 0x%x with value 0x%x (%d)", address, value, value);
 
-  data[0] = 0x05;
-  data[1] = this->driver_address_;
-  data[2] = address | TMC_WRITE_BIT;
-  data[3] = (value >> 24) & 0xFF;
-  data[4] = (value >> 16) & 0xFF;
-  data[5] = (value >> 8) & 0xFF;
-  data[6] = (value) &0xFF;
-  data[7] = this->crc8_(data.data(), 7);
+  std::array<uint8_t, 8> buffer = {0};
 
-  this->read_write_register_(&data[0], 8, 0);
+  buffer.at(0) = 0x05;
+  buffer.at(1) = this->address_;
+  buffer.at(2) = address | TMC_WRITE_BIT;
+  buffer.at(3) = (value >> 24) & 0xFF;
+  buffer.at(4) = (value >> 16) & 0xFF;
+  buffer.at(5) = (value >> 8) & 0xFF;
+  buffer.at(6) = (value) &0xFF;
+  buffer.at(7) = this->crc8_(buffer.data(), 7);
+
+  this->write_array(buffer.data(), 8);
+  this->read_array(buffer.data(), 8);
+  this->flush();
+  // TODO: maybe do something with IFCNT for write verification
+
   this->cache_(CACHE_WRITE, address, (uint32_t *) &value);
 }
 
 int32_t TMC2300API::read_register(uint8_t address) {
+  ESP_LOGVV(TAG, "reading address 0x%x", address);
   uint32_t value;
 
   // Read from cache for registers with write-only access
@@ -103,33 +111,37 @@ int32_t TMC2300API::read_register(uint8_t address) {
     return value;
 
   address = address & TMC_ADDRESS_MASK;
-  std::array<uint8_t, 8> data = {0};
+  std::array<uint8_t, 8> buffer = {0};
 
-  data[0] = 0x05;
-  data[1] = this->driver_address_;
-  data[2] = address;
-  data[3] = this->crc8_(data.data(), 3);
+  buffer.at(0) = 0x05;
+  buffer.at(1) = this->address_;
+  buffer.at(2) = address;
+  buffer.at(3) = this->crc8_(buffer.data(), 3);
 
-  if (!this->read_write_register_(&data[0], 4, 8))
+  this->write_array(buffer.data(), 4);
+  this->read_array(buffer.data(), 4);
+  this->flush();
+
+  if (!this->read_array(buffer.data(), 8))
     return 0;
 
   // Byte 0: Sync nibble correct?
-  if (data[0] != 0x05)
+  if (buffer.at(0) != 0x05)
     return 0;
 
   // Byte 1: Master address correct?
-  if (data[1] != 0xFF)
+  if (buffer.at(1) != 0xFF)
     return 0;
 
   // Byte 2: Address correct?
-  if (data[2] != address)
+  if (buffer.at(2) != address)
     return 0;
 
   // Byte 7: CRC correct?
-  if (data[7] != this->crc8_(data.data(), 7))
+  if (buffer.at(7) != this->crc8_(buffer.data(), 7))
     return 0;
 
-  return encode_uint32(data[3], data[4], data[5], data[6]);
+  return encode_uint32(buffer.at(3), buffer.at(4), buffer.at(5), buffer.at(6));
 }
 
 uint32_t TMC2300API::update_field(uint32_t data, RegisterField field, uint32_t value) {

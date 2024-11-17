@@ -1,24 +1,43 @@
 #pragma once
-
 #include "tmc2300_api_registers.h"
-
 #include "esphome/components/uart/uart.h"
-#include "esphome/core/helpers.h"
 
 namespace esphome {
 namespace tmc2300 {
 
-enum CacheOperation {
-  CACHE_READ,
-  CACHE_WRITE,
-  CACHE_FILL_DEFAULT,
-};
+static const char *TAG = "tmc2300";
+
+#define ____ 0x00
+#define N_A 0x00
+
+#define ACCESS_DIRTY 0x08  // Register has been written since reset -> shadow register is valid for restore
+#define ACCESS_READ 0x01
+#define ACCESS_Write 0x02
+#define ACCESS_W_PRESET 0x42
+#define ACCESS_RW_PRESET 0x43
+#define IS_READABLE(x) ((x) &ACCESS_READ)
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
 struct RegisterField {
   uint32_t mask;
   uint8_t shift;
   uint8_t address;
   bool is_signed;
+};
+
+struct RegisterConstant {
+  uint8_t address;
+  uint32_t value;
+};
+
+enum CacheOperation {
+  CACHE_READ,
+  CACHE_WRITE,
+  // Special operation: Put content into the cache without marking the entry as dirty.
+  // Only used to initialize the cache with hardware defaults. This will allow reading
+  // from write-only registers that have a value inside them on reset. When using this
+  // operation, a restore will *not* rewrite that filled register!
+  CACHE_FILL_DEFAULT,
 };
 
 static const uint8_t tmc_crc_table_poly7_reflected[256] = {
@@ -38,9 +57,34 @@ static const uint8_t tmc_crc_table_poly7_reflected[256] = {
     0xC1, 0xBA, 0x2B, 0x59, 0xC8, 0xBD, 0x2C, 0x5E, 0xCF,
 };
 
+static const int32_t sample_register_preset[REGISTER_COUNT] = {
+    //	0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
+    N_A, 0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0,  // 0x00 - 0x0F
+    N_A, N_A, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0,  // 0x10 - 0x1F
+    0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0,  // 0x20 - 0x2F
+    0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0,  // 0x30 - 0x3F
+    0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0,  // 0x40 - 0x4F
+    0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0,  // 0x50 - 0x5F
+    0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, N_A, 0, 0, 0,  // 0x60 - 0x6F
+    N_A, 0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0   // 0x70 - 0x7F
+};
+
+// Register constants. These are required for 0x42 registers, since we do not have
+// any way to find out the content. For 0x43 registers, it is not necessary to
+// load the constant values this way, but this allows users to directly see the
+// contents while still in standby.
+static const RegisterConstant register_constants[] = {
+    // Use ascending addresses!
+    {0x00, 0x00000040},  // GCONF
+    {0x10, 0x00010402},  // IHOLD_IRUN
+    {0x11, 0x00000014},  // TPOWERDOWN
+    {0x6C, 0x13008001},  // CHOPCONF
+    {0x70, 0xC40D1024},  // PWMCONF
+};
+
 class TMC2300API : public uart::UARTDevice {
  public:
-  TMC2300API(uint8_t address) : driver_address_(address){};
+  TMC2300API(uint8_t address) : address_(address){};
 
   // Write or read a register (all fields) or register field (single field within register)
   void write_register(uint8_t address, int32_t value);
@@ -51,7 +95,9 @@ class TMC2300API : public uart::UARTDevice {
   uint32_t update_field(uint32_t data, RegisterField field, uint32_t value);
 
  protected:
-  const uint8_t driver_address_;
+  const uint8_t address_;
+
+ private:
   uint8_t dirty_bits_[REGISTER_COUNT / 8] = {0};
   int32_t shadow_register_[REGISTER_COUNT];
 
@@ -59,23 +105,25 @@ class TMC2300API : public uart::UARTDevice {
   //   0x00: none (reserved)
   //   0x01: read
   //   0x02: write
-  //   0x03: read/write
   //   0x23: read/write, flag register (write to clear)
+  //   0x42: write, has hardware presets on reset
+  //   0x43: read/write, has hardware presets on reset
   const uint8_t register_access_[REGISTER_COUNT] = {
       //  0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
-      0x03, 0x23, 0x01, 0x02, 0x02, 0x01, 0x01, 0x03, ____, ____, ____, ____, ____, ____, ____, ____,  // 0x00 - 0x0F
-      0x02, 0x02, 0x01, 0x02, 0x02, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,  // 0x10 - 0x1F
+      0x43, 0x23, 0x01, 0x02, ____, ____, 0x01, ____, ____, ____, ____, ____, ____, ____, ____, ____,  // 0x00 - 0x0F
+      0x42, 0x42, 0x01, ____, 0x02, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,  // 0x10 - 0x1F
       ____, ____, 0x02, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,  // 0x20 - 0x2F
       ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,  // 0x30 - 0x3F
       0x02, 0x01, 0x02, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,  // 0x40 - 0x4F
       ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,  // 0x50 - 0x5F
-      ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, 0x01, 0x01, 0x03, ____, ____, 0x01,  // 0x60 - 0x6F
-      0x03, 0x01, 0x01, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____   // 0x70 - 0x7F
+      ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, 0x01, ____, 0x43, ____, ____, 0x01,  // 0x60 - 0x6F
+      0x43, 0x01, 0x01, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____   // 0x70 - 0x7F
   };
 
   void set_dirty_bit_(uint8_t index, bool value);
   bool get_dirty_bit_(uint8_t index);
   bool cache_(CacheOperation operation, uint8_t address, uint32_t *value);
+  void init_cache_();
   bool read_write_register_(uint8_t *data, size_t write_length, size_t read_length);
   uint8_t crc8_(uint8_t *data, uint32_t bytes);
 };
