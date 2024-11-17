@@ -21,7 +21,7 @@ void TMC2209Component::setup() {
   this->index_pin_->setup();
 #endif
 
-#if defined(HAS_STEPDIR_PINS)
+#if defined(HAS_STEP_PIN) and defined(HAS_DIR_PIN)
   this->step_pin_->setup();
   this->dir_pin_->setup();
 #endif

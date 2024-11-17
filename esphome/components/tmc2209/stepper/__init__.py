@@ -81,7 +81,7 @@ async def to_code(config):
     elif has_index_pin:
         cg.add_define("SERIAL_CONTROL")
     else:
-        raise EsphomeError("Could not define control method!")
+        raise EsphomeError("Could not determine control method!")
 
 
 FINAL_VALIDATE_SCHEMA = TMC2209_FINAL_VALIDATE_SCHEMA

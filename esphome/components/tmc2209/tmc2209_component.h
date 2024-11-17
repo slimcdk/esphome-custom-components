@@ -113,10 +113,10 @@ class TMC2209Component : public TMC2209API, public Component {
   EventHandler uvcp_handler_;   // Charge pump undervoltage
 
   ISRPinTriggerStore diag_isr_store_{};
-  ISRPinTriggerStore index_isr_store_{};
+  // ISRPinTriggerStore index_isr_store_{};
 
   bool diag_triggered_{false};
-  bool index_triggered_{false};
+  // bool index_triggered_{false};
 
   HighFrequencyLoopRequester high_freq_;
 };

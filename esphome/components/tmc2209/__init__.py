@@ -104,9 +104,7 @@ TMC2209_BASE_CONFIG_SCHEMA = (
             cv.Optional(CONF_ADDRESS, default=0x00): cv.hex_uint8_t,
             cv.Optional(CONF_VSENSE): cv.boolean,  # default OTP
             cv.Optional(CONF_OTTRIM): cv.int_range(0, 3),  # default OTP
-            cv.Optional(
-                CONF_RSENSE, default=0.170
-            ): cv.resistance,  # default is 170 mOhm
+            cv.Optional(CONF_RSENSE, default=0.170): cv.resistance,  # default is rdson
             cv.Optional(CONF_ANALOG_SCALE, default=True): cv.boolean,
             cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.All(
                 cv.positive_int, cv.frequency
@@ -154,8 +152,11 @@ async def register_tmc2209_base(var, config):
         cg.add(var.set_index_pin(await cg.gpio_pin_expression(index_pin)))
 
     if step_pin is not None:
-        cg.add_define("HAS_STEPDIR_PINS")
+        cg.add_define("HAS_STEP_PIN")
         cg.add(var.set_step_pin(await cg.gpio_pin_expression(step_pin)))
+
+    if dir_pin is not None:
+        cg.add_define("HAS_DIR_PIN")
         cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
 
     if (vsense := config.get(CONF_VSENSE, None)) is not None:
