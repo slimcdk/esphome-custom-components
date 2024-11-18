@@ -21,13 +21,6 @@ void ICM20948SPI::dump_config() {
   }
 }
 
-bool ICM20948SPI::write_8(uint16_t reg, uint8_t value) { return true; }
-bool ICM20948SPI::write_16(uint16_t reg, uint16_t value) { return true; }
-bool ICM20948SPI::write_32(uint16_t reg, uint32_t value) { return true; }
-bool ICM20948SPI::read_8(uint16_t reg, uint8_t *value) { return true; }
-bool ICM20948SPI::read_16(uint16_t reg, uint16_t *value) { return true; }
-bool ICM20948SPI::read_32(uint16_t reg, uint32_t *value) { return true; }
-
 void ICM20948SPI::on_shutdown() { this->spi_teardown(); };
 
 }  // namespace icm20948_spi

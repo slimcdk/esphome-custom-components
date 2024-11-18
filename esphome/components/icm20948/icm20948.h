@@ -16,7 +16,11 @@ namespace icm20948 {
   LOG_SENSOR("  ", "Gyro X", this->gyro_x_sensor_); \
   LOG_SENSOR("  ", "Gyro Y", this->gyro_y_sensor_); \
   LOG_SENSOR("  ", "Gyro Z", this->gyro_z_sensor_); \
-  LOG_SENSOR("  ", "Temperature", this->temperature_sensor_);
+  LOG_SENSOR("  ", "Temperature", this->temperature_sensor_); \
+  const uint8_t icid = this->read_icid(); \
+  ESP_LOGCONFIG(TAG, "  Read ID: 0x%X", icid); \
+  if (icid != ICM20948_CHIP_ID) \
+    ESP_LOGE(TAG, "  Expected ID 0x%X", ICM20948_CHIP_ID);
 
 #define ICM20948_CHIP_ID 0xEA  // <- ICM20948 default device id from WHOAMI
 
@@ -105,7 +109,7 @@ typedef enum {
 class ICM20948 : public PollingComponent, public sensor::Sensor {
  public:
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
-  void setup() override;
+  // void setup() override;
   void update() override;
 
   void set_accel_x_sensor(sensor::Sensor *accel_x_sensor) { accel_x_sensor_ = accel_x_sensor; }
@@ -116,6 +120,8 @@ class ICM20948 : public PollingComponent, public sensor::Sensor {
   void set_gyro_z_sensor(sensor::Sensor *gyro_z_sensor) { gyro_z_sensor_ = gyro_z_sensor; }
   void set_temperature_sensor(sensor::Sensor *temperature_sensor) { temperature_sensor_ = temperature_sensor; }
 
+  uint8_t read_icid();
+
  protected:
   sensor::Sensor *accel_x_sensor_{nullptr};
   sensor::Sensor *accel_y_sensor_{nullptr};
@@ -125,12 +131,8 @@ class ICM20948 : public PollingComponent, public sensor::Sensor {
   sensor::Sensor *gyro_z_sensor_{nullptr};
   sensor::Sensor *temperature_sensor_{nullptr};
 
-  virtual bool write_8(uint16_t reg, uint8_t value) = 0;
-  virtual bool write_16(uint16_t reg, uint16_t value) = 0;
-  virtual bool write_32(uint16_t reg, uint32_t value) = 0;
-  virtual bool read_8(uint16_t reg, uint8_t *value) = 0;
-  virtual bool read_16(uint16_t reg, uint16_t *value) = 0;
-  virtual bool read_32(uint16_t reg, uint32_t *value) = 0;
+  virtual bool write(uint8_t reg, uint8_t data) = 0;
+  virtual bool read(uint8_t reg, uint8_t *data) = 0;
 };
 
 }  // namespace icm20948

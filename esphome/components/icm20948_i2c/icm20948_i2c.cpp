@@ -1,6 +1,7 @@
 
-#include "esphome/core/log.h"
 #include "icm20948_i2c.h"
+#include "esphome/core/log.h"
+#include "esphome/components/i2c/i2c.h"
 
 namespace esphome {
 namespace icm20948_i2c {
@@ -12,12 +13,15 @@ void ICM20948I2C::dump_config() {
   LOG_I2C_DEVICE(this);
 }
 
-bool ICM20948I2C::write_8(uint16_t reg, uint8_t value) { return true; }
-bool ICM20948I2C::write_16(uint16_t reg, uint16_t value) { return true; }
-bool ICM20948I2C::write_32(uint16_t reg, uint32_t value) { return true; }
-bool ICM20948I2C::read_8(uint16_t reg, uint8_t *value) { return true; }
-bool ICM20948I2C::read_16(uint16_t reg, uint16_t *value) { return true; }
-bool ICM20948I2C::read_32(uint16_t reg, uint32_t *value) { return true; }
+bool ICM20948I2C::write(uint8_t reg, uint8_t data) {
+  const i2c::ErrorCode ret = this->write_register(reg, &data, 8);
+  return (ret == i2c::ErrorCode::NO_ERROR || ret == i2c::ErrorCode::ERROR_OK);
+}
+
+bool ICM20948I2C::read(uint8_t reg, uint8_t *data) {
+  const i2c::ErrorCode ret = this->read_register(reg, data, 8);
+  return (ret == i2c::ErrorCode::NO_ERROR || ret == i2c::ErrorCode::ERROR_OK);
+}
 
 }  // namespace icm20948_i2c
 }  // namespace esphome
