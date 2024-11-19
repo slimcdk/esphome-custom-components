@@ -12,8 +12,8 @@ class ICM20948I2C : public icm20948::ICM20948, public i2c::I2CDevice {
   void dump_config() override;
 
  protected:
-  bool write(uint8_t reg, uint8_t data) override;
-  bool read(uint8_t reg, uint8_t *data) override;
+  bool write(uint8_t reg, uint8_t *data, size_t len) override;
+  bool read(uint8_t reg, uint8_t *data, size_t len) override;
 };
 
 }  // namespace icm20948_i2c

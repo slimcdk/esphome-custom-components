@@ -13,13 +13,13 @@ void ICM20948I2C::dump_config() {
   LOG_I2C_DEVICE(this);
 }
 
-bool ICM20948I2C::write(uint8_t reg, uint8_t data) {
-  const i2c::ErrorCode ret = this->write_register(reg, &data, 8);
+bool ICM20948I2C::write(uint8_t reg, uint8_t *data, size_t len) {
+  const i2c::ErrorCode ret = this->write_register(reg, data, len);
   return (ret == i2c::ErrorCode::NO_ERROR || ret == i2c::ErrorCode::ERROR_OK);
 }
 
-bool ICM20948I2C::read(uint8_t reg, uint8_t *data) {
-  const i2c::ErrorCode ret = this->read_register(reg, data, 8);
+bool ICM20948I2C::read(uint8_t reg, uint8_t *data, size_t len) {
+  const i2c::ErrorCode ret = this->read_register(reg, data, len);
   return (ret == i2c::ErrorCode::NO_ERROR || ret == i2c::ErrorCode::ERROR_OK);
 }
 
