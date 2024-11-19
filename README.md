@@ -28,21 +28,11 @@ Component to interface ADI Trinamic stepper driver.
 
 Component to interface ADI Trinamic stepper driver.
 
+
 ## [AS5X47](esphome/components/as5x47/README.md)
 > Work in progress
 
 Component to interface quadrature encoder with SPI.
-
-## [Modem](esphome/components/modem/README.md)
-> Work in progress
-
-Component to handle state of cellular modems.
-
-
-## [PPPoS](esphome/components/pppos/README.md)
-> Work in progress
-
-Networking over serial i.e. cellular modems.
 
 
 ## [Freematics](esphome/components/freematics/README.md)
@@ -55,5 +45,3 @@ Component to interface the Freematics firmware.
 > Work in progress
 
 Component to interface 9-axis IMU.
-
-Binary sensor with latching/locking and release functionality.
