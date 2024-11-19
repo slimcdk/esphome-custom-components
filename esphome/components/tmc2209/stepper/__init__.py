@@ -12,6 +12,7 @@ from .. import (
     CONF_INDEX_PIN,
     CONF_DIR_PIN,
     CONF_STEP_PIN,
+    tmc2209_ns,
     TMC2209Component,
     TMC2209_BASE_CONFIG_SCHEMA,
     TMC2209_FINAL_VALIDATE_SCHEMA,
@@ -23,11 +24,7 @@ CODEOWNERS = ["@slimcdk"]
 
 AUTO_LOAD = ["tmc2209"]
 
-tmc2209_stepper_ns = cg.esphome_ns.namespace("tmc2209_stepper")
-TMC2209Stepper = tmc2209_stepper_ns.class_(
-    "TMC2209Stepper", TMC2209Component, stepper.Stepper
-)
-
+TMC2209Stepper = tmc2209_ns.class_("TMC2209Stepper", TMC2209Component, stepper.Stepper)
 
 DEVICE_SCHEMA = cv.Schema(
     {

@@ -10,9 +10,8 @@
 #include "esphome/components/stepper/stepper.h"
 
 namespace esphome {
-namespace tmc2209_stepper {
+namespace tmc2209 {
 
-using namespace tmc2209;
 using namespace stepper;
 
 struct IndexPulseStore {
@@ -50,5 +49,5 @@ class TMC2209Stepper : public TMC2209Component, public Stepper {
 #endif
 };
 
-}  // namespace tmc2209_stepper
+}  // namespace tmc2209
 }  // namespace esphome

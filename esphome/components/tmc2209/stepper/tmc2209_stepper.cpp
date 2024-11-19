@@ -5,7 +5,7 @@
 #include "esphome/core/helpers.h"
 
 namespace esphome {
-namespace tmc2209_stepper {
+namespace tmc2209 {
 
 void TMC2209Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
@@ -128,5 +128,5 @@ bool TMC2209Stepper::is_stalled() {
   return (sgthrs << 1) > sgresult;
 }
 
-}  // namespace tmc2209_stepper
+}  // namespace tmc2209
 }  // namespace esphome

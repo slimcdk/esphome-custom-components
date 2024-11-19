@@ -3,7 +3,7 @@
 #include "esphome/core/log.h"
 
 namespace esphome {
-namespace tmc2209_sensor {
+namespace tmc2209 {
 
 // static const char *const TAG = "tmc2209.sensor";
 
@@ -31,5 +31,5 @@ void PWMOFSAutoSensor::update() { this->publish_state(this->parent_->read_field(
 void PWMGradAutoSensor::dump_config() { LOG_SENSOR(" ", "TMC2209 Grad Auto Sensor", this); }
 void PWMGradAutoSensor::update() { this->publish_state(this->parent_->read_field(PWM_GRAD_AUTO_FIELD)); }
 
-}  // namespace tmc2209_sensor
+}  // namespace tmc2209
 }  // namespace esphome

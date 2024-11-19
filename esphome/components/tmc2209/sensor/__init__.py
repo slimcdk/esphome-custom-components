@@ -9,11 +9,11 @@ from esphome.const import (
     ICON_PERCENT,
 )
 
-from .. import TMC2209Component, DEVICE_SCHEMA, CONF_TMC2209_ID
+from .. import tmc2209_ns, TMC2209Component, DEVICE_SCHEMA, CONF_TMC2209_ID
 
 CODEOWNERS = ["@slimcdk"]
 
-tmc2209_sensor_ns = cg.esphome_ns.namespace("tmc2209_sensor")
+AUTO_LOAD = ["tmc2209"]
 
 sensor_base = (
     cg.PollingComponent,
@@ -21,15 +21,13 @@ sensor_base = (
     cg.Parented.template(TMC2209Component),
 )
 
-StallGuardResultSensor = tmc2209_sensor_ns.class_(
-    "StallGuardResultSensor", *sensor_base
-)
-MotorLoadSensor = tmc2209_sensor_ns.class_("MotorLoadSensor", *sensor_base)
-ActualCurrentSensor = tmc2209_sensor_ns.class_("ActualCurrentSensor", *sensor_base)
-PWMScaleSumSensor = tmc2209_sensor_ns.class_("PWMScaleSumSensor", *sensor_base)
-PWMScaleAutoSensor = tmc2209_sensor_ns.class_("PWMScaleAutoSensor", *sensor_base)
-PWMOFSAutoSensor = tmc2209_sensor_ns.class_("PWMOFSAutoSensor", *sensor_base)
-PWMGradAutoSensor = tmc2209_sensor_ns.class_("PWMGradAutoSensor", *sensor_base)
+StallGuardResultSensor = tmc2209_ns.class_("StallGuardResultSensor", *sensor_base)
+MotorLoadSensor = tmc2209_ns.class_("MotorLoadSensor", *sensor_base)
+ActualCurrentSensor = tmc2209_ns.class_("ActualCurrentSensor", *sensor_base)
+PWMScaleSumSensor = tmc2209_ns.class_("PWMScaleSumSensor", *sensor_base)
+PWMScaleAutoSensor = tmc2209_ns.class_("PWMScaleAutoSensor", *sensor_base)
+PWMOFSAutoSensor = tmc2209_ns.class_("PWMOFSAutoSensor", *sensor_base)
+PWMGradAutoSensor = tmc2209_ns.class_("PWMGradAutoSensor", *sensor_base)
 
 
 UNIT_MILLIVOLT = "mV"

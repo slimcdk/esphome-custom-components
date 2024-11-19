@@ -15,6 +15,9 @@ from esphome.const import (
 
 CODEOWNERS = ["@slimcdk"]
 
+AUTO_LOAD = ["stepper", "sensor"]
+
+
 CONF_TMC2209 = "tmc2209"
 CONF_TMC2209_ID = "tmc2209_id"
 
