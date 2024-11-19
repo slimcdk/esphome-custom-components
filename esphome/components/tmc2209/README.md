@@ -465,7 +465,9 @@ sensor:
 
 * `type` (**Required**):
   * `stallguard_result` Stator angle shift detected by the driver.
-  * `motor_load` Percentage off stall calculated from StallGuard result and set StallGuard threshold. 100% = stalled
+  * `motor_load` Percentage off stall calculated from StallGuard result and set StallGuard threshold. 100% = stalled.
+    * Remeber to configure StallGuard threshold for this to work reliably.
+    * The load is calculated by. 510 - SG_RESULT / 510 - SGTHRS * 2 = load coefficient.
   * `actual_current` Active current setting. Either IRUN or IHOLD value.
   * `pwm_scale_sum` Actual PWM duty cycle. This value is used for scaling the values CUR_A and CUR_B read from the sine wave table.
   * `pwm_scale_auto` 9 Bit signed offset added to the calculated PWM duty cycle. This is the result of the automatic amplitude regulation based on current measurement.
@@ -804,6 +806,8 @@ Poor signal integrity can cause instability in the UART connection. The componen
 #### Driver makes "sizzling" noise
 Long wires connected to ENN might pick up interference causing the driver to make a sizzling noise if left floating.
 
+#### `undefined reference to vtable`
+Source code for components aren't fully loading when adding additional components on ESP-IDF framework with an existing compiled binary. For instance the `motor_load` sensor. Solution is to do a clean build.
 
 
 ## TODOs
