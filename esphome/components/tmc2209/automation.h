@@ -71,17 +71,33 @@ template<typename... Ts> class CurrentsAction : public Action<Ts...>, public Par
     if (this->tpowerdown_.has_value())
       this->parent_->write_field(TPOWERDOWN_FIELD, this->tpowerdown_.value(x...));
 
-    if (this->irun_.has_value())
+    if (this->irun_.has_value()) {
+      if (this->parent_->analog_scale_) {
+        ESP_LOGW(TAG, "this has no effect since VREF controls current scaling");
+      }
       this->parent_->write_field(IRUN_FIELD, this->irun_.value(x...));
+    }
 
-    if (this->ihold_.has_value())
+    if (this->ihold_.has_value()) {
+      if (this->parent_->analog_scale_) {
+        ESP_LOGW(TAG, "this has no effect since VREF controls current scaling");
+      }
       this->parent_->write_field(IHOLD_FIELD, this->ihold_.value(x...));
+    }
 
-    if (this->run_current_.has_value())
+    if (this->run_current_.has_value()) {
+      if (this->parent_->analog_scale_) {
+        ESP_LOGW(TAG, "this has no effect since VREF controls current scaling");
+      }
       this->parent_->write_run_current(this->run_current_.value(x...));
+    }
 
-    if (this->hold_current_.has_value())
+    if (this->hold_current_.has_value()) {
+      if (this->parent_->analog_scale_) {
+        ESP_LOGW(TAG, "this has no effect since VREF controls current scaling");
+      }
       this->parent_->write_hold_current(this->hold_current_.value(x...));
+    }
   }
 };
 

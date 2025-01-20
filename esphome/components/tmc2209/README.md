@@ -10,9 +10,6 @@ ESPHome component to interact with a TMC2209 stepper motor driver over UART and 
   <img src="./docs/grobo-module.jpg" alt="GRobotronics" width="19%" />
 </p>
 
-> [!IMPORTANT]
-*Only a single `tmc2209` instance (device) per UART config is currently supported by ESPHome. Multiple drivers require multiple UART connections.*
-
 
 # Table of contents
 - [Config](#config)
@@ -82,6 +79,60 @@ uart:
 
 ---
 
+
+
+### Configuration of hub.
+
+This part facilitates a serial semaphore to allow multiple drivers on same UART.
+
+> [!TIP]
+*Manual configuration of the hub can be omitted if only a single UART is configured.*
+
+```yaml
+tmc2209_hub:
+```
+* `id` (**Required**, [ID][config-id]): Specify the ID of the hub so that you can explicitly reference it.
+
+* `uart_id` (**Required**, [ID][config-id]): Reference the UART if multiple are configured.
+
+
+Example of utilizing the hub with two drivers on same UART.
+```yaml
+uart:
+  - id: tmc_comms
+    tx_pin: ...
+    rx_pin: ...
+    baud_rate: ...
+
+  - id: uart_for_other_stuff
+    tx_pin: ...
+    rx_pin: ...
+    baud_rate: ...
+
+
+tmc2209_hub:
+  id: hub1
+  uart_id: uart1
+
+
+stepper:
+  - platform: tmc2209
+    id: driver1
+    tmc2209_hub_id: hub1
+    address: 0x00
+    ... all other options
+
+  - platform: tmc2209
+    id: driver2
+    tmc2209_hub_id: hub1
+    address: 0x01
+    ... all other options
+```
+
+
+----
+
+
 ### Stepper configuration
 
 > *The stepper can be controlled in two ways. See [section 1.3][datasheet] for technical information.*
@@ -118,17 +169,17 @@ stepper:
     acceleration: 2500 steps/s^2
     deceleration: 2500 steps/s^2
     address: 0x00
+    rsense: REPLACEME
+    vsense: False
     enn_pin: REPLACEME
     diag_pin: REPLACEME
     index_pin: REPLACEME
-    step_pin: REPLACEME
-    dir_pin: REPLACEME
-    rsense: REPLACEME
-    vsense: False
-    ottrim: 0
-    clock_frequency: 12MHz
+    # step_pin: REPLACEME
+    # dir_pin: REPLACEME
 ```
 * `id` (**Required**, [ID][config-id]): Specify the ID of the stepper so that you can control it.
+
+* `tmc2209_hub_id` (**Required**, [ID][config-id]): Specify the ID of the hub this stepper is connected to. If only a single hub is configured, it will default to that.
 
 * `address` (*Optional*, hex): UART address of the IC. Configured by setting MS1_AD0 or MS2_AD1 high or low. Default is `0x00`.
 
@@ -162,7 +213,7 @@ stepper:
 
     > *Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning.*
 
-* `analog_scale` (*Optional*, boolean): Determines the VREF mode. Defaults to `True`.
+* `analog_scale` (*Optional*, boolean): Determines if VREF input scales the current settings. Defaults to `False` (meaning `tmc2209.currents` will scales the currents).
 
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
 

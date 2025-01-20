@@ -80,9 +80,9 @@ void TMC2209API::write_register(uint8_t address, int32_t value) {
   buffer.at(7) = this->crc8_(buffer.data(), 7);
 
   // TODO: maybe do something with IFCNT for write verification
-  this->write_array(buffer.data(), 8);
-  this->read_array(buffer.data(), 8);  // transmitting on one-wire fills up receiver
-  this->flush();
+  this->parent_->write_array(buffer.data(), 8);
+  this->parent_->read_array(buffer.data(), 8);  // transmitting on one-wire fills up receiver
+  this->parent_->flush();
 
   this->cache_(CACHE_WRITE, address, (uint32_t *) &value);
 }
@@ -102,11 +102,11 @@ int32_t TMC2209API::read_register(uint8_t address) {
   buffer.at(2) = address;
   buffer.at(3) = this->crc8_(buffer.data(), 3);
 
-  this->write_array(buffer.data(), 4);
-  this->read_array(buffer.data(), 4);  // transmitting on one-wire fills up receiver
-  this->flush();
+  this->parent_->write_array(buffer.data(), 4);
+  this->parent_->read_array(buffer.data(), 4);  // transmitting on one-wire fills up receiver
+  this->parent_->flush();
 
-  if (!this->read_array(buffer.data(), 8))
+  if (!this->parent_->read_array(buffer.data(), 8))
     return 0;
 
   // Byte 0: Sync nibble correct?

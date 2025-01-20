@@ -39,7 +39,7 @@ void TMC2209Component::setup() {
 
   this->write_field(PDN_DISABLE_FIELD, true);
   this->write_field(INTERNAL_RSENSE_FIELD, this->internal_rsense_);
-  this->write_field(I_SCALE_ANALOG_FIELD, false);
+  this->write_field(I_SCALE_ANALOG_FIELD, this->analog_scale_);
   this->write_field(SHAFT_FIELD, false);
   this->write_field(MSTEP_REG_SELECT_FIELD, true);
   this->write_field(TEST_MODE_FIELD, false);

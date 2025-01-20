@@ -15,14 +15,13 @@ from .. import (
     tmc2209_ns,
     TMC2209Component,
     TMC2209_BASE_CONFIG_SCHEMA,
-    TMC2209_FINAL_VALIDATE_SCHEMA,
     register_tmc2209_base,
     validate_tmc2209_base,
 )
 
 CODEOWNERS = ["@slimcdk"]
 
-AUTO_LOAD = ["tmc2209"]
+AUTO_LOAD = ["tmc2209_hub", "tmc2209"]
 
 TMC2209Stepper = tmc2209_ns.class_("TMC2209Stepper", TMC2209Component, stepper.Stepper)
 ControlMethod = tmc2209_ns.enum("ControlMethod")
@@ -81,6 +80,3 @@ async def to_code(config):
         cg.add(var.set_control_method(ControlMethod.SERIAL))
     else:
         raise EsphomeError("Could not determine control method!")
-
-
-FINAL_VALIDATE_SCHEMA = TMC2209_FINAL_VALIDATE_SCHEMA

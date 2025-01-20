@@ -93,8 +93,8 @@ class TMC2209Component : public TMC2209API, public Component {
  protected:
   const uint32_t clk_frequency_;
   const bool internal_rsense_;
-  const float rsense_;       // default RDSon value
-  const bool analog_scale_;  // VREF is connected
+  const float rsense_;              // default RDSon value
+  const bool analog_scale_{false};  // VREF is connected
   bool *vsense_ = nullptr;
   uint8_t *ottrim_ = nullptr;
   bool driver_health_check_is_enabled_ = false;

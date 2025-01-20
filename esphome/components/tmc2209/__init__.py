@@ -2,7 +2,7 @@ import logging
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart
+from esphome.components import tmc2209_hub
 from esphome import automation, pins
 from esphome.automation import maybe_simple_id
 from esphome.const import (
@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 CODEOWNERS = ["@slimcdk"]
 
-AUTO_LOAD = ["stepper", "sensor"]
+AUTO_LOAD = ["tmc2209_hub", "stepper", "sensor"]
 
 
 CONF_TMC2209 = "tmc2209"
@@ -33,7 +33,7 @@ CONF_CLOCK_FREQUENCY = "clock_frequency"
 CONF_OTTRIM = "ottrim"
 CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
 CONF_RSENSE = "rsense"  # sense resistors
-CONF_ANALOG_SCALE = "analog_scaling"
+CONF_ANALOG_SCALE = "analog_scale"
 CONF_ON_STALL = "on_stall"
 CONF_ON_DRIVER_STATUS = "on_status"
 CONF_MICROSTEPS = "microsteps"  # CHOPCONF.mres
@@ -82,7 +82,7 @@ STANDSTILL_MODES = {
 
 
 tmc2209_ns = cg.esphome_ns.namespace("tmc2209")
-TMC2209API = tmc2209_ns.class_("TMC2209API", uart.UARTDevice)
+TMC2209API = tmc2209_ns.class_("TMC2209API", tmc2209_hub.TMC2209Device)
 TMC2209Component = tmc2209_ns.class_("TMC2209Component", TMC2209API, cg.Component)
 
 DriverStatusEvent = tmc2209_ns.enum("DriverStatusEvent")
@@ -112,7 +112,7 @@ TMC2209_BASE_CONFIG_SCHEMA = (
             cv.Optional(CONF_VSENSE): cv.boolean,  # default OTP
             cv.Optional(CONF_OTTRIM): cv.int_range(0, 3),  # default OTP
             cv.Optional(CONF_RSENSE, default=0.170): cv.resistance,  # default is rdson
-            cv.Optional(CONF_ANALOG_SCALE, default=True): cv.boolean,
+            cv.Optional(CONF_ANALOG_SCALE, default=False): cv.boolean,
             cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.All(
                 cv.positive_int, cv.frequency
             ),
@@ -130,7 +130,7 @@ TMC2209_BASE_CONFIG_SCHEMA = (
             ),
         },
     )
-    .extend(uart.UART_DEVICE_SCHEMA)
+    .extend(tmc2209_hub.TMC2209_DEVICE_SCHEMA)
     .extend(cv.COMPONENT_SCHEMA)
 )
 
@@ -138,7 +138,7 @@ TMC2209_BASE_CONFIG_SCHEMA = (
 async def register_tmc2209_base(var, config):
 
     await cg.register_component(var, config)
-    await uart.register_uart_device(var, config)
+    await tmc2209_hub.register_tmc2209_device(var, config)
 
     enn_pin = config.get(CONF_ENN_PIN, None)
     diag_pin = config.get(CONF_DIAG_PIN, None)
@@ -500,6 +500,6 @@ def tmc2209_pwmconf_to_code(config, action_id, template_arg, args):
     yield var
 
 
-TMC2209_FINAL_VALIDATE_SCHEMA = uart.final_validate_device_schema(
-    CONF_TMC2209, require_rx=True, require_tx=True
-)
+# TMC2209_FINAL_VALIDATE_SCHEMA = uart.final_validate_device_schema(
+#     CONF_TMC2209, require_rx=True, require_tx=True
+# )

@@ -1,6 +1,6 @@
 #pragma once
 #include "tmc2209_api_registers.h"
-#include "esphome/components/uart/uart.h"
+#include "esphome/components/tmc2209_hub/tmc2209_hub.h"
 
 namespace esphome {
 namespace tmc2209 {
@@ -83,7 +83,7 @@ static const int32_t sample_register_preset[REGISTER_COUNT] = {
     R70, 0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0   // 0x70 - 0x7F
 };
 
-class TMC2209API : public uart::UARTDevice {
+class TMC2209API : public tmc2209_hub::TMC2209Device {
  public:
   TMC2209API(uint8_t address) : address_(address){};
 
