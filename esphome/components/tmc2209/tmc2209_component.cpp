@@ -6,8 +6,6 @@
 namespace esphome {
 namespace tmc2209 {
 
-// static const char *TAG = "tmc2209";
-
 void TMC2209Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC2209 Component...");
 

@@ -95,21 +95,21 @@ class TMC2209Component : public TMC2209API, public Component {
   const bool internal_rsense_;
   const float rsense_;              // default RDSon value
   const bool analog_scale_{false};  // VREF is connected
-  bool *vsense_ = nullptr;
-  uint8_t *ottrim_ = nullptr;
-  bool driver_health_check_is_enabled_ = false;
-  bool stall_detection_is_enabled_ = false;
+  bool *vsense_{nullptr};
+  uint8_t *ottrim_{nullptr};
+  bool driver_health_check_is_enabled_{false};
+  bool stall_detection_is_enabled_{false};
 
-  InternalGPIOPin *enn_pin_ = nullptr;
-  InternalGPIOPin *diag_pin_ = nullptr;
-  InternalGPIOPin *index_pin_ = nullptr;
-  GPIOPin *step_pin_ = nullptr;
-  GPIOPin *dir_pin_ = nullptr;
+  InternalGPIOPin *enn_pin_{nullptr};
+  InternalGPIOPin *diag_pin_{nullptr};
+  InternalGPIOPin *index_pin_{nullptr};
+  GPIOPin *step_pin_{nullptr};
+  GPIOPin *dir_pin_{nullptr};
 
   bool is_enabled_;
-  bool check_gstat_ = false;
-  bool check_drv_status = false;
-  const float vactual_factor_ = 0.715;
+  bool check_gstat_{false};
+  bool check_drv_status{false};
+  const float vactual_factor_{0.715};
 
   CallbackManager<void()> on_stall_callback_;
   CallbackManager<void(const DriverStatusEvent &event)> on_driver_status_callback_;
@@ -133,10 +133,7 @@ class TMC2209Component : public TMC2209API, public Component {
   EventHandler uvcp_handler_;   // Charge pump undervoltage
 
   ISRPinTriggerStore diag_isr_store_;
-  // ISRPinTriggerStore index_isr_store_;
-
-  bool diag_triggered_ = false;
-  // bool index_triggered_ = false;
+  bool diag_triggered_{false};
 
   HighFrequencyLoopRequester high_freq_;
 };

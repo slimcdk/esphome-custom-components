@@ -1,17 +1,25 @@
+import logging
+
 import esphome.codegen as cg
 import esphome.config_validation as cv
+import esphome.final_validate as fv
 from esphome.components import uart
 from esphome.const import (
     CONF_ID,
+    CONF_ADDRESS,
 )
 
+_LOGGER = logging.getLogger(__name__)
+
 CODEOWNERS = ["@slimcdk"]
+
+MULTI_CONF = True
 
 CONF_TMC2209_HUB = "tmc2209_hub"
 CONF_TMC2209_HUB_ID = "tmc2209_hub_id"
 
-MULTI_CONF = True
-# MULTI_CONF_NO_DEFAULT = True
+CONF_STEPPER = "stepper"
+
 
 tmc2209_hub_ns = cg.esphome_ns.namespace("tmc2209_hub")
 TMC2209Hub = tmc2209_hub_ns.class_("TMC2209Hub", cg.Component, uart.UARTDevice)
@@ -46,6 +54,27 @@ async def register_tmc2209_device(var, config):
     cg.add(var.set_tmc2209_hub_parent(parent))
 
 
-TMC2209_HUB_FINAL_VALIDATE_SCHEMA = uart.final_validate_device_schema(
-    CONF_TMC2209_HUB, require_rx=True, require_tx=True
-)
+def final_validate(config):
+
+    full_config = fv.full_config.get()
+    steppers_in_hub = [
+        stepper
+        for stepper in full_config[CONF_STEPPER]
+        if stepper[CONF_TMC2209_HUB_ID] == config[CONF_ID]
+    ]
+
+    for i, stepper in enumerate(steppers_in_hub):
+        for j in range(i + 1, len(steppers_in_hub)):
+            if stepper[CONF_ADDRESS] == steppers_in_hub[j][CONF_ADDRESS]:
+                _LOGGER.warning(
+                    'TMC2209 steppers "%s" and "%s" have same address on same hub which will conflict',
+                    stepper[CONF_ID],
+                    steppers_in_hub[j][CONF_ID],
+                )
+
+    return uart.final_validate_device_schema(
+        CONF_TMC2209_HUB, require_rx=True, require_tx=True
+    )(config)
+
+
+FINAL_VALIDATE_SCHEMA = final_validate
