@@ -1,15 +1,3 @@
-> [!IMPORTANT]
-**Breaking changes!** *Ignore this part if you don't have a setup yet or want to use the new improved version.*
-
-Append `#0035ce5` (commit hash) to `source` if you wish to continue with the previous version. The rest can remain as is.
-```yaml
-external_components:
-  - source: github://slimcdk/esphome-custom-components#0035ce5 # <- include '#0035ce5'
-    components: ...
-```
-*Breaking changes are mainly fixes to speed, better handling for step/dir control and new splitted structure for configuration options.*
-
-
 # TMC2209
 
 ESPHome component to interact with a TMC2209 stepper motor driver over UART and regular step/dir.
@@ -67,7 +55,7 @@ Import the component(s).
 ```yaml
 external_components:
   - source: github://slimcdk/esphome-custom-components
-    components: [ tmc2209, stepper ]
+    components: [ tmc2209_hub, tmc2209, stepper ]
 ```
 ---
 
@@ -547,7 +535,7 @@ sensor:
 ```yaml
 external_components:
   - source: github://slimcdk/esphome-custom-components
-    components: [ tmc2209, stepper ]
+    components: [ tmc2209_hub, tmc2209, stepper ]
 
 # esp32 or esp8266 config..
 
