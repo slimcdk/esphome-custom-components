@@ -10,13 +10,13 @@ namespace tmc2209 {
 void TMC2209Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
 
-#if defined(SERIAL_CONTROL)
-  ESP_LOGCONFIG(TAG, "  Control: serial");
-#elif defined(PULSES_CONTROL)
-  ESP_LOGCONFIG(TAG, "  Control: pulses");
-#else
-  ESP_LOGE(TAG, "No control method defined!");
-#endif
+  if (this->control_method_ == ControlMethod::SERIAL) {
+    ESP_LOGCONFIG(TAG, "  Control: serial");
+  } else if (this->control_method_ == ControlMethod::SERIAL) {
+    ESP_LOGCONFIG(TAG, "  Control: pulses");
+  } else {
+    ESP_LOGE(TAG, "No control method defined!");
+  }
 
   LOG_TMC2209_PINS(this);
   ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
@@ -42,21 +42,21 @@ void TMC2209Stepper::setup() {
 
   this->write_field(VACTUAL_FIELD, 0);
 
-#if defined(PULSES_CONTROL)
-  this->write_field(MULTISTEP_FILT_FIELD, false);
-  this->write_field(DEDGE_FIELD, true);
-#endif
+  if (this->control_method_ == ControlMethod::PULSES) {
+    this->write_field(MULTISTEP_FILT_FIELD, false);
+    this->write_field(DEDGE_FIELD, true);
+  }
 
-#if defined(SERIAL_CONTROL)
-  /* Configure INDEX for pulse feedback from the driver */
-  // Check mux from figure 15.1 from datasheet rev1.09
-  this->write_field(DEDGE_FIELD, false);
-  this->write_field(INDEX_OTPW_FIELD, false);
-  this->write_field(INDEX_STEP_FIELD, true);
-  this->ips_.current_position_ptr = &this->current_position;
-  this->ips_.direction_ptr = &this->current_direction;
-  this->index_pin_->attach_interrupt(IndexPulseStore::pulse_isr, &this->ips_, gpio::INTERRUPT_ANY_EDGE);
-#endif
+  if (this->control_method_ == ControlMethod::SERIAL) {
+    /* Configure INDEX for pulse feedback from the driver */
+    // Check mux from figure 15.1 from datasheet rev1.09
+    this->write_field(DEDGE_FIELD, false);
+    this->write_field(INDEX_OTPW_FIELD, false);
+    this->write_field(INDEX_STEP_FIELD, true);
+    this->ips_.current_position_ptr = &this->current_position;
+    this->ips_.direction_ptr = &this->current_direction;
+    this->index_pin_->attach_interrupt(IndexPulseStore::pulse_isr, &this->ips_, gpio::INTERRUPT_ANY_EDGE);
+  }
 
   this->enable(true);
 
@@ -74,27 +74,27 @@ void TMC2209Stepper::loop() {
 
   int32_t vactual_ = this->speed_to_vactual(this->current_speed_);
 
-#if defined(SERIAL_CONTROL)
-  vactual_ *= this->current_direction;
-  if (this->vactual_ != vactual_) {
-    this->write_field(VACTUAL_FIELD, vactual_);
-    this->vactual_ = vactual_;
-  }
-#endif
-
-#if defined(PULSES_CONTROL)
-  time_t dt = now - this->last_step_;
-  if (dt >= (1 / (float) vactual_) * 1e6f) {
-    if (this->direction_ != this->current_direction) {
-      this->dir_pin_->digital_write(this->current_direction == Direction::BACKWARD);
-      this->direction_ = this->current_direction;
+  if (this->control_method_ == ControlMethod::SERIAL) {
+    vactual_ *= this->current_direction;
+    if (this->vactual_ != vactual_) {
+      this->write_field(VACTUAL_FIELD, vactual_);
+      this->vactual_ = vactual_;
     }
-    this->step_pin_->digital_write(this->step_state_);
-    this->step_state_ = !this->step_state_;
-    this->current_position += (int32_t) this->current_direction;
-    this->last_step_ = now;
   }
-#endif
+
+  if (this->control_method_ == ControlMethod::PULSES) {
+    time_t dt = now - this->last_step_;
+    if (dt >= (1 / (float) vactual_) * 1e6f) {
+      if (this->direction_ != this->current_direction) {
+        this->dir_pin_->digital_write(this->current_direction == Direction::BACKWARD);
+        this->direction_ = this->current_direction;
+      }
+      this->step_pin_->digital_write(this->step_state_);
+      this->step_state_ = !this->step_state_;
+      this->current_position += (int32_t) this->current_direction;
+      this->last_step_ = now;
+    }
+  }
 }
 
 void TMC2209Stepper::set_target(int32_t steps) {
@@ -106,9 +106,9 @@ void TMC2209Stepper::set_target(int32_t steps) {
 
 void TMC2209Stepper::stop() {
   Stepper::stop();
-#if defined(SERIAL_CONTROL)
-  this->write_field(VACTUAL_FIELD, 0);
-#endif
+  if (this->control_method_ == ControlMethod::SERIAL) {
+    this->write_field(VACTUAL_FIELD, 0);
+  }
 }
 
 void TMC2209Stepper::enable(bool enable) {

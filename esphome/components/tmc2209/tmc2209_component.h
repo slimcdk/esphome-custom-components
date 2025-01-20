@@ -15,7 +15,7 @@ namespace tmc2209 {
 #define VSENSE_LOW 0.180f
 
 struct ISRPinTriggerStore {
-  bool *pin_triggered_ptr{nullptr};
+  bool *pin_triggered_ptr = nullptr;
   static void IRAM_ATTR HOT pin_isr(ISRPinTriggerStore *arg) { (*(arg->pin_triggered_ptr)) = true; }
 };
 
@@ -42,6 +42,22 @@ class TMC2209Component : public TMC2209API, public Component {
   void add_on_stall_callback(std::function<void()> &&callback) { this->on_stall_callback_.add(std::move(callback)); }
   void add_on_driver_status_callback(std::function<void(DriverStatusEvent)> &&callback) {
     this->on_driver_status_callback_.add(std::move(callback));
+  }
+
+  void set_enable_driver_health_check(bool enable) { this->driver_health_check_is_enabled_ = enable; }
+  void set_enable_stall_detection(bool enable) { this->stall_detection_is_enabled_ = enable; }
+
+  void set_vsense(bool vsense) {
+    if (this->vsense_ == nullptr) {
+      this->vsense_ = new bool;
+    }
+    *this->vsense_ = vsense;
+  }
+  void set_ottrim(uint8_t ottrim) {
+    if (this->ottrim_ == nullptr) {
+      this->ottrim_ = new uint8_t;  // Allocate memory if not already allocated
+    }
+    *this->ottrim_ = ottrim;
   }
 
   virtual void enable(bool enable);
@@ -79,12 +95,16 @@ class TMC2209Component : public TMC2209API, public Component {
   const bool internal_rsense_;
   const float rsense_;       // default RDSon value
   const bool analog_scale_;  // VREF is connected
+  bool *vsense_ = nullptr;
+  uint8_t *ottrim_ = nullptr;
+  bool driver_health_check_is_enabled_ = false;
+  bool stall_detection_is_enabled_ = false;
 
-  InternalGPIOPin *enn_pin_{nullptr};
-  InternalGPIOPin *diag_pin_{nullptr};
-  InternalGPIOPin *index_pin_{nullptr};
-  GPIOPin *step_pin_{nullptr};
-  GPIOPin *dir_pin_{nullptr};
+  InternalGPIOPin *enn_pin_ = nullptr;
+  InternalGPIOPin *diag_pin_ = nullptr;
+  InternalGPIOPin *index_pin_ = nullptr;
+  GPIOPin *step_pin_ = nullptr;
+  GPIOPin *dir_pin_ = nullptr;
 
   bool is_enabled_;
   bool check_gstat_ = false;
@@ -112,11 +132,11 @@ class TMC2209Component : public TMC2209API, public Component {
   EventHandler s2ga_handler_;   // short to ground indicator phase A
   EventHandler uvcp_handler_;   // Charge pump undervoltage
 
-  ISRPinTriggerStore diag_isr_store_{};
-  // ISRPinTriggerStore index_isr_store_{};
+  ISRPinTriggerStore diag_isr_store_;
+  // ISRPinTriggerStore index_isr_store_;
 
-  bool diag_triggered_{false};
-  // bool index_triggered_{false};
+  bool diag_triggered_ = false;
+  // bool index_triggered_ = false;
 
   HighFrequencyLoopRequester high_freq_;
 };

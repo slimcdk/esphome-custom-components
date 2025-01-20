@@ -13,24 +13,24 @@ void TMC2209Component::setup() {
 
   this->high_freq_.start();
 
-#if defined(HAS_ENN_PIN)
-  this->enn_pin_->setup();
-#endif
+  if (this->enn_pin_ != nullptr) {
+    this->enn_pin_->setup();
+  }
 
-#if defined(HAS_INDEX_PIN)
-  this->index_pin_->setup();
-#endif
+  if (this->index_pin_ != nullptr) {
+    this->index_pin_->setup();
+  }
 
-#if defined(HAS_STEP_PIN) and defined(HAS_DIR_PIN)
-  this->step_pin_->setup();
-  this->dir_pin_->setup();
-#endif
+  if (this->step_pin_ != nullptr and this->dir_pin_ != nullptr) {
+    this->step_pin_->setup();
+    this->dir_pin_->setup();
+  }
 
-#if defined(HAS_DIAG_PIN)
-  this->diag_pin_->setup();
-  this->diag_pin_->attach_interrupt(ISRPinTriggerStore::pin_isr, &this->diag_isr_store_, gpio::INTERRUPT_RISING_EDGE);
-  this->diag_isr_store_.pin_triggered_ptr = &this->diag_triggered_;
-#endif
+  if (this->diag_pin_ != nullptr) {
+    this->diag_pin_->setup();
+    this->diag_pin_->attach_interrupt(ISRPinTriggerStore::pin_isr, &this->diag_isr_store_, gpio::INTERRUPT_RISING_EDGE);
+    this->diag_isr_store_.pin_triggered_ptr = &this->diag_triggered_;
+  }
 
   if (!this->read_field(VERSION_FIELD)) {
     this->status_set_error("Failed to communicate with driver");
@@ -45,13 +45,15 @@ void TMC2209Component::setup() {
   this->write_field(TEST_MODE_FIELD, false);
   // this->write_register(GSTAT, 0b111);
 
-#if defined(VSENSE)
-  this->write_field(VSENSE_FIELD, VSENSE);
-#endif
+  if (this->vsense_ != nullptr) {
+    ESP_LOGD(TAG, "Setting VSENSE: %d", (bool) *this->vsense_);
+    this->write_field(VSENSE_FIELD, (bool) *this->vsense_);
+  }
 
-#if defined(OTTRIM)
-  this->write_field(OTTRIM_FIELD, OTTRIM);
-#endif
+  if (this->ottrim_ != nullptr) {
+    ESP_LOGD(TAG, "Setting OTTRIM: %d", (uint8_t) * this->ottrim_);
+    this->write_field(OTTRIM_FIELD, (uint8_t) * this->ottrim_);
+  }
 
   this->diag_handler_.set_callbacks(  // DIAG
       [this]() {
@@ -221,20 +223,18 @@ void TMC2209Component::setup() {
 }
 
 void TMC2209Component::loop() {
-#if defined(ENABLE_DRIVER_HEALTH_CHECK) or defined(ENABLE_STALL_DETECTION)
-
-#if defined(HAS_DIAG_PIN)
-  this->diag_handler_.check(this->diag_triggered_);
-  if (this->diag_triggered_) {
-    this->diag_triggered_ = this->diag_pin_->digital_read();  // don't clear flag if DIAG is still up
+  if (this->driver_health_check_is_enabled_ or this->stall_detection_is_enabled_) {
+    if (this->diag_pin_ != nullptr) {
+      this->diag_handler_.check(this->diag_triggered_);
+      if (this->diag_triggered_) {
+        this->diag_triggered_ = this->diag_pin_->digital_read();  // don't clear flag if DIAG is still up
+      }
+    } else {
+      const int32_t ioin = this->read_register(IOIN);
+      this->diag_handler_.check((bool) this->extract_field(ioin, DIAG_FIELD));
+      // TODO: maybe do something with INDEX for warnings
+    }
   }
-#else
-  const int32_t ioin = this->read_register(IOIN);
-  this->diag_handler_.check((bool) this->extract_field(ioin, DIAG_FIELD));
-  // TODO: maybe do something with INDEX for warnings
-#endif
-
-#endif
 }
 
 bool TMC2209Component::is_stalled() {
@@ -334,11 +334,11 @@ std::tuple<uint8_t, uint8_t> TMC2209Component::unpack_ottrim_values(uint8_t ottr
 }
 
 void TMC2209Component::enable(bool enable) {
-#if defined(HAS_ENN_PIN)
-  this->enn_pin_->digital_write(!enable);
-#else
-  this->write_field(TOFF_FIELD, enable ? 3 : 0);
-#endif
+  if (this->enn_pin_ != nullptr) {
+    this->enn_pin_->digital_write(!enable);
+  } else {
+    this->write_field(TOFF_FIELD, enable ? 3 : 0);
+  }
   this->is_enabled_ = enable;
 }
 

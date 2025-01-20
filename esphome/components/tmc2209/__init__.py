@@ -147,40 +147,35 @@ async def register_tmc2209_base(var, config):
     step_pin = config.get(CONF_STEP_PIN, None)
 
     if enn_pin is not None:
-        cg.add_define("HAS_ENN_PIN")
         cg.add(var.set_enn_pin(await cg.gpio_pin_expression(enn_pin)))
 
     if diag_pin is not None:
-        cg.add_define("HAS_DIAG_PIN")
         cg.add(var.set_diag_pin(await cg.gpio_pin_expression(diag_pin)))
 
     if index_pin is not None:
-        cg.add_define("HAS_INDEX_PIN")
         cg.add(var.set_index_pin(await cg.gpio_pin_expression(index_pin)))
 
     if step_pin is not None:
-        cg.add_define("HAS_STEP_PIN")
         cg.add(var.set_step_pin(await cg.gpio_pin_expression(step_pin)))
 
     if dir_pin is not None:
-        cg.add_define("HAS_DIR_PIN")
         cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
 
     if (vsense := config.get(CONF_VSENSE, None)) is not None:
-        cg.add_define("VSENSE", vsense)
+        cg.add(var.set_vsense(vsense))
 
     if (ottrim := config.get(CONF_OTTRIM, None)) is not None:
-        cg.add_define("OTTRIM", ottrim)
+        cg.add(var.set_ottrim(ottrim))
 
     for conf in config.get(CONF_ON_DRIVER_STATUS, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(DriverStatusEvent, "code")], conf)
-        cg.add_define("ENABLE_DRIVER_HEALTH_CHECK")
+        cg.add(var.set_enable_driver_health_check(True))
 
     for conf in config.get(CONF_ON_STALL, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
-        cg.add_define("ENABLE_STALL_DETECTION")
+        cg.add(var.set_enable_stall_detection(True))
 
     cg.add_build_flag("-std=c++17")
     cg.add_build_flag("-std=gnu++17")

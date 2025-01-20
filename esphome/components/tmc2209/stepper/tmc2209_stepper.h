@@ -14,6 +14,12 @@ namespace tmc2209 {
 
 using namespace stepper;
 
+enum ControlMethod {
+  UNSET,
+  SERIAL,
+  PULSES,
+};
+
 struct IndexPulseStore {
   int32_t *current_position_ptr{nullptr};
   Direction *direction_ptr{nullptr};
@@ -35,18 +41,21 @@ class TMC2209Stepper : public TMC2209Component, public Stepper {
   void set_target(int32_t steps) override;
   bool is_stalled() override;
 
+  void set_control_method(ControlMethod method) { this->control_method_ = method; }
+
  protected:
   HighFrequencyLoopRequester high_freq_;
+  ControlMethod control_method_ = ControlMethod::UNSET;
 
-#if defined(SERIAL_CONTROL)
+  /** Serial control */
   IndexPulseStore ips_;  // index pulse store
   int32_t vactual_ = 0;
-#endif
+  /* */
 
-#if defined(PULSES_CONTROL)
+  /** Pulses control */
   bool step_state_ = false;
   Direction direction_;
-#endif
+  /* */
 };
 
 }  // namespace tmc2209

@@ -25,6 +25,8 @@ CODEOWNERS = ["@slimcdk"]
 AUTO_LOAD = ["tmc2209"]
 
 TMC2209Stepper = tmc2209_ns.class_("TMC2209Stepper", TMC2209Component, stepper.Stepper)
+ControlMethod = tmc2209_ns.enum("ControlMethod")
+
 
 DEVICE_SCHEMA = cv.Schema(
     {
@@ -74,9 +76,9 @@ async def to_code(config):
     has_stepdir_pins = CONF_STEP_PIN in config and CONF_DIR_PIN in config
 
     if has_stepdir_pins:
-        cg.add_define("PULSES_CONTROL")
+        cg.add(var.set_control_method(ControlMethod.PULSES))
     elif has_index_pin:
-        cg.add_define("SERIAL_CONTROL")
+        cg.add(var.set_control_method(ControlMethod.SERIAL))
     else:
         raise EsphomeError("Could not determine control method!")
 
