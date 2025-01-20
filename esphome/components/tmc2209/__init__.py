@@ -180,10 +180,6 @@ async def register_tmc2209_base(var, config):
     cg.add_build_flag("-std=c++17")
     cg.add_build_flag("-std=gnu++17")
 
-    _LOGGER.warning(
-        "import 'tmc2209_hub' together with 'tmc2209' and 'stepper' for future compatibility. that's all. no need to reconfigure anything."
-    )
-
     return var
 
 

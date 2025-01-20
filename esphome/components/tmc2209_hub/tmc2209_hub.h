@@ -5,9 +5,13 @@
 namespace esphome {
 namespace tmc2209_hub {
 
+static const char *const TAG = "tmc2209_hub";
+
 class TMC2209Hub : public Component, public uart::UARTDevice {
  public:
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
+
+  void dump_config() { ESP_LOGCONFIG(TAG, "TMC2209 Hub:"); }
 };
 
 class TMC2209Device {
