@@ -63,6 +63,8 @@ void TMC2209Stepper::setup() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper setup done.");
 }
 
+void TMC2209Stepper::on_shutdown() { this->stop(); }
+
 void TMC2209Stepper::loop() {
   TMC2209Component::loop();
 

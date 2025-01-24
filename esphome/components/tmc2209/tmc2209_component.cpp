@@ -44,12 +44,10 @@ void TMC2209Component::setup() {
   // this->write_register(GSTAT, 0b111);
 
   if (this->vsense_ != nullptr) {
-    ESP_LOGD(TAG, "Setting VSENSE: %d", (bool) *this->vsense_);
     this->write_field(VSENSE_FIELD, (bool) *this->vsense_);
   }
 
   if (this->ottrim_ != nullptr) {
-    ESP_LOGD(TAG, "Setting OTTRIM: %d", (uint8_t) * this->ottrim_);
     this->write_field(OTTRIM_FIELD, (uint8_t) * this->ottrim_);
   }
 
@@ -261,7 +259,7 @@ float TMC2209Component::get_motor_load() {
   return (510.0 - (float) result) / (510.0 - (int32_t) this->read_register(SGTHRS) * 2.0);
 }
 
-float TMC2209Component::read_vsense() { return (this->read_field(VSENSE_FIELD) ? VSENSE_LOW : VSENSE_HIGH); }
+float TMC2209Component::read_vsense() { return (this->read_field(VSENSE_FIELD) ? 0.180f : 0.325f); }
 
 uint16_t TMC2209Component::current_scale_to_rms_current_mA(uint8_t cs) {
   cs = clamp<uint8_t>(cs, 0, 31);

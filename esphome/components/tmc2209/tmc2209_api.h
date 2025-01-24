@@ -83,7 +83,7 @@ static const int32_t sample_register_preset[REGISTER_COUNT] = {
     R70, 0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0   // 0x70 - 0x7F
 };
 
-class TMC2209API : public tmc2209_hub::TMC2209Device {
+class TMC2209API : public tmc2209_hub::TMC2209HubDevice {
  public:
   TMC2209API(uint8_t address) : address_(address){};
 
@@ -94,6 +94,8 @@ class TMC2209API : public tmc2209_hub::TMC2209Device {
   uint32_t read_field(RegisterField field);
   uint32_t extract_field(uint32_t data, RegisterField field);
   uint32_t update_field(uint32_t data, RegisterField field, uint32_t value);
+
+  const uint8_t get_address() { return this->address_; }
 
  protected:
   const uint8_t address_;

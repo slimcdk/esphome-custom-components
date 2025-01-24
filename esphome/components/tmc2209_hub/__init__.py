@@ -1,13 +1,16 @@
 import logging
 
-import esphome.codegen as cg
-import esphome.config_validation as cv
-import esphome.final_validate as fv
-from esphome.components import uart
 from esphome.const import (
     CONF_ID,
     CONF_ADDRESS,
 )
+import esphome.codegen as cg
+import esphome.config_validation as cv
+import esphome.final_validate as fv
+from esphome import automation
+from esphome.automation import maybe_simple_id
+from esphome.components import uart, tmc2209
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -19,11 +22,12 @@ CONF_TMC2209_HUB = "tmc2209_hub"
 CONF_TMC2209_HUB_ID = "tmc2209_hub_id"
 
 CONF_STEPPER = "stepper"
-
+CONF_FROM_ID = "from"
 
 tmc2209_hub_ns = cg.esphome_ns.namespace("tmc2209_hub")
 TMC2209Hub = tmc2209_hub_ns.class_("TMC2209Hub", cg.Component, uart.UARTDevice)
-TMC2209Device = tmc2209_hub_ns.class_("TMC2209Device")
+TMC2209HubDevice = tmc2209_hub_ns.class_("TMC2209HubDevice")
+
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(
@@ -42,16 +46,17 @@ async def to_code(config):
     await uart.register_uart_device(var, config)
 
 
-TMC2209_DEVICE_SCHEMA = cv.Schema(
+TMC2209_HUB_DEVICE_SCHEMA = cv.Schema(
     {
         cv.GenerateID(CONF_TMC2209_HUB_ID): cv.use_id(TMC2209Hub),
     }
 )
 
 
-async def register_tmc2209_device(var, config):
+async def register_tmc2209_hub_device(var, config):
     parent = await cg.get_variable(config[CONF_TMC2209_HUB_ID])
     cg.add(var.set_tmc2209_hub_parent(parent))
+    cg.add(parent.add_driver(var))
 
 
 def final_validate(config):

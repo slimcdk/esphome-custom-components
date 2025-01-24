@@ -12,7 +12,7 @@
 namespace esphome {
 namespace tmc2209 {
 
-using namespace stepper;
+using namespace esphome::stepper;
 
 enum ControlMethod {
   UNSET,
@@ -36,6 +36,7 @@ class TMC2209Stepper : public TMC2209Component, public Stepper {
   void dump_config() override;
   void setup() override;
   void loop() override;
+  void on_shutdown() override;
   void stop() override;
   void enable(bool enable) override;
   void set_target(int32_t steps) override;

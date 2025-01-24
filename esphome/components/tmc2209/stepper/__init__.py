@@ -1,9 +1,3 @@
-from esphome.core import EsphomeError
-import esphome.codegen as cg
-import esphome.config_validation as cv
-from esphome.components import stepper
-from esphome.const import CONF_ADDRESS, CONF_ID
-
 from .. import (
     CONF_TMC2209_ID,
     CONF_CLOCK_FREQUENCY,
@@ -18,6 +12,11 @@ from .. import (
     register_tmc2209_base,
     validate_tmc2209_base,
 )
+from esphome.core import EsphomeError
+import esphome.codegen as cg
+import esphome.config_validation as cv
+from esphome.components import stepper
+from esphome.const import CONF_ADDRESS, CONF_ID
 
 CODEOWNERS = ["@slimcdk"]
 

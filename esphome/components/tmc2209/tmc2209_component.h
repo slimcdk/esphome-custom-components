@@ -9,10 +9,8 @@ namespace tmc2209 {
 
 #define FROM_MILLI(mu) ((double) mu / 1000.0)
 #define TO_MILLI(u) (u * 1000.0)
-#define MRES_TO_MS(mres) (256 >> mres)
 
-#define VSENSE_HIGH 0.325f
-#define VSENSE_LOW 0.180f
+#define MRES_TO_MS(mres) (256 >> mres)  // convert MRES value (microstepping index) to human readable microstep value
 
 struct ISRPinTriggerStore {
   bool *pin_triggered_ptr = nullptr;
@@ -91,12 +89,16 @@ class TMC2209Component : public TMC2209API, public Component {
   void write_speed(int32_t speed) { this->write_field(VACTUAL_FIELD, this->speed_to_vactual(speed)); }
 
  protected:
+  /** Setup / configuration */
   const uint32_t clk_frequency_;
   const bool internal_rsense_;
-  const float rsense_;              // default RDSon value
-  const bool analog_scale_{false};  // VREF is connected
-  bool *vsense_{nullptr};
-  uint8_t *ottrim_{nullptr};
+  const float rsense_;                 // default RDSon value
+  const bool analog_scale_{false};     // current scaling is controlled by VREF input if set
+  const float vactual_factor_{0.715};  // coefficient between clock and real steps using VACTUAL
+
+  bool *vsense_{nullptr};     // user has configured value if pointer is valid
+  uint8_t *ottrim_{nullptr};  // user has configured value if pointer is valid
+
   bool driver_health_check_is_enabled_{false};
   bool stall_detection_is_enabled_{false};
 
@@ -105,11 +107,17 @@ class TMC2209Component : public TMC2209API, public Component {
   InternalGPIOPin *index_pin_{nullptr};
   GPIOPin *step_pin_{nullptr};
   GPIOPin *dir_pin_{nullptr};
+  /** */
 
+  /** Runtime helpers */
   bool is_enabled_;
   bool check_gstat_{false};
   bool check_drv_status{false};
-  const float vactual_factor_{0.715};
+  bool diag_triggered_{false};
+  /** */
+
+  ISRPinTriggerStore diag_isr_store_;
+  HighFrequencyLoopRequester high_freq_;
 
   CallbackManager<void()> on_stall_callback_;
   CallbackManager<void(const DriverStatusEvent &event)> on_driver_status_callback_;
@@ -131,11 +139,6 @@ class TMC2209Component : public TMC2209API, public Component {
   EventHandler s2gb_handler_;   // short to ground indicator phase B
   EventHandler s2ga_handler_;   // short to ground indicator phase A
   EventHandler uvcp_handler_;   // Charge pump undervoltage
-
-  ISRPinTriggerStore diag_isr_store_;
-  bool diag_triggered_{false};
-
-  HighFrequencyLoopRequester high_freq_;
 };
 
 }  // namespace tmc2209
