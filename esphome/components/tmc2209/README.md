@@ -709,7 +709,7 @@ Output of above configuration. Registers could differ due to OTP.
 ```console
 ...
 [00:00:00][C][tmc2209_hub:013]: TMC2209 Hub:
-[00:00:00][C][tmc2209_hub:014]:   Drivers in hub (2):
+[00:00:00][C][tmc2209_hub:014]:   Drivers in hub (1):
 [00:00:00][C][tmc2209_hub:017]:     Driver with id driver on address 0x0
 [00:00:00][C][tmc2209:011]: TMC2209 Stepper:
 [00:00:00][C][tmc2209:014]:   Control: serial
@@ -893,6 +893,9 @@ Source code for components aren't fully loading when adding additional component
 * OTTRIM not setting or reading properly.
 * Implement hardware timer for step pulse generation.
 * Use index for warning if stepper is controlled with step/dir.
+* Setup with RX omitted.
+* `tmc2209_hub` handle chip select like setup for multiple drivers with same addresses.
+
 
 ## MISC
 
