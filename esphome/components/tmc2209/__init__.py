@@ -64,6 +64,8 @@ CONF_PWM_FREQ = "freq"
 CONF_PWM_GRAD = "grad"
 CONF_PWM_OFS = "ofs"
 
+CONF_TO_IDS = "to"
+
 OPT_CLOCKWISE = "clockwise"
 OPT_CW = "cw"
 OPT_COUNTERCLOCKWISE = "counterclockwise"
@@ -97,6 +99,7 @@ StallGuardAction = tmc2209_ns.class_("StallGuardAction", automation.Action)
 CoolConfAction = tmc2209_ns.class_("CoolConfAction", automation.Action)
 ChopConfAction = tmc2209_ns.class_("ChopConfAction", automation.Action)
 PWMConfAction = tmc2209_ns.class_("PWMConfAction", automation.Action)
+SyncAction = tmc2209_ns.class_("SyncAction", automation.Action)
 
 DEVICE_SCHEMA = cv.Schema({cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209Component)})
 
@@ -192,9 +195,9 @@ def validate_tmc2209_base(config):
     ActivationAction,
     maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209Component)}),
 )
-def tmc2209_enable_to_code(config, action_id, template_arg, args):
+async def tmc2209_enable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
+    await cg.register_parented(var, config[CONF_ID])
     cg.add(var.set_activate(True))
     return var
 
@@ -204,9 +207,9 @@ def tmc2209_enable_to_code(config, action_id, template_arg, args):
     ActivationAction,
     maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209Component)}),
 )
-def tmc2209_disable_to_code(config, action_id, template_arg, args):
+async def tmc2209_disable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
+    await cg.register_parented(var, config[CONF_ID])
     cg.add(var.set_activate(False))
     return var
 
@@ -234,37 +237,37 @@ def tmc2209_disable_to_code(config, action_id, template_arg, args):
         }
     ),
 )
-def tmc2209_configure_to_code(config, action_id, template_arg, args):
+async def tmc2209_configure_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
+    await cg.register_parented(var, config[CONF_ID])
 
     if (dir := config.get(CONF_DIRECTION, None)) is not None:
-        template_ = yield cg.templatable(
+        template_ = await cg.templatable(
             (dir in [OPT_COUNTERCLOCKWISE, OPT_CCW]), args, bool
         )
         cg.add(var.set_inverse_direction(template_))
 
     if (microsteps := config.get(CONF_MICROSTEPS, None)) is not None:
-        template_ = yield cg.templatable(microsteps, args, int)
+        template_ = await cg.templatable(microsteps, args, int)
         cg.add(var.set_microsteps(template_))
 
     if (interpolation := config.get(CONF_INTERPOLATION, None)) is not None:
-        template_ = yield cg.templatable(interpolation, args, bool)
+        template_ = await cg.templatable(interpolation, args, bool)
         cg.add(var.set_microstep_interpolation(template_))
 
     if (en_spreadcycle := config.get(CONF_ENABLE_SPREADCYCLE, None)) is not None:
-        template_ = yield cg.templatable(en_spreadcycle, args, bool)
+        template_ = await cg.templatable(en_spreadcycle, args, bool)
         cg.add(var.set_enable_spreadcycle(template_))
 
     if (tcoolthrs := config.get(CONF_TCOOL_THRESHOLD, None)) is not None:
-        template_ = yield cg.templatable(tcoolthrs, args, int)
+        template_ = await cg.templatable(tcoolthrs, args, int)
         cg.add(var.set_tcool_threshold(template_))
 
     if (tpwmthrs := config.get(CONF_TPWM_THRESHOLD, None)) is not None:
-        template_ = yield cg.templatable(tpwmthrs, args, int)
+        template_ = await cg.templatable(tpwmthrs, args, int)
         cg.add(var.set_tpwm_threshold(template_))
 
-    yield var
+    return var
 
 
 @automation.register_action(
@@ -291,39 +294,39 @@ def tmc2209_configure_to_code(config, action_id, template_arg, args):
         }
     ),
 )
-def tmc2209_currents_to_code(config, action_id, template_arg, args):
+async def tmc2209_currents_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
+    await cg.register_parented(var, config[CONF_ID])
 
     if (standstill_mode := config.get(CONF_STANDSTILL_MODE, None)) is not None:
-        template_ = yield cg.templatable(STANDSTILL_MODES[standstill_mode], args, float)
+        template_ = await cg.templatable(STANDSTILL_MODES[standstill_mode], args, float)
         cg.add(var.set_standstill_mode(template_))
 
     if (run_current := config.get(CONF_RUN_CURRENT, None)) is not None:
-        template_ = yield cg.templatable(run_current, args, cv.current)
+        template_ = await cg.templatable(run_current, args, cv.current)
         cg.add(var.set_run_current(template_))
 
     if (irun := config.get(CONF_IRUN, None)) is not None:
-        template_ = yield cg.templatable(irun, args, cv.int_range(0, 31))
+        template_ = await cg.templatable(irun, args, cv.int_range(0, 31))
         cg.add(var.set_irun(template_))
 
     if (hold_current := config.get(CONF_HOLD_CURRENT, None)) is not None:
-        template_ = yield cg.templatable(hold_current, args, cv.current)
+        template_ = await cg.templatable(hold_current, args, cv.current)
         cg.add(var.set_hold_current(template_))
 
     if (ihold := config.get(CONF_IHOLD, None)) is not None:
-        template_ = yield cg.templatable(ihold, args, cv.int_range(0, 31))
+        template_ = await cg.templatable(ihold, args, cv.int_range(0, 31))
         cg.add(var.set_ihold(template_))
 
     if (iholddelay := config.get(CONF_IHOLDDELAY, None)) is not None:
-        template_ = yield cg.templatable(iholddelay, args, float)
+        template_ = await cg.templatable(iholddelay, args, float)
         cg.add(var.set_iholddelay(template_))
 
     if (tpowerdown := config.get(CONF_TPOWERDOWN, None)) is not None:
-        template_ = yield cg.templatable(tpowerdown, args, float)
+        template_ = await cg.templatable(tpowerdown, args, float)
         cg.add(var.set_tpowerdown(template_))
 
-    yield var
+    return var
 
 
 @automation.register_action(
@@ -336,15 +339,15 @@ def tmc2209_currents_to_code(config, action_id, template_arg, args):
         }
     ),
 )
-def tmc2209_stallguard_to_code(config, action_id, template_arg, args):
+async def tmc2209_stallguard_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
+    await cg.register_parented(var, config[CONF_ID])
 
     if (sgthrs := config.get(CONF_THRESHOLD, None)) is not None:
-        template_ = yield cg.templatable(sgthrs, args, int)
+        template_ = await cg.templatable(sgthrs, args, int)
         cg.add(var.set_stallguard_threshold(template_))
 
-    yield var
+    return var
 
 
 @automation.register_action(
@@ -371,31 +374,31 @@ def tmc2209_stallguard_to_code(config, action_id, template_arg, args):
         }
     ),
 )
-def tmc2209_coolconf_to_code(config, action_id, template_arg, args):
+async def tmc2209_coolconf_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
+    await cg.register_parented(var, config[CONF_ID])
 
     if (seimin := config.get(CONF_SEIMIN, None)) is not None:
-        template_ = yield cg.templatable(seimin, args, int)
+        template_ = await cg.templatable(seimin, args, int)
         cg.add(var.set_seimin(template_))
 
     if (semax := config.get(CONF_SEMAX, None)) is not None:
-        template_ = yield cg.templatable(semax, args, int)
+        template_ = await cg.templatable(semax, args, int)
         cg.add(var.set_semax(template_))
 
     if (semin := config.get(CONF_SEMIN, None)) is not None:
-        template_ = yield cg.templatable(semin, args, int)
+        template_ = await cg.templatable(semin, args, int)
         cg.add(var.set_semin(template_))
 
     if (sedn := config.get(CONF_SEDN, None)) is not None:
-        template_ = yield cg.templatable(sedn, args, int)
+        template_ = await cg.templatable(sedn, args, int)
         cg.add(var.set_sedn(template_))
 
     if (seup := config.get(CONF_SEUP, None)) is not None:
-        template_ = yield cg.templatable(seup, args, int)
+        template_ = await cg.templatable(seup, args, int)
         cg.add(var.set_seup(template_))
 
-    yield var
+    return var
 
 
 @automation.register_action(
@@ -416,23 +419,23 @@ def tmc2209_coolconf_to_code(config, action_id, template_arg, args):
         }
     ),
 )
-def tmc2209_chopconf_to_code(config, action_id, template_arg, args):
+async def tmc2209_chopconf_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
+    await cg.register_parented(var, config[CONF_ID])
 
     if (tbl := config.get(CONF_TBL, None)) is not None:
-        template_ = yield cg.templatable(tbl, args, int)
+        template_ = await cg.templatable(tbl, args, int)
         cg.add(var.set_tbl(template_))
 
     if (hend := config.get(CONF_HEND, None)) is not None:
-        template_ = yield cg.templatable(hend, args, int)
+        template_ = await cg.templatable(hend, args, int)
         cg.add(var.set_hend(template_))
 
     if (hstrt := config.get(CONF_HSTRT, None)) is not None:
-        template_ = yield cg.templatable(hstrt, args, int)
+        template_ = await cg.templatable(hstrt, args, int)
         cg.add(var.set_hstrt(template_))
 
-    yield var
+    return var
 
 
 @automation.register_action(
@@ -461,36 +464,70 @@ def tmc2209_chopconf_to_code(config, action_id, template_arg, args):
         }
     ),
 )
-def tmc2209_pwmconf_to_code(config, action_id, template_arg, args):
+async def tmc2209_pwmconf_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
-    yield cg.register_parented(var, config[CONF_ID])
+    await cg.register_parented(var, config[CONF_ID])
 
     if (pwmlim := config.get(CONF_PWM_LIM, None)) is not None:
-        template_ = yield cg.templatable(pwmlim, args, int)
+        template_ = await cg.templatable(pwmlim, args, int)
         cg.add(var.set_pwmlim(template_))
 
     if (pwmreg := config.get(CONF_PWM_REG, None)) is not None:
-        template_ = yield cg.templatable(pwmreg, args, int)
+        template_ = await cg.templatable(pwmreg, args, int)
         cg.add(var.set_pwmreg(template_))
 
     if (pwmfreq := config.get(CONF_PWM_FREQ, None)) is not None:
-        template_ = yield cg.templatable(pwmfreq, args, int)
+        template_ = await cg.templatable(pwmfreq, args, int)
         cg.add(var.set_pwmfreq(template_))
 
     if (pwmgrad := config.get(CONF_PWM_GRAD, None)) is not None:
-        template_ = yield cg.templatable(pwmgrad, args, int)
+        template_ = await cg.templatable(pwmgrad, args, int)
         cg.add(var.set_pwmgrad(template_))
 
     if (pwmofs := config.get(CONF_PWM_OFS, None)) is not None:
-        template_ = yield cg.templatable(pwmofs, args, int)
+        template_ = await cg.templatable(pwmofs, args, int)
         cg.add(var.set_pwmofs(template_))
 
     if (pwmautograd := config.get(CONF_PWM_AUTOGRAD, None)) is not None:
-        template_ = yield cg.templatable(pwmautograd, args, bool)
+        template_ = await cg.templatable(pwmautograd, args, bool)
         cg.add(var.set_pwmautograd(template_))
 
     if (pwmautoscale := config.get(CONF_PWM_AUTOSCALE, None)) is not None:
-        template_ = yield cg.templatable(pwmautoscale, args, bool)
+        template_ = await cg.templatable(pwmautoscale, args, bool)
         cg.add(var.set_pwmautoscale(template_))
 
-    yield var
+    return var
+
+
+# @automation.register_action(
+#     "tmc2209.sync",
+#     SyncAction,
+#     cv.Schema(
+#         {
+#             cv.GenerateID(): cv.use_id(TMC2209Component),
+#             cv.Required(CONF_TO_IDS): cv.All(
+#                 cv.ensure_list(cv.use_id(TMC2209Component)), cv.Length(min=1)
+#             ),
+#         }
+#     ),
+# )
+# async def tmc2209_sync_to_code(config, action_id, template_arg, args):
+
+#     var = cg.new_Pvariable(action_id, template_arg)
+#     await cg.register_parented(var, config[CONF_ID])
+
+#     if config[CONF_ID] in config[CONF_TO_IDS]:
+#         _LOGGER.error("tmc2209.sync for %s is syncing to self", config[CONF_ID])
+#         # raise EsphomeError(f"tmc2209.sync for {config[CONF_ID]} is syncing to self")
+
+#     if len(config[CONF_TO_IDS]) != len(set(config[CONF_TO_IDS])):
+#         _LOGGER.warning("tmc2209.sync for %s has duplicate references", config[CONF_ID])
+
+#     template_ = await cg.templatable(
+#         [await cg.get_variable(id) for id in config[CONF_TO_IDS]],
+#         args,
+#         cg.std_vector.template(TMC2209Component),
+#     )
+#     cg.add(var.set_drivers(template_))
+
+#     return var

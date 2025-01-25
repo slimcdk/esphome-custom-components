@@ -14,6 +14,7 @@ ESPHome component to interact with a TMC2209 stepper motor driver over UART and 
 # Table of contents
 - [Config](#config)
   - [UART Setup](#configuration-of-uart-bus)
+  - [Hub Setup](#configuration-of-hub)
   - [Stepper Configuration](#stepper-configuration)
     - [Control via UART](#control-the-position-using-serial-uart)
     - [Control via pulses](#control-the-position-using-traditional-stepping-pulses-and-direction)
@@ -29,6 +30,7 @@ ESPHome component to interact with a TMC2209 stepper motor driver over UART and 
   - [`tmc2209.pwmconf` Action](#tmc2209pwmconf-action)
   - [`tmc2209.enable` Action](#tmc2209enable-action)
   - [`tmc2209.disable` Action](#tmc2209disable-action)
+  <!-- - [`tmc2209.sync` Action](#tmc2209sync-action) -->
 - [Driver Sensors](#sensors)
 - [Examples](#example-config)
 - [Advanced](#advanced)
@@ -51,7 +53,7 @@ Copyright (c) 2023 Analog Devices, Inc.
 Import the component(s).
 ```yaml
 external_components:
-  - source: github://slimcdk/esphome-custom-components
+  - source: github://slimcdk/esphome-custom-components@multiple-tmc2209
     components: [ tmc2209_hub, tmc2209, stepper ]
 ```
 ---
@@ -83,7 +85,7 @@ uart:
 
 ### Configuration of hub.
 
-This part facilitates a serial semaphore to allow multiple drivers on same UART.
+This part facilitates a semaphore-like channel to allow multiple drivers on same UART.
 
 > [!TIP]
 *Manual configuration of the hub can be omitted if only a single UART is configured.*
@@ -94,7 +96,6 @@ tmc2209_hub:
 * `id` (**Required**, [ID][config-id]): Specify the ID of the hub so that you can explicitly reference it.
 
 * `uart_id` (**Required**, [ID][config-id]): Reference the UART if multiple are configured.
-
 
 Example of utilizing the hub with two drivers on same UART.
 ```yaml
@@ -112,7 +113,7 @@ uart:
 
 tmc2209_hub:
   id: hub1
-  uart_id: uart1
+  uart_id: tmc_comms
 
 
 stepper:
@@ -125,6 +126,25 @@ stepper:
   - platform: tmc2209
     id: driver2
     tmc2209_hub_id: hub1
+    address: 0x01
+    ... all other options
+```
+
+Example of omitting `tmc2209_hub` as which UART to use is inferred.
+```yaml
+uart:
+  tx_pin: ...
+  rx_pin: ...
+  baud_rate: ...
+
+stepper:
+  - platform: tmc2209
+    id: driver1
+    address: 0x00
+    ... all other options
+
+  - platform: tmc2209
+    id: driver2
     address: 0x01
     ... all other options
 ```
@@ -299,7 +319,7 @@ on_...:
       tpwm_threshold: REPLACEME
 ```
 
-* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+* `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
 * `direction` (*Optional*, string, [templatable][config-templatable]): Effectively inverse the rotational direction. Options are `clockwise` or `counterclockwise` and their abbreviations `cw` or `cww`.
 
@@ -328,7 +348,7 @@ on_...:
       hold_current: 0mA
 ```
 
-* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+* `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
 * `standstill_mode` (*Optional*, [templatable][config-templatable]): Standstill mode for when movement stops. Default is OTP. Available modes are:
   * `normal`: Actively breaks the motor.
@@ -362,7 +382,7 @@ on_...:
       threshold: 50
 ```
 
-* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+* `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
 * `threshold` (*Optional*, int, [templatable][config-templatable]):  Sets **SGTHRS**. Value for the StallGuard4 threshold.
 
@@ -378,7 +398,7 @@ on_...:
       seup: REPLACEME
 ```
 
-* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+* `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
 * `seimin` (*Optional*, int): Sets **SEIMIN**
 
@@ -401,7 +421,7 @@ on_...:
       hstrt: REPLACEME
 ```
 
-* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+* `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
 * `tbl` (*Optional*, int): Sets CHOPCONF **TBL**
 
@@ -423,7 +443,7 @@ on_...:
       autoscale: REPLACEME
 ```
 
-* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+* `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
 * `lim` (*Optional*, int): Sets PWMCONF **PWM_LIM**
 
@@ -445,7 +465,7 @@ This uses *TOFF* (sets to 3) if `enn_pin` is not set to enable the driver. *Driv
 on_...:
   - tmc2209.enable: driver
 ```
-* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+* `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
 
 ### `tmc2209.disable` Action
@@ -456,7 +476,24 @@ on_...:
   - tmc2209.disable: driver
 ```
 
-* `id` (**Required**, ID): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+* `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+
+
+<!-- ### `tmc2209.sync` Action
+
+Action to syncronize configuration settings between multiple drivers. Registers that will be synced are `GSTAT`, `IHOLD_IRUN`, `TPOWERDOWN`, `TPWMTHRS`, `TCOOLTHRS`, `SGTHRS`, `COOLCONF`, `CHOPCONF`, `PWM_CONF`. Fields that will be synced are `OTTRIM`.
+
+```yaml
+on_...:
+  - tmc2209.sync:
+      id: driver1
+      to: [driver2, driver3, ...]
+```
+
+* `id` (**Required**, [ID][config-id]): Reference to the master tmc2209.
+
+* `to` (**Required**, list, [ID][config-id]): Reference to tmc2209 which settings should be applied to. -->
+
 
 
 ### Sensors
@@ -585,7 +622,7 @@ sensor:
 ## Example config
 ```yaml
 external_components:
-  - source: github://slimcdk/esphome-custom-components
+  - source: github://slimcdk/esphome-custom-components@multiple-tmc2209
     components: [ tmc2209_hub, tmc2209, stepper ]
 
 # esp32 or esp8266 config..
@@ -613,7 +650,6 @@ uart:
   tx_pin: 16
   rx_pin: 17
   baud_rate: 500000
-
 
 stepper:
   - platform: tmc2209
@@ -672,6 +708,9 @@ sensor:
 Output of above configuration. Registers could differ due to OTP.
 ```console
 ...
+[00:00:00][C][tmc2209_hub:013]: TMC2209 Hub:
+[00:00:00][C][tmc2209_hub:014]:   Drivers in hub (2):
+[00:00:00][C][tmc2209_hub:017]:     Driver with id driver on address 0x0
 [00:00:00][C][tmc2209:011]: TMC2209 Stepper:
 [00:00:00][C][tmc2209:014]:   Control: serial
 [00:00:00][C][tmc2209:021]:   ENN Pin: GPIO21
@@ -686,7 +725,7 @@ Output of above configuration. Registers could differ due to OTP.
 [00:00:00][C][tmc2209:031]:   Acceleration: 1500 steps/s^2
 [00:00:00][C][tmc2209:031]:   Deceleration: 500 steps/s^2
 [00:00:00][C][tmc2209:031]:   Max Speed: 900 steps/s
-[00:00:00][C][tmc2209:033]:   Analog Scale: VREF is connected
+[00:00:00][C][tmc2209:033]:   Analog scale: IRUN/IHOLD registers scales currents
 [00:00:00][C][tmc2209:033]:   Currents:
 [00:00:00][C][tmc2209:033]:     IRUN: 16 (939 mA)
 [00:00:00][C][tmc2209:033]:     IHOLD: 0 (0 mA)

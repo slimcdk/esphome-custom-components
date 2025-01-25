@@ -7,9 +7,7 @@ from esphome.const import (
 import esphome.codegen as cg
 import esphome.config_validation as cv
 import esphome.final_validate as fv
-from esphome import automation
-from esphome.automation import maybe_simple_id
-from esphome.components import uart, tmc2209
+from esphome.components import uart
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -56,7 +54,9 @@ TMC2209_HUB_DEVICE_SCHEMA = cv.Schema(
 async def register_tmc2209_hub_device(var, config):
     parent = await cg.get_variable(config[CONF_TMC2209_HUB_ID])
     cg.add(var.set_tmc2209_hub_parent(parent))
-    cg.add(parent.add_driver(var))
+
+    # make hub aware of referenced instances
+    cg.add(parent.add_device_to_hub_(str(config[CONF_ID]), config[CONF_ADDRESS]))
 
 
 def final_validate(config):
@@ -71,8 +71,8 @@ def final_validate(config):
     for i, stepper in enumerate(steppers_in_hub):
         for j in range(i + 1, len(steppers_in_hub)):
             if stepper[CONF_ADDRESS] == steppers_in_hub[j][CONF_ADDRESS]:
-                _LOGGER.warning(
-                    'TMC2209 steppers "%s" and "%s" have same address on same hub which will conflict',
+                _LOGGER.error(
+                    'TMC2209 steppers "%s" and "%s" have overlapping addresses which will conflict',
                     stepper[CONF_ID],
                     steppers_in_hub[j][CONF_ID],
                 )

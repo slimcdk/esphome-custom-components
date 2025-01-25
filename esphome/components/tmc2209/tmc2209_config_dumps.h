@@ -34,7 +34,11 @@ namespace tmc2209 {
 #define LOG_TMC2209_CURRENTS(this) \
   const bool ir_ = this->read_field(INTERNAL_RSENSE_FIELD); \
   const bool vs_ = this->read_field(VSENSE_FIELD); \
-  ESP_LOGCONFIG(TAG, "  Analog Scale: VREF is %s", (this->analog_scale_ ? "connected" : "not connected")); \
+  if (this->analog_scale_) { \
+    ESP_LOGCONFIG(TAG, "  Analog scale: VREF scales currents"); \
+  } else { \
+    ESP_LOGCONFIG(TAG, "  Analog scale: IRUN/IHOLD registers scales currents"); \
+  } \
   ESP_LOGCONFIG(TAG, "  Currents:"); \
   ESP_LOGCONFIG(TAG, "    IRUN: %d (%d mA)", this->read_field(IRUN_FIELD), this->read_run_current_mA()); \
   ESP_LOGCONFIG(TAG, "    IHOLD: %d (%d mA)", this->read_field(IHOLD_FIELD), this->read_hold_current_mA()); \

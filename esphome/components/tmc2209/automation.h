@@ -4,6 +4,8 @@
 #include "events.h"
 #include "esphome/core/automation.h"
 
+#include <vector>
+
 namespace esphome {
 namespace tmc2209 {
 
@@ -188,6 +190,45 @@ template<typename... Ts> class PWMConfAction : public Action<Ts...>, public Pare
       this->parent_->write_field(PWM_OFS_FIELD, this->pwmofs_.value(x...));
   }
 };
+
+/*template<typename... Ts> class SyncAction : public Action<Ts...>, public Parented<TMC2209Component> {
+ public:
+  TEMPLATABLE_VALUE(std::vector<TMC2209Component *>, drivers);
+
+  void set_drivers(const std::vector<TMC2209Component *> &drivers) { drivers_ = drivers; }
+
+  void play(Ts... x) override {
+    ESP_LOGV(TAG, "reading register values from 'master'");
+    const uint32_t gstat = this->parent_->read_register(GSTAT);
+    const uint32_t ihold_irun = this->parent_->read_register(IHOLD_IRUN);
+    const uint32_t tpowerdown = this->parent_->read_register(TPOWERDOWN);
+    const uint32_t tpwmthrs = this->parent_->read_register(TPWMTHRS);
+    const uint32_t tcoolthrs = this->parent_->read_register(TCOOLTHRS);
+    const uint32_t sgthrs = this->parent_->read_register(SGTHRS);
+    const uint32_t coolconf = this->parent_->read_register(COOLCONF);
+    // const uint32_t chopconf = this->parent_->read_register(CHOPCONF);
+    const uint32_t pwm_conf = this->parent_->read_register(PWM_CONF);
+
+    const uint32_t factory_conf_ottrim = this->parent_->read_field(OTTRIM_FIELD);
+
+    ESP_LOGV(TAG, "writing register values to others");
+    for (TMC2209Component *driver : this->drivers_.value()) {
+      ESP_LOGV(TAG, "writing to driver on address: 0x%x", driver->get_address());
+
+      driver->write_register(GSTAT, gstat);
+      driver->write_register(IHOLD_IRUN, ihold_irun);
+      driver->write_register(TPOWERDOWN, tpowerdown);
+      driver->write_register(TPWMTHRS, tpwmthrs);
+      driver->write_register(TCOOLTHRS, tcoolthrs);
+      driver->write_register(SGTHRS, sgthrs);
+      driver->write_register(COOLCONF, coolconf);
+      // driver->write_register(CHOPCONF, chopconf);
+      driver->write_register(PWM_CONF, pwm_conf);
+
+      driver->write_field(OTTRIM_FIELD, factory_conf_ottrim);
+    }
+  }
+};*/
 
 class OnDriverStatusTrigger : public Trigger<DriverStatusEvent> {
  public:
