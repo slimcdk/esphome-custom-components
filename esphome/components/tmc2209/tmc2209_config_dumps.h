@@ -400,30 +400,30 @@ namespace tmc2209 {
 
 #define LOG_TMC2209_REGISTER_DUMP(this) \
   ESP_LOGCONFIG(TAG, "  Register dump:"); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "GCONF:", this->read_register(GCONF)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "GSTAT:", this->read_register(GSTAT)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "IFCNT:", this->read_register(IFCNT)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "SLAVECONF:", this->read_register(SLAVECONF)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "OTP_PROG:", this->read_register(OTP_PROG)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "OTP_READ:", this->read_register(OTP_READ)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "IOIN:", this->read_register(IOIN)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "FACTORY_CONF:", this->read_register(FACTORY_CONF)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "IHOLD_IRUN:", this->read_register(IHOLD_IRUN)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "TPOWERDOWN:", this->read_register(TPOWERDOWN)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "TSTEP:", this->read_register(TSTEP)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "TPWMTHRS:", this->read_register(TPWMTHRS)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "TCOOLTHRS:", this->read_register(TCOOLTHRS)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "VACTUAL:", this->read_register(VACTUAL)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "SGTHRS:", this->read_register(SGTHRS)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "SG_RESULT:", this->read_register(SG_RESULT)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "COOLCONF:", this->read_register(COOLCONF)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "MSCNT:", this->read_register(MSCNT)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "MSCURACT:", this->read_register(MSCURACT)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "CHOPCONF:", this->read_register(CHOPCONF)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "DRV_STATUS:", this->read_register(DRV_STATUS)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "PWM_CONF:", this->read_register(PWM_CONF)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "PWM_SCALE:", this->read_register(PWM_SCALE)); \
-  ESP_LOGCONFIG(TAG, "   %-13s 0x%08X", "PWM_AUTO:", this->read_register(PWM_AUTO));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "GCONF:", this->read_register(GCONF)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "GSTAT:", this->read_register(GSTAT)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "IFCNT:", this->read_register(IFCNT)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "SLAVECONF:", this->read_register(SLAVECONF)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "OTP_PROG:", this->read_register(OTP_PROG)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "OTP_READ:", this->read_register(OTP_READ)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "IOIN:", this->read_register(IOIN)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "FACTORY_CONF:", this->read_register(FACTORY_CONF)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "IHOLD_IRUN:", this->read_register(IHOLD_IRUN)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TPOWERDOWN:", this->read_register(TPOWERDOWN)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TSTEP:", this->read_register(TSTEP)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TPWMTHRS:", this->read_register(TPWMTHRS)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TCOOLTHRS:", this->read_register(TCOOLTHRS)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "VACTUAL:", this->read_register(VACTUAL)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "SGTHRS:", this->read_register(SGTHRS)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "SG_RESULT:", this->read_register(SG_RESULT)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "COOLCONF:", this->read_register(COOLCONF)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "MSCNT:", this->read_register(MSCNT)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "MSCURACT:", this->read_register(MSCURACT)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "CHOPCONF:", this->read_register(CHOPCONF)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "DRV_STATUS:", this->read_register(DRV_STATUS)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWM_CONF:", this->read_register(PWM_CONF)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWM_SCALE:", this->read_register(PWM_SCALE)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWM_AUTO:", this->read_register(PWM_AUTO));
 
 #define LOG_TMC2209(this) \
   LOG_TMC2209_PINS(this); \
@@ -434,8 +434,17 @@ namespace tmc2209 {
   ESP_LOGV(TAG, "  Velocity compensation: %f", this->vactual_factor_); \
   const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(OTTRIM_FIELD)); \
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot); \
+  if (this->stall_detection_is_enabled_) { \
+    if (this->diag_pin_ != nullptr) { \
+      ESP_LOGCONFIG(TAG, "  Stall detection: DIAG interrupt sets flag"); \
+    } else { \
+      ESP_LOGCONFIG(TAG, "  Stall detection: poll driver for status"); \
+    } \
+  } else { \
+    ESP_LOGCONFIG(TAG, "  Stall detection: disabled"); \
+  } \
+  ESP_LOGCONFIG(TAG, "  Status check: %s", (this->driver_health_check_is_enabled_ ? "enabled" : "disabled")); \
   LOG_TMC2209_CURRENTS(this); \
   LOG_TMC2209_REGISTER_DUMP(this);
-
 }  // namespace tmc2209
 }  // namespace esphome

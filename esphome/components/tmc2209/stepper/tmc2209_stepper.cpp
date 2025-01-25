@@ -27,7 +27,16 @@ void TMC2209Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "  Velocity compensation: %f", this->vactual_factor_);
   const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(OTTRIM_FIELD));
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot);
-
+  if (this->stall_detection_is_enabled_) {
+    if (this->diag_pin_ != nullptr) {
+      ESP_LOGCONFIG(TAG, "  Stall detection: DIAG interrupt sets flag");
+    } else {
+      ESP_LOGCONFIG(TAG, "  Stall detection: poll driver for status");
+    }
+  } else {
+    ESP_LOGCONFIG(TAG, "  Stall detection: disabled");
+  }
+  ESP_LOGCONFIG(TAG, "  Status check: %s", (this->driver_health_check_is_enabled_ ? "enabled" : "disabled"));
   LOG_STEPPER(this);
 
   LOG_TMC2209_CURRENTS(this);
