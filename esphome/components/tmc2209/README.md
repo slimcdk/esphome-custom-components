@@ -1,6 +1,16 @@
-# TMC2209
+<a href="https://www.buymeacoffee.com/slimcdk"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a pizza&emoji=🍕&slug=slimcdk&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
 
-ESPHome component to interact with a TMC2209 stepper motor driver over UART and regular step/dir.
+# ADI Trinamic TMC2209 smart stepper driver
+
+<figure>
+  <img src="https://images.squarespace-cdn.com/content/v1/59b037304c0dbfb092fbe894/1611593915561-F8SSMV0DUXNDNLHQNSW1/nema17_rpi_demo.gif?format=2500w" width=100% href="https://makersportal.com/blog/raspberry-pi-stepper-motor-control-with-nema-17" />
+  <figcaption >
+    <span style="color:blue"> <a href="https://makersportal.com/blog/raspberry-pi-stepper-motor-control-with-nema-17">Raspberry Pi Stepper Motor Control with NEMA 17</a> <i>by Joshua Hrisko.</i> </span>
+  </figcaption>
+</figure>
+
+</br>
+</br>
 
 <p align="center">
   <img src="./docs/trinamic-bob-module.jpg" alt="Trinamic BOB" width="19%" />
@@ -10,28 +20,32 @@ ESPHome component to interact with a TMC2209 stepper motor driver over UART and 
   <img src="./docs/grobo-module.jpg" alt="GRobotronics" width="19%" />
 </p>
 
+# <!-- thin horizontal line -->
 
-# Table of contents
-- [Config](#config)
-  - [UART Setup](#configuration-of-uart-bus)
-  - [Hub Setup](#configuration-of-hub)
-  - [Stepper Configuration](#stepper-configuration)
+</br>
+
+### Table of contents
+
+- [Setup](#setup)
+  - [UART](#configuration-of-uart-bus)
+  - [Hub](#configuration-of-hub)
+  - [Stepper](#stepper-configuration)
     - [Control via UART](#control-the-position-using-serial-uart)
     - [Control via pulses](#control-the-position-using-traditional-stepping-pulses-and-direction)
 - [Automation](#automation)
-  - [`on_stall` Trigger](#on_stall)
-  - [`on_status` Trigger](#on_status)
+  - [`on_stall`](#on_stall)
+  - [`on_status`](#on_status)
 - [Actions](#actions)
-  - [`tmc2209.configure` Action](#tmc2209configure-action)
-  - [`tmc2209.currents` Action](#tmc2209currents-action)
-  - [`tmc2209.stallguard` Action](#tmc2209stallguard-action)
-  - [`tmc2209.coolconf` Action](#tmc2209coolconf-action)
-  - [`tmc2209.chopconf` Action](#tmc2209chopconf-action)
-  - [`tmc2209.pwmconf` Action](#tmc2209pwmconf-action)
-  - [`tmc2209.enable` Action](#tmc2209enable-action)
-  - [`tmc2209.disable` Action](#tmc2209disable-action)
+  - [`tmc2209.configure`](#tmc2209configure-action)
+  - [`tmc2209.currents`](#tmc2209currents-action)
+  - [`tmc2209.stallguard`](#tmc2209stallguard-action)
+  - [`tmc2209.coolconf`](#tmc2209coolconf-action)
+  - [`tmc2209.chopconf`](#tmc2209chopconf-action)
+  - [`tmc2209.pwmconf`](#tmc2209pwmconf-action)
+  - [`tmc2209.enable`](#tmc2209enable-action)
+  - [`tmc2209.disable`](#tmc2209disable-action)
   <!-- - [`tmc2209.sync` Action](#tmc2209sync-action) -->
-- [Driver Sensors](#sensors)
+- [Sensors](#sensors)
 - [Examples](#example-config)
 - [Advanced](#advanced)
 - [Wiring](#wiring)
@@ -41,14 +55,7 @@ ESPHome component to interact with a TMC2209 stepper motor driver over UART and 
 - [Troubleshooting](#troubleshooting)
 
 
-## Acknowledgements
-
-This project includes code from the Analog Devices Inc. [TMC-API codebase](https://github.com/analogdevicesinc/TMC-API), licensed under the MIT License.
-
-Copyright (c) 2023 Analog Devices, Inc.
-
-
-## Config
+## Setup
 
 Import the component(s).
 ```yaml
@@ -58,7 +65,7 @@ external_components:
 ```
 ---
 
-### Configuration of [UART Bus][uart-component].
+### Configuration of [UART Bus][uart-component]
 
 ```yaml
 uart:
@@ -68,9 +75,6 @@ uart:
 ```
 
 * `baud_rate` (**Required**, int): The baud rate of the UART bus. TMC2209 will auto-detect baud rates from 9600 to 500k with the internal clock/oscillator. An external clock/oscillator is needed for baud rates higher than 500k.
-
-> [!CAUTION]
-***A lot is happening over serial and low baud rates might cause warnings about the component taking too long. Use something like 115200 or higher.***
 
 * `tx_pin` (*Required*, [Output Pin Schema][config-pin]): This is the ESPHome device's transmit pin. This should be connected through a 1k Ohm resistor to `PDN_UART` on the TMC2209.
 
@@ -83,19 +87,28 @@ uart:
 
 
 
-### Configuration of hub.
+### Configuration of hub
 
-This part facilitates a semaphore-like channel to allow multiple drivers on same UART.
+This part facilitates a semaphore-like channel to allow multiple drivers on same UART when two are configured.
 
 > [!TIP]
-*Manual configuration of the hub can be omitted if only a single UART is configured.*
+*Configuration of the hub can be omitted if only a single UART is configured.*
 
 ```yaml
 tmc2209_hub:
+  id: REPLACEME
+  uart_id: REPLACEME
+
+# or multiple hubs
+tmc2209_hub:
+  - id: REPLACEME
+    uart_id: REPLACEME
+  - id: REPLACEME
+    uart_id: REPLACEME
 ```
 * `id` (**Required**, [ID][config-id]): Specify the ID of the hub so that you can explicitly reference it.
 
-* `uart_id` (**Required**, [ID][config-id]): Reference the UART if multiple are configured.
+* `uart_id` (**Required**, [ID][config-id]): Reference the UART config.
 
 Example of utilizing the hub with two drivers on same UART.
 ```yaml
@@ -199,14 +212,14 @@ stepper:
 ```
 * `id` (**Required**, [ID][config-id]): Specify the ID of the stepper so that you can control it.
 
-* `tmc2209_hub_id` (**Required**, [ID][config-id]): Specify the ID of the hub this stepper is connected to. If only a single hub is configured, it will default to that.
+* `tmc2209_hub_id` (**Required**, [ID][config-id]): Specify the ID of the hub this stepper is connected to. May be be left out if only a single or no `tmc2209_hub` is configured
 
 * `address` (*Optional*, hex): UART address of the IC. Configured by setting MS1_AD0 or MS2_AD1 high or low. Default is `0x00`.
 
 * `enn_pin` (*Optional*, [Output Pin Schema][config-pin]): Enable not input pin for the driver.
     > *Driver can't be enabled if ENN is left floating. Either configure it if it's actually connected or wire it to GND.*
 
-* `diag_pin` (*Optional*, [Input Pin Schema][config-pin]): Driver error signaling from the driver.
+* `diag_pin` (*Optional*, [Input Pin Schema][config-pin]): Error signaling from the driver.
 
 * `index_pin` (*Optional*, [Input Pin Schema][config-pin]): Serves as stepping feedback from the internal step pulse generator (not serving any purpose if `step_pin` and `dir_pin` is configured).
 
@@ -233,7 +246,7 @@ stepper:
 
     > *Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning.*
 
-* `analog_scale` (*Optional*, boolean): Determines if VREF input scales the current settings. Defaults to `False` (meaning `tmc2209.currents` will scales the currents).
+* `analog_scale` (*Optional*, boolean): Determines if VREF input or IRUN/IHOLD registers scales the current settings. Defaults to `False` (meaning `tmc2209.currents` will scales the currents).
 
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
 
@@ -256,7 +269,7 @@ stepper:
 ```
 
 > [!IMPORTANT]
-*Incorrect motor parameters and motion jolt/jerk (quick acceleration/deceleration changes) can lead to false stall events. Play around with the parameters for your specific application.*
+*Incorrect motor parameters and motion jerk/jolt (quick acceleration/deceleration changes) can lead to false stall events. Play around with the parameters for your specific application.*
 
 
 ### `on_status`
@@ -886,6 +899,9 @@ Long wires connected to ENN might pick up interference causing the driver to mak
 
 #### `undefined reference to vtable`
 Source code for components aren't fully loading when adding additional components on ESP-IDF framework with an existing compiled binary. For instance the `motor_load` sensor. Solution is to do a clean build.
+
+#### `Component tmc2209 took a long time for an operation ...`
+A lot is happening over serial and low baud rates might cause this warning. Make sure to use the highest baud rate possible. Preferably 500k, which is the highest supported baud rate.
 
 
 ## TODOs
