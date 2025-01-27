@@ -20,11 +20,9 @@ CONF_TMC2209_HUB = "tmc2209_hub"
 CONF_TMC2209_HUB_ID = "tmc2209_hub_id"
 
 CONF_STEPPER = "stepper"
-CONF_FROM_ID = "from"
 
 tmc2209_hub_ns = cg.esphome_ns.namespace("tmc2209_hub")
 TMC2209Hub = tmc2209_hub_ns.class_("TMC2209Hub", cg.Component, uart.UARTDevice)
-TMC2209HubDevice = tmc2209_hub_ns.class_("TMC2209HubDevice")
 
 
 CONFIG_SCHEMA = cv.All(

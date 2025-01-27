@@ -27,16 +27,5 @@ class TMC2209Hub : public Component, public uart::UARTDevice {
   std::vector<HubDevice> devices_in_hub_;
 };
 
-class TMC2209HubDevice : public Parented<TMC2209Hub> {
- public:
-  TMC2209HubDevice() = default;
-  TMC2209HubDevice(TMC2209Hub *parent) : parent_(parent) {}
-
-  void set_tmc2209_hub_parent(TMC2209Hub *parent) { this->parent_ = parent; }
-
- protected:
-  TMC2209Hub *parent_{nullptr};
-};
-
 }  // namespace tmc2209_hub
 }  // namespace esphome

@@ -83,9 +83,11 @@ static const int32_t sample_register_preset[REGISTER_COUNT] = {
     R70, 0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0   // 0x70 - 0x7F
 };
 
-class TMC2209API : public tmc2209_hub::TMC2209HubDevice {
+class TMC2209API : public Parented<tmc2209_hub::TMC2209Hub> {
  public:
   TMC2209API(uint8_t address) : address_(address){};
+
+  void set_tmc2209_hub_parent(tmc2209_hub::TMC2209Hub *parent) { this->parent_ = parent; }
 
   // Write or read a register (all fields) or register field (single field within register)
   void write_register(uint8_t address, int32_t value);
@@ -99,6 +101,7 @@ class TMC2209API : public tmc2209_hub::TMC2209HubDevice {
 
  protected:
   const uint8_t address_;
+  tmc2209_hub::TMC2209Hub *parent_{nullptr};
 
  private:
   uint8_t dirty_bits_[REGISTER_COUNT / 8] = {0};

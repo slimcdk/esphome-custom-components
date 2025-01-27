@@ -84,7 +84,7 @@ STANDSTILL_MODES = {
 
 
 tmc2209_ns = cg.esphome_ns.namespace("tmc2209")
-TMC2209API = tmc2209_ns.class_("TMC2209API", tmc2209_hub.TMC2209HubDevice)
+TMC2209API = tmc2209_ns.class_("TMC2209API", tmc2209_hub.TMC2209Hub)
 TMC2209Component = tmc2209_ns.class_("TMC2209Component", TMC2209API, cg.Component)
 
 DriverStatusEvent = tmc2209_ns.enum("DriverStatusEvent")
