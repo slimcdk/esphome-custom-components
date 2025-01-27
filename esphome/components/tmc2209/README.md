@@ -55,6 +55,8 @@
 - [Troubleshooting](#troubleshooting)
 
 
+<br>
+
 ## Setup
 
 Import the component(s).
@@ -89,12 +91,15 @@ uart:
 
 ### Configuration of hub
 
-This part facilitates a semaphore-like channel to allow multiple drivers on same UART when two are configured.
+This part facilitates a semaphore-like channel to allow multiple drivers on same UART.
 
 > [!TIP]
 *Configuration of the hub can be omitted if only a single UART is configured.*
 
 ```yaml
+tmc2209_hub:
+
+# or with ids
 tmc2209_hub:
   id: REPLACEME
   uart_id: REPLACEME
@@ -204,6 +209,9 @@ stepper:
     address: 0x00
     rsense: REPLACEME
     vsense: False
+    ottrim: 0
+    analog_current_scale: False
+    clock_frequency: 12MHz
     enn_pin: REPLACEME
     diag_pin: REPLACEME
     index_pin: REPLACEME
@@ -246,7 +254,10 @@ stepper:
 
     > *Driver will stay disabled until prewarning clears when shutdown has been triggered. Can be reenabled once temperature is below prewarning.*
 
-* `analog_scale` (*Optional*, boolean): Determines if VREF input or IRUN/IHOLD registers scales the current settings. Defaults to `False` (meaning `tmc2209.currents` will scales the currents).
+* `analog_current_scale` (*Optional*, boolean): If enabled, VREF input can adjust currents between 0 to IRUN. Defaults to `False` meaning the input is ignored and currents will match settings set by `tmc2209.currents`.
+
+> [!NOTE]
+*VREF is often a tiny potentiometer. Setting IRUN to 31 will allow VREF adjustments in the full current range allowed by the sense resistors (rsense). Setting IRUN to 16 reduces the range by ~50%. IRUN effectively set the upper limit for what VREF can scale to.*
 
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
 
@@ -357,7 +368,7 @@ on_...:
       ihold: 0
       tpowerdown: 0
       iholddelay: 0
-      run_current: 800m
+      run_current: 800mA
       hold_current: 0mA
 ```
 
@@ -718,58 +729,57 @@ sensor:
     update_interval: 250ms
 ```
 
-Output of above configuration. Registers could differ due to OTP.
+Partial output of above configuration.
 ```console
 ...
 [00:00:00][C][tmc2209_hub:013]: TMC2209 Hub:
 [00:00:00][C][tmc2209_hub:014]:   Drivers in hub (1):
-[00:00:00][C][tmc2209_hub:017]:     Driver with id driver on address 0x0
+[00:00:00][C][tmc2209_hub:017]:     Driver with id 'driver' on address 0x00
 [00:00:00][C][tmc2209:011]: TMC2209 Stepper:
-[00:00:00][C][tmc2209:014]:   Control: serial
-[00:00:00][C][tmc2209:021]:   ENN Pin: GPIO21
-[00:00:00][C][tmc2209:021]:   DIAG Pin: GPIO16
-[00:00:00][C][tmc2209:021]:   INDEX Pin: GPIO11
-[00:00:00][C][tmc2209:022]:   Address: 0x00
-[00:00:00][C][tmc2209:023]:   Detected IC version: 0x21
-[00:00:00][C][tmc2209:025]:   Microsteps: 8
-[00:00:00][C][tmc2209:026]:   Clock frequency: 12000000 Hz
-[00:00:00][C][tmc2209:027]:   Velocity compensation: 0.715256
-[00:00:00][C][tmc2209:029]:   Overtemperature: prewarning = 120C | shutdown = 143C
-[00:00:00][C][tmc2209:031]:   Acceleration: 1500 steps/s^2
-[00:00:00][C][tmc2209:031]:   Deceleration: 500 steps/s^2
-[00:00:00][C][tmc2209:031]:   Max Speed: 900 steps/s
-[00:00:00][C][tmc2209:033]:   Analog scale: IRUN/IHOLD registers scales currents
-[00:00:00][C][tmc2209:033]:   Currents:
-[00:00:00][C][tmc2209:033]:     IRUN: 16 (939 mA)
-[00:00:00][C][tmc2209:033]:     IHOLD: 0 (0 mA)
-[00:00:00][C][tmc2209:033]:     Limits: 1767 mA
-[00:00:00][C][tmc2209:033]:     VSense: False (high heat dissipation)
-[00:00:00][C][tmc2209:033]:     RSense: 0.110 Ohm (external sense resistors)
-[00:00:00][C][tmc2209:034]:   Register dump:
-[00:00:00][C][tmc2209:034]:    GCONF:        0x000001E0
-[00:00:00][C][tmc2209:034]:    GSTAT:        0x00000001
-[00:00:00][C][tmc2209:034]:    IFCNT:        0x00000027
-[00:00:00][C][tmc2209:034]:    SLAVECONF:    0xA5A5A5A5
-[00:00:00][C][tmc2209:034]:    OTP_PROG:     0xA5A5A5A5
-[00:00:00][C][tmc2209:034]:    OTP_READ:     0x0000000F
-[00:00:00][C][tmc2209:034]:    IOIN:         0x21000040
-[00:00:00][C][tmc2209:034]:    FACTORY_CONF: 0x0000000F
-[00:00:00][C][tmc2209:034]:    IHOLD_IRUN:   0xA5A0B0A0
-[00:00:00][C][tmc2209:034]:    TPOWERDOWN:   0xA5A5A500
-[00:00:00][C][tmc2209:034]:    TSTEP:        0x000FFFFF
-[00:00:00][C][tmc2209:034]:    TPWMTHRS:     0xA5A5A5A5
-[00:00:00][C][tmc2209:034]:    TCOOLTHRS:    0xA5A5A5A5
-[00:00:00][C][tmc2209:034]:    VACTUAL:      0xA5000000
-[00:00:00][C][tmc2209:034]:    SGTHRS:       0x00000032
-[00:00:00][C][tmc2209:034]:    SG_RESULT:    0x00000000
-[00:00:00][C][tmc2209:034]:    COOLCONF:     0xA5A5A5A5
-[00:00:00][C][tmc2209:034]:    MSCNT:        0x00000030
-[00:00:00][C][tmc2209:034]:    MSCURACT:     0x00EC0048
-[00:00:00][C][tmc2209:034]:    CHOPCONF:     0x15010053
-[00:00:00][C][tmc2209:034]:    DRV_STATUS:   0xC0000040
-[00:00:00][C][tmc2209:034]:    PWMCONF:      0xC81D0E24
-[00:00:00][C][tmc2209:034]:    PWMSCALE:     0x00750078
-[00:00:00][C][tmc2209:034]:    PWM_AUTO:     0x000E007B
+[00:00:00][C][tmc2209:012]:   Acceleration: 1500 steps/s^2
+[00:00:00][C][tmc2209:012]:   Deceleration: 500 steps/s^2
+[00:00:00][C][tmc2209:012]:   Max Speed: 900 steps/s
+[00:00:00][C][tmc2209:013]:   DIAG Pin: GPIO41
+[00:00:00][C][tmc2209:013]:   INDEX Pin: GPIO42
+[00:00:00][C][tmc2209:013]:   Address: 0x00
+[00:00:00][C][tmc2209:013]:   Detected IC version: 0x21
+[00:00:00][C][tmc2209:013]:   Microsteps: 8
+[00:00:00][C][tmc2209:013]:   Clock frequency: 12000000 Hz (VACTUAL factor: 0.715256)
+[00:00:00][C][tmc2209:013]:   Overtemperature: prewarning = 120C | shutdown = 143C
+[00:00:00][C][tmc2209:013]:   Stall detection: DIAG interrupt raises flag
+[00:00:00][C][tmc2209:013]:   Status check: disabled
+[00:00:00][C][tmc2209:013]:   Currents:
+[00:00:00][C][tmc2209:013]:     Limits: 1767 mA
+[00:00:00][C][tmc2209:013]:     IRUN: 16 (939 mA)
+[00:00:00][C][tmc2209:013]:     IHOLD: 0 (0 mA)
+[00:00:00][C][tmc2209:013]:     Additional scaling by VREF is enabled
+[00:00:00][C][tmc2209:013]:     VSense: False (high heat dissipation)
+[00:00:00][C][tmc2209:013]:     RSense: 0.110 Ohm external sense resistors
+[00:00:00][C][tmc2209:013]:   Register dump:
+[00:00:00][C][tmc2209:013]:     GCONF:        0x000001E1
+[00:00:00][C][tmc2209:013]:     GSTAT:        0x00000001
+[00:00:00][C][tmc2209:013]:     IFCNT:        0x00000046
+[00:00:00][C][tmc2209:013]:     SLAVECONF:    0x00000000
+[00:00:00][C][tmc2209:013]:     OTP_PROG:     0x00000000
+[00:00:00][C][tmc2209:013]:     OTP_READ:     0x00000010
+[00:00:00][C][tmc2209:013]:     IOIN:         0x2100004C
+[00:00:00][C][tmc2209:013]:     FACTORY_CONF: 0x00000010
+[00:00:00][C][tmc2209:013]:     IHOLD_IRUN:   0x00001000
+[00:00:00][C][tmc2209:013]:     TPOWERDOWN:   0x00000000
+[00:00:00][C][tmc2209:013]:     TSTEP:        0x000FFFFF
+[00:00:00][C][tmc2209:013]:     TPWMTHRS:     0x00000000
+[00:00:00][C][tmc2209:013]:     TCOOLTHRS:    0x00000000
+[00:00:00][C][tmc2209:013]:     VACTUAL:      0x00000000
+[00:00:00][C][tmc2209:013]:     SGTHRS:       0x00000032
+[00:00:00][C][tmc2209:013]:     SG_RESULT:    0x00000000
+[00:00:00][C][tmc2209:013]:     COOLCONF:     0x00000000
+[00:00:00][C][tmc2209:013]:     MSCNT:        0x00000020
+[00:00:00][C][tmc2209:013]:     MSCURACT:     0x00F20030
+[00:00:00][C][tmc2209:013]:     CHOPCONF:     0x16010053
+[00:00:00][C][tmc2209:013]:     DRV_STATUS:   0xC0000000
+[00:00:00][C][tmc2209:013]:     PWM_CONF:     0xC80D0E24
+[00:00:00][C][tmc2209:013]:     PWM_SCALE:    0x00050006
+[00:00:00][C][tmc2209:013]:     PWM_AUTO:     0x000E003F
 ...
 ```
 
@@ -877,21 +887,21 @@ https://www.analog.com/en/resources/app-notes/an-002.html
 https://docs.duet3d.com/User_manual/Connecting_hardware/Motors_choosing
 
 ### Other
-* https://www.analog.com/en/products/tmc2209.html
-* https://www.programming-electronics-diy.xyz/2023/12/tmc2209-stepper-driver-module-tutorial.html
+https://www.analog.com/en/products/tmc2209.html \
+https://www.programming-electronics-diy.xyz/2023/12/tmc2209-stepper-driver-module-tutorial.html
 
 
 
 ## Troubleshooting
 
-#### Unable to read IC version. Is the driver powered and wired correctly?
+#### `Unable to read IC version. Is the driver powered and wired correctly?`
 1. Make sure UART is correctly wired and the 1k Ohm resistor is placed correctly.
 2. Make sure the driver is power on VM / VS (motor supply voltage). Must be between 4.75 and 29V.
 
-#### Detected unknown IC version: 0x??
+#### `Detected unknown IC version: 0x??`
 First generation of TMC2209s have version `0x21`. There is only a single version released as of Q3 2024. If you are seeing version `0x20` that means you have a TMC2208 which is not supported by this component.
 
-#### Reading from UART timed out at byte 0!
+#### `Reading from UART timed out at byte 0!`
 Poor signal integrity can cause instability in the UART connection. The component doesn't retry writing/reading if a reading failed. Make sure the connection is reliable for best performance. Try lower baud rates if these only appear occasionally.
 
 #### Driver makes "sizzling" noise
@@ -901,7 +911,7 @@ Long wires connected to ENN might pick up interference causing the driver to mak
 Source code for components aren't fully loading when adding additional components on ESP-IDF framework with an existing compiled binary. For instance the `motor_load` sensor. Solution is to do a clean build.
 
 #### `Component tmc2209 took a long time for an operation ...`
-A lot is happening over serial and low baud rates might cause this warning. Make sure to use the highest baud rate possible. Preferably 500k, which is the highest supported baud rate.
+A lot is happening over serial and low baud rates might cause this warning. Make sure to use the highest baud rate possible. Preferably 500k, which is the highest supported baud rate without external clock.
 
 
 ## TODOs

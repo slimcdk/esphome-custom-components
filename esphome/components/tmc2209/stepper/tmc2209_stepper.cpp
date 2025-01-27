@@ -9,38 +9,8 @@ namespace tmc2209 {
 
 void TMC2209Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
-
-  if (this->control_method_ == ControlMethod::SERIAL) {
-    ESP_LOGCONFIG(TAG, "  Control: serial");
-  } else if (this->control_method_ == ControlMethod::SERIAL) {
-    ESP_LOGCONFIG(TAG, "  Control: pulses");
-  } else {
-    ESP_LOGE(TAG, "No control method defined!");
-  }
-
-  LOG_TMC2209_PINS(this);
-  ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_);
-  LOG_TMC2209_VERSION(this);
-
-  ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps());
-  ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz", this->clk_frequency_);
-  ESP_LOGCONFIG(TAG, "  Velocity compensation: %f", this->vactual_factor_);
-  const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(OTTRIM_FIELD));
-  ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot);
-  if (this->stall_detection_is_enabled_) {
-    if (this->diag_pin_ != nullptr) {
-      ESP_LOGCONFIG(TAG, "  Stall detection: DIAG interrupt sets flag");
-    } else {
-      ESP_LOGCONFIG(TAG, "  Stall detection: poll driver for status");
-    }
-  } else {
-    ESP_LOGCONFIG(TAG, "  Stall detection: disabled");
-  }
-  ESP_LOGCONFIG(TAG, "  Status check: %s", (this->driver_health_check_is_enabled_ ? "enabled" : "disabled"));
   LOG_STEPPER(this);
-
-  LOG_TMC2209_CURRENTS(this);
-  LOG_TMC2209_REGISTER_DUMP(this);
+  LOG_TMC2209(this);
 }
 
 void TMC2209Stepper::setup() {
@@ -51,12 +21,12 @@ void TMC2209Stepper::setup() {
 
   this->write_field(VACTUAL_FIELD, 0);
 
-  if (this->control_method_ == ControlMethod::PULSES) {
+  if (this->control_method_ == ControlMethod::PULSES_CONTROL) {
     this->write_field(MULTISTEP_FILT_FIELD, false);
     this->write_field(DEDGE_FIELD, true);
   }
 
-  if (this->control_method_ == ControlMethod::SERIAL) {
+  if (this->control_method_ == ControlMethod::SERIAL_CONTROL) {
     /* Configure INDEX for pulse feedback from the driver */
     // Check mux from figure 15.1 from datasheet rev1.09
     this->write_field(DEDGE_FIELD, false);
@@ -85,7 +55,7 @@ void TMC2209Stepper::loop() {
 
   int32_t vactual_ = this->speed_to_vactual(this->current_speed_);
 
-  if (this->control_method_ == ControlMethod::SERIAL) {
+  if (this->control_method_ == ControlMethod::SERIAL_CONTROL) {
     vactual_ *= this->current_direction;
     if (this->vactual_ != vactual_) {
       this->write_field(VACTUAL_FIELD, vactual_);
@@ -93,7 +63,7 @@ void TMC2209Stepper::loop() {
     }
   }
 
-  if (this->control_method_ == ControlMethod::PULSES) {
+  if (this->control_method_ == ControlMethod::PULSES_CONTROL) {
     time_t dt = now - this->last_step_;
     if (dt >= (1 / (float) vactual_) * 1e6f) {
       if (this->direction_ != this->current_direction) {
@@ -109,6 +79,10 @@ void TMC2209Stepper::loop() {
 }
 
 void TMC2209Stepper::set_target(int32_t steps) {
+  if (this->control_method_ == ControlMethod::CONTROL_UNSET) {
+    ESP_LOGE(TAG, "Control method not set!");
+  }
+
   if (!this->is_enabled_) {
     this->enable(true);
   }
@@ -117,7 +91,7 @@ void TMC2209Stepper::set_target(int32_t steps) {
 
 void TMC2209Stepper::stop() {
   Stepper::stop();
-  if (this->control_method_ == ControlMethod::SERIAL) {
+  if (this->control_method_ == ControlMethod::SERIAL_CONTROL) {
     this->write_field(VACTUAL_FIELD, 0);
   }
 }

@@ -19,7 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 CODEOWNERS = ["@slimcdk"]
 
-AUTO_LOAD = ["tmc2209_hub", "stepper", "sensor"]
+AUTO_LOAD = ["tmc2209_hub"]
 
 
 CONF_TMC2209 = "tmc2209"
@@ -33,7 +33,7 @@ CONF_CLOCK_FREQUENCY = "clock_frequency"
 CONF_OTTRIM = "ottrim"
 CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
 CONF_RSENSE = "rsense"  # sense resistors
-CONF_ANALOG_SCALE = "analog_scale"
+CONF_ANALOG_CURRENT_SCALE = "analog_current_scale"
 CONF_ON_STALL = "on_stall"
 CONF_ON_DRIVER_STATUS = "on_status"
 CONF_MICROSTEPS = "microsteps"  # CHOPCONF.mres
@@ -84,7 +84,9 @@ STANDSTILL_MODES = {
 
 
 tmc2209_ns = cg.esphome_ns.namespace("tmc2209")
-TMC2209API = tmc2209_ns.class_("TMC2209API", tmc2209_hub.TMC2209Hub)
+TMC2209API = tmc2209_ns.class_(
+    "TMC2209API", cg.Parented.template(tmc2209_hub.TMC2209Hub)
+)
 TMC2209Component = tmc2209_ns.class_("TMC2209Component", TMC2209API, cg.Component)
 
 DriverStatusEvent = tmc2209_ns.enum("DriverStatusEvent")
@@ -103,39 +105,33 @@ SyncAction = tmc2209_ns.class_("SyncAction", automation.Action)
 
 DEVICE_SCHEMA = cv.Schema({cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209Component)})
 
-TMC2209_BASE_CONFIG_SCHEMA = (
-    cv.Schema(
-        {
-            cv.Optional(CONF_ENN_PIN): pins.internal_gpio_output_pin_schema,
-            cv.Optional(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
-            cv.Optional(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
-            cv.Optional(CONF_STEP_PIN): pins.gpio_output_pin_schema,
-            cv.Optional(CONF_DIR_PIN): pins.gpio_output_pin_schema,
-            cv.Optional(CONF_ADDRESS, default=0x00): cv.hex_uint8_t,
-            cv.Optional(CONF_VSENSE): cv.boolean,  # default OTP
-            cv.Optional(CONF_OTTRIM): cv.int_range(0, 3),  # default OTP
-            cv.Optional(CONF_RSENSE, default=0.170): cv.resistance,  # default is rdson
-            cv.Optional(CONF_ANALOG_SCALE, default=False): cv.boolean,
-            cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.All(
-                cv.positive_int, cv.frequency
-            ),
-            cv.Optional(CONF_ON_DRIVER_STATUS): automation.validate_automation(
-                {
-                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(
-                        OnDriverStatusTrigger
-                    ),
-                }
-            ),
-            cv.Optional(CONF_ON_STALL): automation.validate_automation(
-                {
-                    cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnStallTrigger),
-                }
-            ),
-        },
-    )
-    .extend(tmc2209_hub.TMC2209_HUB_DEVICE_SCHEMA)
-    .extend(cv.COMPONENT_SCHEMA)
-)
+TMC2209_BASE_CONFIG_SCHEMA = cv.Schema(
+    {
+        cv.Optional(CONF_ENN_PIN): pins.internal_gpio_output_pin_schema,
+        cv.Optional(CONF_DIAG_PIN): pins.internal_gpio_input_pin_schema,
+        cv.Optional(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
+        cv.Optional(CONF_STEP_PIN): pins.gpio_output_pin_schema,
+        cv.Optional(CONF_DIR_PIN): pins.gpio_output_pin_schema,
+        cv.Optional(CONF_ADDRESS, default=0x00): cv.hex_uint8_t,
+        cv.Optional(CONF_VSENSE): cv.boolean,  # default OTP
+        cv.Optional(CONF_OTTRIM): cv.int_range(0, 3),  # default OTP
+        cv.Optional(CONF_RSENSE): cv.resistance,  # default is rdson
+        cv.Optional(CONF_ANALOG_CURRENT_SCALE, default=False): cv.boolean,
+        cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.All(
+            cv.positive_int, cv.frequency
+        ),
+        cv.Optional(CONF_ON_DRIVER_STATUS): automation.validate_automation(
+            {
+                cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnDriverStatusTrigger),
+            }
+        ),
+        cv.Optional(CONF_ON_STALL): automation.validate_automation(
+            {
+                cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnStallTrigger),
+            }
+        ),
+    },
+).extend(cv.COMPONENT_SCHEMA, tmc2209_hub.TMC2209_HUB_DEVICE_SCHEMA)
 
 
 async def register_tmc2209_base(var, config):
@@ -143,29 +139,35 @@ async def register_tmc2209_base(var, config):
     await cg.register_component(var, config)
     await tmc2209_hub.register_tmc2209_hub_device(var, config)
 
-    enn_pin = config.get(CONF_ENN_PIN, None)
-    diag_pin = config.get(CONF_DIAG_PIN, None)
-    index_pin = config.get(CONF_INDEX_PIN, None)
-    dir_pin = config.get(CONF_DIR_PIN, None)
-    step_pin = config.get(CONF_STEP_PIN, None)
+    cg.add(var.set_address(config[CONF_ADDRESS]))
+    cg.add(var.set_clk_freq(config[CONF_CLOCK_FREQUENCY]))
+    cg.add(var.set_analog_current_scale(config[CONF_ANALOG_CURRENT_SCALE]))
 
-    if enn_pin is not None:
+    if (enn_pin := config.get(CONF_ENN_PIN, None)) is not None:
         cg.add(var.set_enn_pin(await cg.gpio_pin_expression(enn_pin)))
 
-    if diag_pin is not None:
+    if (diag_pin := config.get(CONF_DIAG_PIN, None)) is not None:
         cg.add(var.set_diag_pin(await cg.gpio_pin_expression(diag_pin)))
 
-    if index_pin is not None:
+    if (index_pin := config.get(CONF_INDEX_PIN, None)) is not None:
         cg.add(var.set_index_pin(await cg.gpio_pin_expression(index_pin)))
 
-    if step_pin is not None:
+    if (step_pin := config.get(CONF_STEP_PIN, None)) is not None:
         cg.add(var.set_step_pin(await cg.gpio_pin_expression(step_pin)))
 
-    if dir_pin is not None:
+    if (dir_pin := config.get(CONF_DIR_PIN, None)) is not None:
         cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
+
+    if (rsense := config.get(CONF_RSENSE, None)) is not None:
+        cg.add(var.set_rsense(rsense))
 
     if (vsense := config.get(CONF_VSENSE, None)) is not None:
         cg.add(var.set_vsense(vsense))
+
+        if CONF_RSENSE not in config and vsense is False:
+            _LOGGER.warning(
+                "High heat dissipation (`vsense: False`) when using RDSon / internal current sensing",
+            )
 
     if (ottrim := config.get(CONF_OTTRIM, None)) is not None:
         cg.add(var.set_ottrim(ottrim))

@@ -1,9 +1,14 @@
 #pragma once
+
 #include "tmc2209_api_registers.h"
+
+#include "esphome/core/helpers.h"
 #include "esphome/components/tmc2209_hub/tmc2209_hub.h"
 
 namespace esphome {
 namespace tmc2209 {
+
+using namespace esphome::tmc2209_hub;
 
 static const char *TAG = "tmc2209";
 
@@ -83,11 +88,14 @@ static const int32_t sample_register_preset[REGISTER_COUNT] = {
     R70, 0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0   // 0x70 - 0x7F
 };
 
-class TMC2209API : public Parented<tmc2209_hub::TMC2209Hub> {
+class TMC2209API : public Parented<TMC2209Hub> {
  public:
+  TMC2209API() = default;
   TMC2209API(uint8_t address) : address_(address){};
 
-  void set_tmc2209_hub_parent(tmc2209_hub::TMC2209Hub *parent) { this->parent_ = parent; }
+  void set_address(uint8_t address) { this->address_ = address; }
+
+  const uint8_t get_address() { return this->address_; }
 
   // Write or read a register (all fields) or register field (single field within register)
   void write_register(uint8_t address, int32_t value);
@@ -97,11 +105,8 @@ class TMC2209API : public Parented<tmc2209_hub::TMC2209Hub> {
   uint32_t extract_field(uint32_t data, RegisterField field);
   uint32_t update_field(uint32_t data, RegisterField field, uint32_t value);
 
-  const uint8_t get_address() { return this->address_; }
-
  protected:
-  const uint8_t address_;
-  tmc2209_hub::TMC2209Hub *parent_{nullptr};
+  uint8_t address_;
 
  private:
   uint8_t dirty_bits_[REGISTER_COUNT / 8] = {0};

@@ -1,13 +1,10 @@
-from esphome.const import CONF_ADDRESS, CONF_ID
+from esphome.const import CONF_ID
 from esphome.core import EsphomeError
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import stepper
 from .. import (
     CONF_TMC2209_ID,
-    CONF_CLOCK_FREQUENCY,
-    CONF_RSENSE,
-    CONF_ANALOG_SCALE,
     CONF_INDEX_PIN,
     CONF_DIR_PIN,
     CONF_STEP_PIN,
@@ -45,11 +42,11 @@ def validate_control_method_(config):
 
 
 CONFIG_SCHEMA = cv.All(
-    TMC2209_BASE_CONFIG_SCHEMA.extend(
+    cv.Schema(
         {
             cv.GenerateID(CONF_ID): cv.declare_id(TMC2209Stepper),
         }
-    ).extend(stepper.STEPPER_SCHEMA),
+    ).extend(TMC2209_BASE_CONFIG_SCHEMA, stepper.STEPPER_SCHEMA),
     cv.has_none_or_all_keys(CONF_STEP_PIN, CONF_DIR_PIN),
     validate_control_method_,
     validate_tmc2209_base,
@@ -57,15 +54,7 @@ CONFIG_SCHEMA = cv.All(
 
 
 async def to_code(config):
-
-    var = cg.new_Pvariable(
-        config[CONF_ID],
-        config[CONF_ADDRESS],
-        config[CONF_CLOCK_FREQUENCY],
-        CONF_RSENSE not in config,  # internal rsense
-        config[CONF_RSENSE],  # rsense value
-        config[CONF_ANALOG_SCALE],  # VREF is connected
-    )
+    var = cg.new_Pvariable(config[CONF_ID])
 
     await register_tmc2209_base(var, config)
     await stepper.register_stepper(var, config)
@@ -73,9 +62,9 @@ async def to_code(config):
     has_index_pin = CONF_INDEX_PIN in config
     has_stepdir_pins = CONF_STEP_PIN in config and CONF_DIR_PIN in config
 
-    if has_stepdir_pins:
-        cg.add(var.set_control_method(ControlMethod.PULSES))
-    elif has_index_pin:
-        cg.add(var.set_control_method(ControlMethod.SERIAL))
+    if has_index_pin:
+        cg.add(var.set_control_method(ControlMethod.SERIAL_CONTROL))
+    elif has_stepdir_pins:
+        cg.add(var.set_control_method(ControlMethod.PULSES_CONTROL))
     else:
         raise EsphomeError("Could not determine control method!")

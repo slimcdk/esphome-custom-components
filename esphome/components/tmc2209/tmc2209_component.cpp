@@ -36,19 +36,19 @@ void TMC2209Component::setup() {
   }
 
   this->write_field(PDN_DISABLE_FIELD, true);
-  this->write_field(INTERNAL_RSENSE_FIELD, this->internal_rsense_);
-  this->write_field(I_SCALE_ANALOG_FIELD, this->analog_scale_);
+  this->write_field(TEST_MODE_FIELD, false);
+
   this->write_field(SHAFT_FIELD, false);
   this->write_field(MSTEP_REG_SELECT_FIELD, true);
-  this->write_field(TEST_MODE_FIELD, false);
-  // this->write_register(GSTAT, 0b111);
+  this->write_field(INTERNAL_RSENSE_FIELD, !this->rsense_.has_value());
+  this->write_field(I_SCALE_ANALOG_FIELD, this->use_analog_current_scale_);
 
-  if (this->vsense_ != nullptr) {
-    this->write_field(VSENSE_FIELD, (bool) *this->vsense_);
+  if (this->vsense_.has_value()) {
+    this->write_field(VSENSE_FIELD, this->vsense_.value());
   }
 
-  if (this->ottrim_ != nullptr) {
-    this->write_field(OTTRIM_FIELD, (uint8_t) * this->ottrim_);
+  if (this->ottrim_.has_value()) {
+    this->write_field(OTTRIM_FIELD, this->ottrim_.value());
   }
 
   this->diag_handler_.set_callbacks(  // DIAG
@@ -265,11 +265,11 @@ uint16_t TMC2209Component::current_scale_to_rms_current_mA(uint8_t cs) {
   cs = clamp<uint8_t>(cs, 0, 31);
   if (cs == 0)
     return 0;
-  return (cs + 1) / 32.0f * this->read_vsense() / (this->rsense_ + 0.02f) * (1 / sqrtf(2)) * 1000.0f;
+  return (cs + 1) / 32.0f * this->read_vsense() / (this->rsense_.value_or(0.170) + 0.02f) * (1 / sqrtf(2)) * 1000.0f;
 }
 
 uint8_t TMC2209Component::rms_current_to_current_scale_mA_no_clamp(uint16_t mA) {
-  return 32.0f * sqrtf(2) * FROM_MILLI(mA) * ((this->rsense_ + 0.02f) / this->read_vsense()) - 1.0f;
+  return 32.0f * sqrtf(2) * FROM_MILLI(mA) * ((this->rsense_.value_or(0.170) + 0.02f) / this->read_vsense()) - 1.0f;
 }
 
 uint8_t TMC2209Component::rms_current_to_current_scale_mA(uint16_t mA) {
@@ -307,12 +307,12 @@ uint16_t TMC2209Component::read_hold_current_mA() {
 }
 
 void TMC2209Component::set_tpowerdown_ms(uint32_t delay_in_ms) {
-  auto tpowerdown = ((float) delay_in_ms / 262144.0) * ((float) this->clk_frequency_ / 1000.0);
+  auto tpowerdown = ((float) delay_in_ms / 262144.0) * ((float) this->clk_freq_ / 1000.0);
   this->write_field(TPOWERDOWN_FIELD, tpowerdown);
 };
 
 uint32_t TMC2209Component::get_tpowerdown_ms() {
-  return (this->read_field(TPOWERDOWN_FIELD) * 262144.0) / (this->clk_frequency_ / 1000.0);
+  return (this->read_field(TPOWERDOWN_FIELD) * 262144.0) / (this->clk_freq_ / 1000.0);
 };
 
 std::tuple<uint8_t, uint8_t> TMC2209Component::unpack_ottrim_values(uint8_t ottrim) {

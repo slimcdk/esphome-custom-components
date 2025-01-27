@@ -51,7 +51,7 @@ TMC2209_HUB_DEVICE_SCHEMA = cv.Schema(
 
 async def register_tmc2209_hub_device(var, config):
     parent = await cg.get_variable(config[CONF_TMC2209_HUB_ID])
-    cg.add(var.set_tmc2209_hub_parent(parent))
+    await cg.register_parented(var, parent)
 
     # make hub aware of referenced instances
     cg.add(parent.add_device_to_hub_(str(config[CONF_ID]), config[CONF_ADDRESS]))
@@ -62,7 +62,7 @@ def final_validate(config):
     full_config = fv.full_config.get()
     steppers_in_hub = [
         stepper
-        for stepper in full_config[CONF_STEPPER]
+        for stepper in full_config.get(CONF_STEPPER, [])
         if stepper[CONF_TMC2209_HUB_ID] == config[CONF_ID]
     ]
 

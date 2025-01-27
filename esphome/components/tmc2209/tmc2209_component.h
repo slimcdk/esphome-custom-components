@@ -1,8 +1,13 @@
 #pragma once
+
 #include "tmc2209_api_registers.h"
 #include "tmc2209_api.h"
 #include "events.h"
 #include "tmc2209_config_dumps.h"
+
+#include "esphome/core/component.h"
+#include "esphome/core/optional.h"
+#include "esphome/core/helpers.h"
 
 namespace esphome {
 namespace tmc2209 {
@@ -12,6 +17,8 @@ namespace tmc2209 {
 
 #define MRES_TO_MS(mres) (256 >> mres)  // convert MRES value (microstepping index) to human readable microstep value
 
+enum CurrentScaleMode { VREF = true, REGISTER = false };
+
 struct ISRPinTriggerStore {
   bool *pin_triggered_ptr = nullptr;
   static void IRAM_ATTR HOT pin_isr(ISRPinTriggerStore *arg) { (*(arg->pin_triggered_ptr)) = true; }
@@ -19,13 +26,8 @@ struct ISRPinTriggerStore {
 
 class TMC2209Component : public TMC2209API, public Component {
  public:
-  TMC2209Component(uint8_t address, uint32_t clk_frequency, bool internal_rsense, float rsense, bool analog_scale)
-      : TMC2209API(address),
-        clk_frequency_(clk_frequency),
-        internal_rsense_(internal_rsense),
-        rsense_(rsense),
-        analog_scale_(analog_scale),
-        vactual_factor_((float) clk_frequency / 16777216){};
+  TMC2209Component() = default;
+  TMC2209Component(uint8_t address) : TMC2209API(address){};
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void setup() override;
@@ -37,25 +39,22 @@ class TMC2209Component : public TMC2209API, public Component {
   void set_index_pin(InternalGPIOPin *pin) { this->index_pin_ = pin; };
   void set_step_pin(GPIOPin *pin) { this->step_pin_ = pin; };
   void set_dir_pin(GPIOPin *pin) { this->dir_pin_ = pin; };
-  void add_on_stall_callback(std::function<void()> &&callback) { this->on_stall_callback_.add(std::move(callback)); }
-  void add_on_driver_status_callback(std::function<void(DriverStatusEvent)> &&callback) {
-    this->on_driver_status_callback_.add(std::move(callback));
+
+  void set_clk_freq(uint32_t clk_freq) {
+    this->clk_freq_ = clk_freq;
+    this->clk_to_vactual_factor_ = ((float) clk_freq / 16777216);
   }
 
+  void set_rsense(float rsense) { this->rsense_ = rsense; }
+  void set_analog_current_scale(bool enable) { this->use_analog_current_scale_ = enable; }
+  void set_vsense(bool vsense) { this->vsense_ = vsense; }
+  void set_ottrim(uint8_t ottrim) { this->ottrim_ = ottrim; }
   void set_enable_driver_health_check(bool enable) { this->driver_health_check_is_enabled_ = enable; }
   void set_enable_stall_detection(bool enable) { this->stall_detection_is_enabled_ = enable; }
 
-  void set_vsense(bool vsense) {
-    if (this->vsense_ == nullptr) {
-      this->vsense_ = new bool;
-    }
-    *this->vsense_ = vsense;
-  }
-  void set_ottrim(uint8_t ottrim) {
-    if (this->ottrim_ == nullptr) {
-      this->ottrim_ = new uint8_t;  // Allocate memory if not already allocated
-    }
-    *this->ottrim_ = ottrim;
+  void add_on_stall_callback(std::function<void()> &&callback) { this->on_stall_callback_.add(std::move(callback)); }
+  void add_on_driver_status_callback(std::function<void(DriverStatusEvent)> &&callback) {
+    this->on_driver_status_callback_.add(std::move(callback));
   }
 
   virtual void enable(bool enable);
@@ -83,21 +82,19 @@ class TMC2209Component : public TMC2209API, public Component {
   float read_hold_current() { return FROM_MILLI(this->read_hold_current_mA()); };
 
   // Velocity, compensated VACTUAL by clock
-  int32_t vactual_to_speed(int32_t vactual) { return std::round((float) vactual * this->vactual_factor_); }
-  int32_t speed_to_vactual(int32_t speed) { return std::round((float) speed / this->vactual_factor_); }
+  int32_t vactual_to_speed(int32_t vactual) { return std::round((float) vactual * this->clk_to_vactual_factor_); }
+  int32_t speed_to_vactual(int32_t speed) { return std::round((float) speed / this->clk_to_vactual_factor_); }
   int32_t read_speed() { return this->vactual_to_speed((int32_t) this->read_field(VACTUAL_FIELD)); }
   void write_speed(int32_t speed) { this->write_field(VACTUAL_FIELD, this->speed_to_vactual(speed)); }
 
  protected:
   /** Setup / configuration */
-  const uint32_t clk_frequency_;
-  const bool internal_rsense_;
-  const float rsense_;                 // default RDSon value
-  const bool analog_scale_{false};     // current scaling is controlled by VREF input if set
-  const float vactual_factor_{0.715};  // coefficient between clock and real steps using VACTUAL
-
-  bool *vsense_{nullptr};     // user has configured value if pointer is valid
-  uint8_t *ottrim_{nullptr};  // user has configured value if pointer is valid
+  bool use_analog_current_scale_{false};
+  optional<float> rsense_{};
+  optional<bool> vsense_{};
+  optional<uint8_t> ottrim_{};
+  uint32_t clk_freq_;
+  float clk_to_vactual_factor_{0.715};  // coefficient between clock and real steps using VACTUAL
 
   bool driver_health_check_is_enabled_{false};
   bool stall_detection_is_enabled_{false};

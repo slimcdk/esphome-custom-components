@@ -6,6 +6,82 @@
 namespace esphome {
 namespace tmc2209 {
 
+#define B1_TO_BINARY_PATTERN "%c"
+#define B2_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
+#define B3_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
+#define B4_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN
+#define B8_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN
+#define B10_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN
+#define B12_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN
+#define B16_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN
+#define B20_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN
+#define B24_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN
+
+#define B1_TO_BINARY(bit) ((bit) ? '1' : '0')
+
+#define B2_TO_BINARY(bits) (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2))
+
+#define B3_TO_BINARY(bits) (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4))
+
+#define B4_TO_BINARY(bits) \
+  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8))
+
+#define B8_TO_BINARY(bits) \
+  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
+      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
+      (B1_TO_BINARY((bits) &0x80))
+
+#define B10_TO_BINARY(bits) \
+  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
+      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
+      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200))
+
+#define B12_TO_BINARY(bits) \
+  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
+      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
+      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
+      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800))
+
+#define B16_TO_BINARY(bits) \
+  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
+      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
+      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
+      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
+      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000))
+
+#define B20_TO_BINARY(bits) \
+  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
+      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
+      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
+      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
+      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
+      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
+      (B1_TO_BINARY((bits) &0x80000))
+
+#define B24_TO_BINARY(bits) \
+  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
+      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
+      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
+      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
+      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
+      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
+      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000)), (B1_TO_BINARY((bits) &0x200000)), \
+      (B1_TO_BINARY((bits) &0x400000)), (B1_TO_BINARY((bits) &0x800000))
+
+#define LOG_TMC2209_GCONF_REGISTER_DUMP(this) \
+  const int32_t gconf = this->read_register(GCONF); \
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B10_TO_BINARY_PATTERN, "GCONF:", gconf, B10_TO_BINARY(gconf)); \
+  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "I_SCALE_ANALOG:", this->extract_field(gconf, I_SCALE_ANALOG_FIELD)); \
+  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "INTERNAL_RSENSE:", this->extract_field(gconf, INTERNAL_RSENSE_FIELD)); \
+  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "EN_SPREADCYCLE:", this->extract_field(gconf, EN_SPREADCYCLE_FIELD)); \
+  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SHAFT:", this->extract_field(gconf, SHAFT_FIELD)); \
+  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "INDEX_OTPW:", this->extract_field(gconf, INDEX_OTPW_FIELD)); \
+  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "INDEX_STEP:", this->extract_field(gconf, INDEX_STEP_FIELD)); \
+  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "PDN_DISABLE:", this->extract_field(gconf, PDN_DISABLE_FIELD)); \
+  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "MSTEP_REG_SELECT:", this->extract_field(gconf, MSTEP_REG_SELECT_FIELD)); \
+  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "MULTISTEP_FILT:", this->extract_field(gconf, MULTISTEP_FILT_FIELD)); \
+  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "TEST_MODE:", this->extract_field(gconf, TEST_MODE_FIELD));
+
 #define LOG_TMC2209_VERSION(this) \
   const int8_t icv_ = this->read_field(VERSION_FIELD); \
   if (icv_ == IC_VERSION_GEN1) { \
@@ -34,303 +110,18 @@ namespace tmc2209 {
 #define LOG_TMC2209_CURRENTS(this) \
   const bool ir_ = this->read_field(INTERNAL_RSENSE_FIELD); \
   const bool vs_ = this->read_field(VSENSE_FIELD); \
-  if (this->analog_scale_) { \
-    ESP_LOGCONFIG(TAG, "  Analog scale: VREF scales currents"); \
-  } else { \
-    ESP_LOGCONFIG(TAG, "  Analog scale: IRUN/IHOLD registers scales currents"); \
-  } \
+  const bool isa_ = this->read_field(I_SCALE_ANALOG_FIELD); \
   ESP_LOGCONFIG(TAG, "  Currents:"); \
+  ESP_LOGCONFIG(TAG, "    Limits: %d mA", this->current_scale_to_rms_current_mA(31)); \
   ESP_LOGCONFIG(TAG, "    IRUN: %d (%d mA)", this->read_field(IRUN_FIELD), this->read_run_current_mA()); \
   ESP_LOGCONFIG(TAG, "    IHOLD: %d (%d mA)", this->read_field(IHOLD_FIELD), this->read_hold_current_mA()); \
-  ESP_LOGCONFIG(TAG, "    Limits: %d mA", this->current_scale_to_rms_current_mA(31)); \
+  ESP_LOGCONFIG(TAG, "    Additional scaling by VREF is %s", (isa_ ? "enabled" : "disabled")); \
   ESP_LOGCONFIG(TAG, "    VSense: %s", (vs_ ? "True (low heat dissipation)" : "False (high heat dissipation)")); \
-  ESP_LOGCONFIG(TAG, "    RSense: %.3f Ohm (%s)", this->rsense_, (ir_ ? "internal RDSon" : "external sense resistors"));
-
-#define B1_TO_BINARY_PATTERN "%c"
-#define B2_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B3_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B4_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN
-#define B5_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B6_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN
-#define B7_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B8_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN
-#define B9_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B10_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN
-#define B11_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B12_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN
-#define B13_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B14_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN
-#define B15_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B16_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN
-#define B17_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B18_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN
-#define B19_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B20_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN
-#define B21_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B22_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN
-#define B23_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B24_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN
-#define B25_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B26_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN
-#define B27_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B28_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN
-#define B29_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B30_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN
-#define B31_TO_BINARY_PATTERN \
-  B16_TO_BINARY_PATTERN B8_TO_BINARY_PATTERN B4_TO_BINARY_PATTERN B2_TO_BINARY_PATTERN B1_TO_BINARY_PATTERN
-#define B32_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN B16_TO_BINARY_PATTERN
-
-#define B1_TO_BINARY(bit) ((bit) ? '1' : '0')
-
-#define B2_TO_BINARY(bits) (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2))
-
-#define B3_TO_BINARY(bits) (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4))
-
-#define B4_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8))
-
-#define B5_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10))
-
-#define B6_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20))
-
-#define B7_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40))
-
-#define B8_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80))
-
-#define B9_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100))
-
-#define B10_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200))
-
-#define B11_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400))
-
-#define B12_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800))
-
-#define B13_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000))
-
-#define B14_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000))
-
-#define B15_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000))
-
-#define B16_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000))
-
-#define B17_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000))
-
-#define B18_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000))
-
-#define B19_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000))
-
-#define B20_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000))
-
-#define B21_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000))
-
-#define B22_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000)), (B1_TO_BINARY((bits) &0x200000))
-
-#define B23_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000)), (B1_TO_BINARY((bits) &0x200000)), \
-      (B1_TO_BINARY((bits) &0x400000))
-
-#define B24_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000)), (B1_TO_BINARY((bits) &0x200000)), \
-      (B1_TO_BINARY((bits) &0x400000)), (B1_TO_BINARY((bits) &0x800000))
-
-#define B25_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000)), (B1_TO_BINARY((bits) &0x200000)), \
-      (B1_TO_BINARY((bits) &0x400000)), (B1_TO_BINARY((bits) &0x800000)), (B1_TO_BINARY((bits) &0x1000000))
-
-#define B26_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000)), (B1_TO_BINARY((bits) &0x200000)), \
-      (B1_TO_BINARY((bits) &0x400000)), (B1_TO_BINARY((bits) &0x800000)), (B1_TO_BINARY((bits) &0x1000000)), \
-      (B1_TO_BINARY((bits) &0x2000000))
-
-#define B27_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000)), (B1_TO_BINARY((bits) &0x200000)), \
-      (B1_TO_BINARY((bits) &0x400000)), (B1_TO_BINARY((bits) &0x800000)), (B1_TO_BINARY((bits) &0x1000000)), \
-      (B1_TO_BINARY((bits) &0x2000000)), (B1_TO_BINARY((bits) &0x4000000))
-
-#define B28_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000)), (B1_TO_BINARY((bits) &0x200000)), \
-      (B1_TO_BINARY((bits) &0x400000)), (B1_TO_BINARY((bits) &0x800000)), (B1_TO_BINARY((bits) &0x1000000)), \
-      (B1_TO_BINARY((bits) &0x2000000)), (B1_TO_BINARY((bits) &0x4000000)), (B1_TO_BINARY((bits) &0x8000000))
-
-#define B29_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000)), (B1_TO_BINARY((bits) &0x200000)), \
-      (B1_TO_BINARY((bits) &0x400000)), (B1_TO_BINARY((bits) &0x800000)), (B1_TO_BINARY((bits) &0x1000000)), \
-      (B1_TO_BINARY((bits) &0x2000000)), (B1_TO_BINARY((bits) &0x4000000)), (B1_TO_BINARY((bits) &0x8000000)), \
-      (B1_TO_BINARY((bits) &0x10000000))
-
-#define B30_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000)), (B1_TO_BINARY((bits) &0x200000)), \
-      (B1_TO_BINARY((bits) &0x400000)), (B1_TO_BINARY((bits) &0x800000)), (B1_TO_BINARY((bits) &0x1000000)), \
-      (B1_TO_BINARY((bits) &0x2000000)), (B1_TO_BINARY((bits) &0x4000000)), (B1_TO_BINARY((bits) &0x8000000)), \
-      (B1_TO_BINARY((bits) &0x10000000)), (B1_TO_BINARY((bits) &0x20000000))
-
-#define B31_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000)), (B1_TO_BINARY((bits) &0x200000)), \
-      (B1_TO_BINARY((bits) &0x400000)), (B1_TO_BINARY((bits) &0x800000)), (B1_TO_BINARY((bits) &0x1000000)), \
-      (B1_TO_BINARY((bits) &0x2000000)), (B1_TO_BINARY((bits) &0x4000000)), (B1_TO_BINARY((bits) &0x8000000)), \
-      (B1_TO_BINARY((bits) &0x10000000)), (B1_TO_BINARY((bits) &0x20000000)), (B1_TO_BINARY((bits) &0x40000000))
-
-#define B32_TO_BINARY(bits) \
-  (B1_TO_BINARY((bits) &0x1)), (B1_TO_BINARY((bits) &0x2)), (B1_TO_BINARY((bits) &0x4)), (B1_TO_BINARY((bits) &0x8)), \
-      (B1_TO_BINARY((bits) &0x10)), (B1_TO_BINARY((bits) &0x20)), (B1_TO_BINARY((bits) &0x40)), \
-      (B1_TO_BINARY((bits) &0x80)), (B1_TO_BINARY((bits) &0x100)), (B1_TO_BINARY((bits) &0x200)), \
-      (B1_TO_BINARY((bits) &0x400)), (B1_TO_BINARY((bits) &0x800)), (B1_TO_BINARY((bits) &0x1000)), \
-      (B1_TO_BINARY((bits) &0x2000)), (B1_TO_BINARY((bits) &0x4000)), (B1_TO_BINARY((bits) &0x8000)), \
-      (B1_TO_BINARY((bits) &0x10000)), (B1_TO_BINARY((bits) &0x20000)), (B1_TO_BINARY((bits) &0x40000)), \
-      (B1_TO_BINARY((bits) &0x80000)), (B1_TO_BINARY((bits) &0x100000)), (B1_TO_BINARY((bits) &0x200000)), \
-      (B1_TO_BINARY((bits) &0x400000)), (B1_TO_BINARY((bits) &0x800000)), (B1_TO_BINARY((bits) &0x1000000)), \
-      (B1_TO_BINARY((bits) &0x2000000)), (B1_TO_BINARY((bits) &0x4000000)), (B1_TO_BINARY((bits) &0x8000000)), \
-      (B1_TO_BINARY((bits) &0x10000000)), (B1_TO_BINARY((bits) &0x20000000)), (B1_TO_BINARY((bits) &0x40000000)), \
-      (B1_TO_BINARY((bits) &0x80000000))
-
-#define LOG_TMC2209_GCONF_REGISTER_DUMP(this) \
-  const int32_t gconf = this->read_register(GCONF); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B10_TO_BINARY_PATTERN, "GCONF:", gconf, B10_TO_BINARY(gconf)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "I_SCALE_ANALOG:", this->extract_field(gconf, I_SCALE_ANALOG_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "INTERNAL_RSENSE:", this->extract_field(gconf, INTERNAL_RSENSE_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "EN_SPREADCYCLE:", this->extract_field(gconf, EN_SPREADCYCLE_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SHAFT:", this->extract_field(gconf, SHAFT_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "INDEX_OTPW:", this->extract_field(gconf, INDEX_OTPW_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "INDEX_STEP:", this->extract_field(gconf, INDEX_STEP_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "PDN_DISABLE:", this->extract_field(gconf, PDN_DISABLE_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "MSTEP_REG_SELECT:", this->extract_field(gconf, MSTEP_REG_SELECT_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "MULTISTEP_FILT:", this->extract_field(gconf, MULTISTEP_FILT_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "TEST_MODE:", this->extract_field(gconf, TEST_MODE_FIELD));
+  if (this->rsense_.has_value()) { \
+    ESP_LOGCONFIG(TAG, "    RSense: %.3f Ohm external sense resistors", this->rsense_.value()); \
+  } else { \
+    ESP_LOGCONFIG(TAG, "    RSense: internal RDSon"); \
+  }
 
 #define LOG_TMC2209_GSTAT_REGISTER_DUMP(this) \
   const int32_t gstat = this->read_register(GSTAT); \
@@ -430,13 +221,12 @@ namespace tmc2209 {
   ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_); \
   LOG_TMC2209_VERSION(this); \
   ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps()); \
-  ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz", this->clk_frequency_); \
-  ESP_LOGV(TAG, "  Velocity compensation: %f", this->vactual_factor_); \
+  ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz (VACTUAL factor: %f)", this->clk_freq_, this->clk_to_vactual_factor_); \
   const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(OTTRIM_FIELD)); \
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot); \
   if (this->stall_detection_is_enabled_) { \
     if (this->diag_pin_ != nullptr) { \
-      ESP_LOGCONFIG(TAG, "  Stall detection: DIAG interrupt sets flag"); \
+      ESP_LOGCONFIG(TAG, "  Stall detection: DIAG interrupt raises flag"); \
     } else { \
       ESP_LOGCONFIG(TAG, "  Stall detection: poll driver for status"); \
     } \

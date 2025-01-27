@@ -15,9 +15,9 @@ namespace tmc2209 {
 using namespace esphome::stepper;
 
 enum ControlMethod {
-  UNSET,
-  SERIAL,
-  PULSES,
+  CONTROL_UNSET,
+  SERIAL_CONTROL,
+  PULSES_CONTROL,
 };
 
 struct IndexPulseStore {
@@ -30,8 +30,8 @@ struct IndexPulseStore {
 
 class TMC2209Stepper : public TMC2209Component, public Stepper {
  public:
-  TMC2209Stepper(uint8_t address, uint32_t clk_frequency, bool internal_rsense, float rsense, bool analog_scale)
-      : TMC2209Component(address, clk_frequency, internal_rsense, rsense, analog_scale){};
+  TMC2209Stepper() = default;
+  TMC2209Stepper(uint8_t address) : TMC2209Component(address){};
 
   void dump_config() override;
   void setup() override;
@@ -46,7 +46,7 @@ class TMC2209Stepper : public TMC2209Component, public Stepper {
 
  protected:
   HighFrequencyLoopRequester high_freq_;
-  ControlMethod control_method_ = ControlMethod::UNSET;
+  ControlMethod control_method_{ControlMethod::CONTROL_UNSET};
 
   /** Serial control */
   IndexPulseStore ips_;  // index pulse store

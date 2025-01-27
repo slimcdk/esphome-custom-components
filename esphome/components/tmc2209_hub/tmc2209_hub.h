@@ -2,7 +2,6 @@
 
 #include <vector>
 
-#include "esphome/core/helpers.h"
 #include "esphome/components/uart/uart.h"
 
 namespace esphome {
