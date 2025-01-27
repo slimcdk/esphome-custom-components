@@ -62,7 +62,7 @@
 Import the component(s).
 ```yaml
 external_components:
-  - source: github://slimcdk/esphome-custom-components@multiple-tmc2209
+  - source: github://slimcdk/esphome-custom-components
     components: [ tmc2209_hub, tmc2209, stepper ]
 ```
 ---
@@ -257,7 +257,7 @@ stepper:
 * `analog_current_scale` (*Optional*, boolean): If enabled, VREF input can adjust currents between 0 to IRUN. Defaults to `False` meaning the input is ignored and currents will match settings set by `tmc2209.currents`.
 
 > [!NOTE]
-*VREF is often a tiny potentiometer. Setting IRUN to 31 will allow VREF adjustments in the full current range allowed by the sense resistors (rsense). Setting IRUN to 16 reduces the range by ~50%. IRUN effectively set the upper limit for what VREF can scale to.*
+*VREF is often a tiny potentiometer. Setting IRUN to 31 will allow VREF adjustments in the full current range allowed by the sense resistors (rsense). Setting IRUN to 16 narrows that range to ~50%. **IRUN effectively sets the upper limit for what VREF can scale to.***
 
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
 
@@ -268,7 +268,7 @@ stepper:
 
 ### `on_stall`
 
-Will trigger when a stall is detected. This can be used for sensorless homing. Check the [sensorless homing example](#sensorless-homing)*.
+Will trigger when a stall is detected. This can be used for sensorless homing. Check the [sensorless homing example](#sensorless-homing).
 ```yaml
 stepper:
   - platform: tmc2209
@@ -646,7 +646,7 @@ sensor:
 ## Example config
 ```yaml
 external_components:
-  - source: github://slimcdk/esphome-custom-components@multiple-tmc2209
+  - source: github://slimcdk/esphome-custom-components
     components: [ tmc2209_hub, tmc2209, stepper ]
 
 # esp32 or esp8266 config..
