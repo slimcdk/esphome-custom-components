@@ -70,7 +70,7 @@ namespace tmc2209 {
 
 #define LOG_TMC2209_GCONF_REGISTER_DUMP(this) \
   const int32_t gconf = this->read_register(GCONF); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B10_TO_BINARY_PATTERN, "GCONF:", gconf, B10_TO_BINARY(gconf)); \
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B10_TO_BINARY_PATTERN, "GCONF:", gconf, B10_TO_BINARY(gconf)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "I_SCALE_ANALOG:", this->extract_field(gconf, I_SCALE_ANALOG_FIELD)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "INTERNAL_RSENSE:", this->extract_field(gconf, INTERNAL_RSENSE_FIELD)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "EN_SPREADCYCLE:", this->extract_field(gconf, EN_SPREADCYCLE_FIELD)); \
@@ -113,8 +113,8 @@ namespace tmc2209 {
   const bool isa_ = this->read_field(I_SCALE_ANALOG_FIELD); \
   ESP_LOGCONFIG(TAG, "  Currents:"); \
   ESP_LOGCONFIG(TAG, "    Limits: %d mA", this->current_scale_to_rms_current_mA(31)); \
-  ESP_LOGCONFIG(TAG, "    IRUN: %d (%d mA)", this->read_field(IRUN_FIELD), this->read_run_current_mA()); \
-  ESP_LOGCONFIG(TAG, "    IHOLD: %d (%d mA)", this->read_field(IHOLD_FIELD), this->read_hold_current_mA()); \
+  ESP_LOGCONFIG(TAG, "    IRUN: %ld (%d mA)", this->read_field(IRUN_FIELD), this->read_run_current_mA()); \
+  ESP_LOGCONFIG(TAG, "    IHOLD: %ld (%d mA)", this->read_field(IHOLD_FIELD), this->read_hold_current_mA()); \
   ESP_LOGCONFIG(TAG, "    Additional scaling by VREF is %s", (isa_ ? "enabled" : "disabled")); \
   ESP_LOGCONFIG(TAG, "    VSense: %s", (vs_ ? "True (low heat dissipation)" : "False (high heat dissipation)")); \
   if (this->rsense_.has_value()) { \
@@ -125,24 +125,24 @@ namespace tmc2209 {
 
 #define LOG_TMC2209_GSTAT_REGISTER_DUMP(this) \
   const int32_t gstat = this->read_register(GSTAT); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B3_TO_BINARY_PATTERN, "GSTAT:", gstat, B3_TO_BINARY(gstat)); \
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B3_TO_BINARY_PATTERN, "GSTAT:", gstat, B3_TO_BINARY(gstat)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "RESET:", this->extract_field(gstat, RESET_FIELD)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "DRV_ERR:", this->extract_field(gstat, DRV_ERR_FIELD)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "UV_CP:", this->extract_field(gstat, UV_CP_FIELD));
 
 #define LOG_TMC2209_OTP_READ_REGISTER_DUMP(this) \
   const int32_t otpread = this->read_register(OTP_READ); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B24_TO_BINARY_PATTERN, "OTP_READ:", otpread, B24_TO_BINARY(otpread));
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B24_TO_BINARY_PATTERN, "OTP_READ:", otpread, B24_TO_BINARY(otpread));
 
 #define LOG_TMC2209_FACTORY_CONF_REGISTER_DUMP(this) \
   const int32_t fc = this->read_register(FACTORY_CONF); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B10_TO_BINARY_PATTERN, "FACTORY_CONF:", fc, B10_TO_BINARY(fc)); \
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B10_TO_BINARY_PATTERN, "FACTORY_CONF:", fc, B10_TO_BINARY(fc)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "FCLKTRIM:", this->extract_field(fc, FCLKTRIM_FIELD)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "OTTRIM:", this->extract_field(fc, OTTRIM_FIELD));
 
 #define LOG_TMC2209_IOIN_REGISTER_DUMP(this) \
   const int32_t ioin = this->read_register(IOIN); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B12_TO_BINARY_PATTERN, "IOIN:", ioin, B12_TO_BINARY(ioin)); \
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B12_TO_BINARY_PATTERN, "IOIN:", ioin, B12_TO_BINARY(ioin)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "ENN:", this->extract_field(ioin, ENN_FIELD)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "MS1:", this->extract_field(ioin, MS1_FIELD)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "MS2:", this->extract_field(ioin, MS2_FIELD)); \
@@ -155,34 +155,34 @@ namespace tmc2209 {
 
 #define LOG_TMC2209_IHOLD_IRUN_REGISTER_DUMP(this) \
   const int32_t ihir = this->read_register(IHOLD_IRUN); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B20_TO_BINARY_PATTERN, "IHOLD_IRUN:", ihir, B20_TO_BINARY(ihir)); \
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B20_TO_BINARY_PATTERN, "IHOLD_IRUN:", ihir, B20_TO_BINARY(ihir)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "IHOLD:", this->extract_field(ihir, IHOLD_FIELD)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "IRUN:", this->extract_field(ihir, IRUN_FIELD)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "IHOLDDELAY:", this->extract_field(ihir, IHOLDDELAY_FIELD));
 
 #define LOG_TMC2209_TPOWERDOWN_REGISTER_DUMP(this) \
   const int32_t tpd = this->read_register(TPOWERDOWN); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B8_TO_BINARY_PATTERN, "TPOWERDOWN:", tpd, B8_TO_BINARY(tpd));
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B8_TO_BINARY_PATTERN, "TPOWERDOWN:", tpd, B8_TO_BINARY(tpd));
 
 #define LOG_TMC2209_TSTEP_REGISTER_DUMP(this) \
   const int32_t tstep = this->read_register(TSTEP); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B20_TO_BINARY_PATTERN, "TSTEP:", tstep, B20_TO_BINARY(tstep));
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B20_TO_BINARY_PATTERN, "TSTEP:", tstep, B20_TO_BINARY(tstep));
 
 #define LOG_TMC2209_TPWMTHRS_REGISTER_DUMP(this) \
   const int32_t tpwmthrs = this->read_register(TPWMTHRS); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B20_TO_BINARY_PATTERN, "TPWMTHRS:", tpwmthrs, B20_TO_BINARY(tpwmthrs));
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B20_TO_BINARY_PATTERN, "TPWMTHRS:", tpwmthrs, B20_TO_BINARY(tpwmthrs));
 
 #define LOG_TMC2209_TCOOLTHRS_REGISTER_DUMP(this) \
   const int32_t tcoolthrs = this->read_register(TCOOLTHRS); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B20_TO_BINARY_PATTERN, "TCOOLTHRS:", tcoolthrs, B20_TO_BINARY(tpwmthrs));
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B20_TO_BINARY_PATTERN, "TCOOLTHRS:", tcoolthrs, B20_TO_BINARY(tpwmthrs));
 
 #define LOG_TMC2209_SGTHRS_REGISTER_DUMP(this) \
   const int32_t sgthrs = this->read_register(SGTHRS); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B8_TO_BINARY_PATTERN, "SGTHRS:", sgthrs, B8_TO_BINARY(sgthrs));
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B8_TO_BINARY_PATTERN, "SGTHRS:", sgthrs, B8_TO_BINARY(sgthrs));
 
 #define LOG_TMC2209_COOLCONF_REGISTER_DUMP(this) \
   const int32_t coolconf = this->read_register(COOLCONF); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B16_TO_BINARY_PATTERN, "COOLCONF:", coolconf, B16_TO_BINARY(coolconf)); \
+  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B16_TO_BINARY_PATTERN, "COOLCONF:", coolconf, B16_TO_BINARY(coolconf)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEIMIN:", this->extract_field(coolconf, SEIMIN_FIELD)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEDN:", this->extract_field(coolconf, SEDN_FIELD)); \
   ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEMAX:", this->extract_field(coolconf, SEMAX_FIELD)); \
@@ -191,37 +191,37 @@ namespace tmc2209 {
 
 #define LOG_TMC2209_REGISTER_DUMP(this) \
   ESP_LOGCONFIG(TAG, "  Register dump:"); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "GCONF:", this->read_register(GCONF)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "GSTAT:", this->read_register(GSTAT)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "IFCNT:", this->read_register(IFCNT)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "SLAVECONF:", this->read_register(SLAVECONF)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "OTP_PROG:", this->read_register(OTP_PROG)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "OTP_READ:", this->read_register(OTP_READ)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "IOIN:", this->read_register(IOIN)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "FACTORY_CONF:", this->read_register(FACTORY_CONF)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "IHOLD_IRUN:", this->read_register(IHOLD_IRUN)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TPOWERDOWN:", this->read_register(TPOWERDOWN)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TSTEP:", this->read_register(TSTEP)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TPWMTHRS:", this->read_register(TPWMTHRS)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TCOOLTHRS:", this->read_register(TCOOLTHRS)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "VACTUAL:", this->read_register(VACTUAL)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "SGTHRS:", this->read_register(SGTHRS)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "SG_RESULT:", this->read_register(SG_RESULT)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "COOLCONF:", this->read_register(COOLCONF)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "MSCNT:", this->read_register(MSCNT)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "MSCURACT:", this->read_register(MSCURACT)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "CHOPCONF:", this->read_register(CHOPCONF)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "DRV_STATUS:", this->read_register(DRV_STATUS)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWM_CONF:", this->read_register(PWM_CONF)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWM_SCALE:", this->read_register(PWM_SCALE)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "PWM_AUTO:", this->read_register(PWM_AUTO));
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "GCONF:", this->read_register(GCONF)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "GSTAT:", this->read_register(GSTAT)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "IFCNT:", this->read_register(IFCNT)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "SLAVECONF:", this->read_register(SLAVECONF)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "OTP_PROG:", this->read_register(OTP_PROG)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "OTP_READ:", this->read_register(OTP_READ)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "IOIN:", this->read_register(IOIN)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "FACTORY_CONF:", this->read_register(FACTORY_CONF)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "IHOLD_IRUN:", this->read_register(IHOLD_IRUN)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "TPOWERDOWN:", this->read_register(TPOWERDOWN)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "TSTEP:", this->read_register(TSTEP)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "TPWMTHRS:", this->read_register(TPWMTHRS)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "TCOOLTHRS:", this->read_register(TCOOLTHRS)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "VACTUAL:", this->read_register(VACTUAL)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "SGTHRS:", this->read_register(SGTHRS)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "SG_RESULT:", this->read_register(SG_RESULT)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "COOLCONF:", this->read_register(COOLCONF)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "MSCNT:", this->read_register(MSCNT)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "MSCURACT:", this->read_register(MSCURACT)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "CHOPCONF:", this->read_register(CHOPCONF)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "DRV_STATUS:", this->read_register(DRV_STATUS)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "PWM_CONF:", this->read_register(PWM_CONF)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "PWM_SCALE:", this->read_register(PWM_SCALE)); \
+  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "PWM_AUTO:", this->read_register(PWM_AUTO));
 
 #define LOG_TMC2209(this) \
   LOG_TMC2209_PINS(this); \
   ESP_LOGCONFIG(TAG, "  Address: 0x%02X", this->address_); \
   LOG_TMC2209_VERSION(this); \
   ESP_LOGCONFIG(TAG, "  Microsteps: %d", this->get_microsteps()); \
-  ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz (VACTUAL factor: %f)", this->clk_freq_, this->clk_to_vactual_factor_); \
+  ESP_LOGCONFIG(TAG, "  Clock frequency: %ld Hz (VACTUAL factor: %f)", this->clk_freq_, this->clk_to_vactual_factor_); \
   const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(OTTRIM_FIELD)); \
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot); \
   if (this->stall_detection_is_enabled_) { \
