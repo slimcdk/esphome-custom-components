@@ -235,6 +235,8 @@ namespace tmc2209 {
   } \
   ESP_LOGCONFIG(TAG, "  Status check: %s", (this->driver_health_check_is_enabled_ ? "enabled" : "disabled")); \
   LOG_TMC2209_CURRENTS(this); \
-  LOG_TMC2209_REGISTER_DUMP(this);
+  if (this->config_dump_include_registers_) { \
+    LOG_TMC2209_REGISTER_DUMP(this); \
+  }
 }  // namespace tmc2209
 }  // namespace esphome

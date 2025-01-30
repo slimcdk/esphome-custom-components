@@ -37,7 +37,6 @@ void TMC2209Component::setup() {
 
   this->write_field(PDN_DISABLE_FIELD, true);
   this->write_field(TEST_MODE_FIELD, false);
-
   this->write_field(SHAFT_FIELD, false);
   this->write_field(MSTEP_REG_SELECT_FIELD, true);
   this->write_field(INTERNAL_RSENSE_FIELD, !this->rsense_.has_value());
@@ -49,6 +48,15 @@ void TMC2209Component::setup() {
 
   if (this->ottrim_.has_value()) {
     this->write_field(OTTRIM_FIELD, this->ottrim_.value());
+  }
+
+  if (this->toff_recovery_ && !this->toff_storage_.has_value()) {
+    const uint8_t toff_ = this->read_field(TOFF_FIELD);
+    if (toff_ == 0) {
+      ESP_LOGW(TAG, "captured TOFF value was 0 and will not be used for recovery (as it will disable the driver)");
+    } else {
+      this->toff_storage_ = toff_;
+    }
   }
 
   this->diag_handler_.set_callbacks(  // DIAG
@@ -329,12 +337,27 @@ std::tuple<uint8_t, uint8_t> TMC2209Component::unpack_ottrim_values(uint8_t ottr
   return std::make_tuple(0, 0);
 }
 
+// void TMC2209Component::enable(bool enable, bool recover_toff = true) {
 void TMC2209Component::enable(bool enable) {
   if (this->enn_pin_ != nullptr) {
+    // Use ENN pin to handle enable/disable
     this->enn_pin_->digital_write(!enable);
   } else {
-    this->write_field(TOFF_FIELD, enable ? 3 : 0);
+    // Use UART to handle enable/disable
+    if (enable) {
+      if (this->toff_recovery_) {
+        // TODO: maybe handle TBL < 2 and TOFF = [1;2]
+        this->write_field(TOFF_FIELD, this->toff_storage_.value_or(3));
+      }
+    } else {
+      if (this->toff_recovery_ && (enable != this->is_enabled_)) {
+        // don't capture current toff as it could be 0 due to the driver being disabled
+        this->toff_storage_ = this->read_field(TOFF_FIELD);
+      }
+      this->write_field(TOFF_FIELD, 0);
+    }
   }
+
   this->is_enabled_ = enable;
 }
 

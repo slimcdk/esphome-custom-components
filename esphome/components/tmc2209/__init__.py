@@ -21,21 +21,23 @@ CODEOWNERS = ["@slimcdk"]
 
 AUTO_LOAD = ["tmc2209_hub"]
 
-
 CONF_TMC2209 = "tmc2209"
 CONF_TMC2209_ID = "tmc2209_id"
 
 CONF_ENN_PIN = "enn_pin"
 CONF_DIAG_PIN = "diag_pin"
 CONF_INDEX_PIN = "index_pin"
-
 CONF_CLOCK_FREQUENCY = "clock_frequency"
 CONF_OTTRIM = "ottrim"
 CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
 CONF_RSENSE = "rsense"  # sense resistors
 CONF_ANALOG_CURRENT_SCALE = "analog_current_scale"
+CONF_INCLUDE_REGISTERS = "config_dump_include_registers"
 CONF_ON_STALL = "on_stall"
 CONF_ON_DRIVER_STATUS = "on_status"
+
+
+# used in actions
 CONF_MICROSTEPS = "microsteps"  # CHOPCONF.mres
 CONF_INTERPOLATION = "interpolation"  # CHOPCONF.intpol
 CONF_IRUN = "irun"
@@ -63,24 +65,7 @@ CONF_PWM_AUTOSCALE = "autoscale"
 CONF_PWM_FREQ = "freq"
 CONF_PWM_GRAD = "grad"
 CONF_PWM_OFS = "ofs"
-
-CONF_TO_IDS = "to"
-
-OPT_CLOCKWISE = "clockwise"
-OPT_CW = "cw"
-OPT_COUNTERCLOCKWISE = "counterclockwise"
-OPT_CCW = "ccw"
-OPT_STANDSTILL_MODE_NORMAL = "normal"
-OPT_STANDSTILL_MODE_FREEWHEELING = "freewheeling"
-OPT_STANDSTILL_MODE_COIL_SHORT_LS = "short_coil_ls"
-OPT_STANDSTILL_MODE_COIL_SHORT_HS = "short_coil_hs"
-
-STANDSTILL_MODES = {
-    OPT_STANDSTILL_MODE_NORMAL: 0,
-    OPT_STANDSTILL_MODE_FREEWHEELING: 1,
-    OPT_STANDSTILL_MODE_COIL_SHORT_LS: 2,
-    OPT_STANDSTILL_MODE_COIL_SHORT_HS: 3,
-}
+CONF_RESTORE_TOFF = "restore_toff"
 
 
 tmc2209_ns = cg.esphome_ns.namespace("tmc2209")
@@ -90,6 +75,8 @@ TMC2209API = tmc2209_ns.class_(
 TMC2209Component = tmc2209_ns.class_("TMC2209Component", TMC2209API, cg.Component)
 
 DriverStatusEvent = tmc2209_ns.enum("DriverStatusEvent")
+StandstillMode = tmc2209_ns.enum("StandstillMode")
+ShaftDirection = tmc2209_ns.enum("ShaftDirection")
 
 OnDriverStatusTrigger = tmc2209_ns.class_("OnDriverStatusTrigger", automation.Trigger)
 OnStallTrigger = tmc2209_ns.class_("OnStallTrigger", automation.Trigger)
@@ -102,6 +89,22 @@ CoolConfAction = tmc2209_ns.class_("CoolConfAction", automation.Action)
 ChopConfAction = tmc2209_ns.class_("ChopConfAction", automation.Action)
 PWMConfAction = tmc2209_ns.class_("PWMConfAction", automation.Action)
 SyncAction = tmc2209_ns.class_("SyncAction", automation.Action)
+
+
+STANDSTILL_MODES = {
+    "normal": StandstillMode.NORMAL,
+    "freewheeling": StandstillMode.FREEWHEELING,
+    "coil_short_ls": StandstillMode.COIL_SHORT_LS,
+    "coil_short_hs": StandstillMode.COIL_SHORT_HS,
+}
+
+SHAFT_DIRECTIONS = {
+    "clockwise": ShaftDirection.CLOCKWISE,
+    "cw": ShaftDirection.CLOCKWISE,
+    "counterclockwise": ShaftDirection.COUNTERCLOCKWISE,
+    "ccw": ShaftDirection.COUNTERCLOCKWISE,
+}
+
 
 DEVICE_SCHEMA = cv.Schema({cv.GenerateID(CONF_TMC2209_ID): cv.use_id(TMC2209Component)})
 
@@ -130,6 +133,7 @@ TMC2209_BASE_CONFIG_SCHEMA = cv.Schema(
                 cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnStallTrigger),
             }
         ),
+        cv.Optional(CONF_INCLUDE_REGISTERS, default=False): cv.boolean,
     },
 ).extend(cv.COMPONENT_SCHEMA, tmc2209_hub.TMC2209_HUB_DEVICE_SCHEMA)
 
@@ -142,6 +146,7 @@ async def register_tmc2209_base(var, config):
     cg.add(var.set_address(config[CONF_ADDRESS]))
     cg.add(var.set_clk_freq(config[CONF_CLOCK_FREQUENCY]))
     cg.add(var.set_analog_current_scale(config[CONF_ANALOG_CURRENT_SCALE]))
+    cg.add(var.set_config_dump_include_registers(config[CONF_INCLUDE_REGISTERS]))
 
     if (enn_pin := config.get(CONF_ENN_PIN, None)) is not None:
         cg.add(var.set_enn_pin(await cg.gpio_pin_expression(enn_pin)))
@@ -163,7 +168,6 @@ async def register_tmc2209_base(var, config):
 
     if (vsense := config.get(CONF_VSENSE, None)) is not None:
         cg.add(var.set_vsense(vsense))
-
         if CONF_RSENSE not in config and vsense is False:
             _LOGGER.warning(
                 "High heat dissipation (`vsense: False`) when using RDSon / internal current sensing",
@@ -195,24 +199,36 @@ def validate_tmc2209_base(config):
 @automation.register_action(
     "tmc2209.enable",
     ActivationAction,
-    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209Component)}),
+    maybe_simple_id(
+        {
+            cv.GenerateID(): cv.use_id(TMC2209Component),
+            cv.Optional(CONF_RESTORE_TOFF, default=True): cv.boolean,
+        }
+    ),
 )
 async def tmc2209_enable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     await cg.register_parented(var, config[CONF_ID])
     cg.add(var.set_activate(True))
+    cg.add(var.set_toff_recovery(config[CONF_RESTORE_TOFF]))
     return var
 
 
 @automation.register_action(
     "tmc2209.disable",
     ActivationAction,
-    maybe_simple_id({cv.GenerateID(): cv.use_id(TMC2209Component)}),
+    maybe_simple_id(
+        {
+            cv.GenerateID(): cv.use_id(TMC2209Component),
+            cv.Optional(CONF_RESTORE_TOFF, default=True): cv.boolean,
+        }
+    ),
 )
 async def tmc2209_disable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     await cg.register_parented(var, config[CONF_ID])
     cg.add(var.set_activate(False))
+    cg.add(var.set_toff_recovery(config[CONF_RESTORE_TOFF]))
     return var
 
 
@@ -222,14 +238,12 @@ async def tmc2209_disable_to_code(config, action_id, template_arg, args):
     maybe_simple_id(
         {
             cv.GenerateID(): cv.use_id(TMC2209Component),
-            cv.Optional(CONF_DIRECTION): cv.one_of(
-                OPT_CLOCKWISE, OPT_CW, OPT_COUNTERCLOCKWISE, OPT_CCW
-            ),
+            cv.Optional(CONF_DIRECTION): cv.templatable(cv.enum(SHAFT_DIRECTIONS)),
             cv.Optional(CONF_MICROSTEPS): cv.templatable(
                 cv.one_of(256, 128, 64, 32, 16, 8, 4, 2, 1)
             ),
             cv.Optional(CONF_INTERPOLATION): cv.templatable(cv.boolean),
-            cv.Optional(CONF_ENABLE_SPREADCYCLE): cv.boolean,
+            cv.Optional(CONF_ENABLE_SPREADCYCLE): cv.templatable(cv.boolean),
             cv.Optional(CONF_TCOOL_THRESHOLD): cv.templatable(
                 cv.int_range(min=0, max=2**20, max_included=False)
             ),
@@ -244,29 +258,27 @@ async def tmc2209_configure_to_code(config, action_id, template_arg, args):
     await cg.register_parented(var, config[CONF_ID])
 
     if (dir := config.get(CONF_DIRECTION, None)) is not None:
-        template_ = await cg.templatable(
-            (dir in [OPT_COUNTERCLOCKWISE, OPT_CCW]), args, bool
-        )
+        template_ = await cg.templatable(dir, args, ShaftDirection)
         cg.add(var.set_inverse_direction(template_))
 
     if (microsteps := config.get(CONF_MICROSTEPS, None)) is not None:
-        template_ = await cg.templatable(microsteps, args, int)
+        template_ = await cg.templatable(microsteps, args, cg.int_)
         cg.add(var.set_microsteps(template_))
 
     if (interpolation := config.get(CONF_INTERPOLATION, None)) is not None:
-        template_ = await cg.templatable(interpolation, args, bool)
+        template_ = await cg.templatable(interpolation, args, cg.bool_)
         cg.add(var.set_microstep_interpolation(template_))
 
     if (en_spreadcycle := config.get(CONF_ENABLE_SPREADCYCLE, None)) is not None:
-        template_ = await cg.templatable(en_spreadcycle, args, bool)
+        template_ = await cg.templatable(en_spreadcycle, args, cg.bool_)
         cg.add(var.set_enable_spreadcycle(template_))
 
     if (tcoolthrs := config.get(CONF_TCOOL_THRESHOLD, None)) is not None:
-        template_ = await cg.templatable(tcoolthrs, args, int)
+        template_ = await cg.templatable(tcoolthrs, args, cg.int_)
         cg.add(var.set_tcool_threshold(template_))
 
     if (tpwmthrs := config.get(CONF_TPWM_THRESHOLD, None)) is not None:
-        template_ = await cg.templatable(tpwmthrs, args, int)
+        template_ = await cg.templatable(tpwmthrs, args, cg.int_)
         cg.add(var.set_tpwm_threshold(template_))
 
     return var
@@ -278,21 +290,23 @@ async def tmc2209_configure_to_code(config, action_id, template_arg, args):
     maybe_simple_id(
         {
             cv.GenerateID(): cv.use_id(TMC2209Component),
-            cv.Exclusive(CONF_RUN_CURRENT, "run_current"): cv.templatable(
+            cv.Exclusive(CONF_RUN_CURRENT, "run current"): cv.templatable(
                 cv.All(cv.current, cv.positive_not_null_float)
             ),
-            cv.Exclusive(CONF_IRUN, "run_current"): cv.templatable(
+            cv.Exclusive(CONF_IRUN, "run current"): cv.templatable(
                 cv.int_range(min=0, max=31)
             ),
-            cv.Exclusive(CONF_HOLD_CURRENT, "hold_current"): cv.templatable(
+            cv.Exclusive(CONF_HOLD_CURRENT, "hold current"): cv.templatable(
                 cv.All(cv.current, cv.positive_float)
             ),
-            cv.Exclusive(CONF_IHOLD, "hold_current"): cv.templatable(
+            cv.Exclusive(CONF_IHOLD, "hold current"): cv.templatable(
                 cv.int_range(min=0, max=31)
             ),
-            cv.Optional(CONF_STANDSTILL_MODE): cv.enum(STANDSTILL_MODES),
-            cv.Optional(CONF_IHOLDDELAY): cv.int_range(0, 15),
-            cv.Optional(CONF_TPOWERDOWN): cv.int_range(0, 255),
+            cv.Optional(CONF_STANDSTILL_MODE): cv.templatable(
+                cv.enum(STANDSTILL_MODES, string=True)
+            ),
+            cv.Optional(CONF_IHOLDDELAY): cv.templatable(cv.int_range(0, 15)),
+            cv.Optional(CONF_TPOWERDOWN): cv.templatable(cv.int_range(0, 255)),
         }
     ),
 )
@@ -301,31 +315,31 @@ async def tmc2209_currents_to_code(config, action_id, template_arg, args):
     await cg.register_parented(var, config[CONF_ID])
 
     if (standstill_mode := config.get(CONF_STANDSTILL_MODE, None)) is not None:
-        template_ = await cg.templatable(STANDSTILL_MODES[standstill_mode], args, float)
+        template_ = await cg.templatable(standstill_mode, args, StandstillMode)
         cg.add(var.set_standstill_mode(template_))
 
     if (run_current := config.get(CONF_RUN_CURRENT, None)) is not None:
-        template_ = await cg.templatable(run_current, args, cv.current)
+        template_ = await cg.templatable(run_current, args, cg.float_)
         cg.add(var.set_run_current(template_))
 
     if (irun := config.get(CONF_IRUN, None)) is not None:
-        template_ = await cg.templatable(irun, args, cv.int_range(0, 31))
+        template_ = await cg.templatable(irun, args, cg.uint8)
         cg.add(var.set_irun(template_))
 
     if (hold_current := config.get(CONF_HOLD_CURRENT, None)) is not None:
-        template_ = await cg.templatable(hold_current, args, cv.current)
+        template_ = await cg.templatable(hold_current, args, cg.float_)
         cg.add(var.set_hold_current(template_))
 
     if (ihold := config.get(CONF_IHOLD, None)) is not None:
-        template_ = await cg.templatable(ihold, args, cv.int_range(0, 31))
+        template_ = await cg.templatable(ihold, args, cg.uint8)
         cg.add(var.set_ihold(template_))
 
     if (iholddelay := config.get(CONF_IHOLDDELAY, None)) is not None:
-        template_ = await cg.templatable(iholddelay, args, float)
+        template_ = await cg.templatable(iholddelay, args, cg.uint8)
         cg.add(var.set_iholddelay(template_))
 
     if (tpowerdown := config.get(CONF_TPOWERDOWN, None)) is not None:
-        template_ = await cg.templatable(tpowerdown, args, float)
+        template_ = await cg.templatable(tpowerdown, args, cg.uint8)
         cg.add(var.set_tpowerdown(template_))
 
     return var
@@ -337,7 +351,9 @@ async def tmc2209_currents_to_code(config, action_id, template_arg, args):
     maybe_simple_id(
         {
             cv.GenerateID(): cv.use_id(TMC2209Component),
-            cv.Optional(CONF_THRESHOLD): cv.templatable(cv.int_range(min=0, max=2**8)),
+            cv.Optional(CONF_THRESHOLD): cv.templatable(
+                cv.int_range(min=0, max=2**8, max_included=False)
+            ),
         }
     ),
 )
@@ -346,7 +362,7 @@ async def tmc2209_stallguard_to_code(config, action_id, template_arg, args):
     await cg.register_parented(var, config[CONF_ID])
 
     if (sgthrs := config.get(CONF_THRESHOLD, None)) is not None:
-        template_ = await cg.templatable(sgthrs, args, int)
+        template_ = await cg.templatable(sgthrs, args, cg.uint8)
         cg.add(var.set_stallguard_threshold(template_))
 
     return var
@@ -381,23 +397,23 @@ async def tmc2209_coolconf_to_code(config, action_id, template_arg, args):
     await cg.register_parented(var, config[CONF_ID])
 
     if (seimin := config.get(CONF_SEIMIN, None)) is not None:
-        template_ = await cg.templatable(seimin, args, int)
+        template_ = await cg.templatable(seimin, args, cg.uint8)
         cg.add(var.set_seimin(template_))
 
     if (semax := config.get(CONF_SEMAX, None)) is not None:
-        template_ = await cg.templatable(semax, args, int)
+        template_ = await cg.templatable(semax, args, cg.uint8)
         cg.add(var.set_semax(template_))
 
     if (semin := config.get(CONF_SEMIN, None)) is not None:
-        template_ = await cg.templatable(semin, args, int)
+        template_ = await cg.templatable(semin, args, cg.uint8)
         cg.add(var.set_semin(template_))
 
     if (sedn := config.get(CONF_SEDN, None)) is not None:
-        template_ = await cg.templatable(sedn, args, int)
+        template_ = await cg.templatable(sedn, args, cg.uint8)
         cg.add(var.set_sedn(template_))
 
     if (seup := config.get(CONF_SEUP, None)) is not None:
-        template_ = await cg.templatable(seup, args, int)
+        template_ = await cg.templatable(seup, args, cg.uint8)
         cg.add(var.set_seup(template_))
 
     return var
@@ -426,15 +442,15 @@ async def tmc2209_chopconf_to_code(config, action_id, template_arg, args):
     await cg.register_parented(var, config[CONF_ID])
 
     if (tbl := config.get(CONF_TBL, None)) is not None:
-        template_ = await cg.templatable(tbl, args, int)
+        template_ = await cg.templatable(tbl, args, cg.uint8)
         cg.add(var.set_tbl(template_))
 
     if (hend := config.get(CONF_HEND, None)) is not None:
-        template_ = await cg.templatable(hend, args, int)
+        template_ = await cg.templatable(hend, args, cg.uint8)
         cg.add(var.set_hend(template_))
 
     if (hstrt := config.get(CONF_HSTRT, None)) is not None:
-        template_ = await cg.templatable(hstrt, args, int)
+        template_ = await cg.templatable(hstrt, args, cg.uint8)
         cg.add(var.set_hstrt(template_))
 
     return var
@@ -471,36 +487,37 @@ async def tmc2209_pwmconf_to_code(config, action_id, template_arg, args):
     await cg.register_parented(var, config[CONF_ID])
 
     if (pwmlim := config.get(CONF_PWM_LIM, None)) is not None:
-        template_ = await cg.templatable(pwmlim, args, int)
+        template_ = await cg.templatable(pwmlim, args, cg.uint8)
         cg.add(var.set_pwmlim(template_))
 
     if (pwmreg := config.get(CONF_PWM_REG, None)) is not None:
-        template_ = await cg.templatable(pwmreg, args, int)
+        template_ = await cg.templatable(pwmreg, args, cg.uint8)
         cg.add(var.set_pwmreg(template_))
 
     if (pwmfreq := config.get(CONF_PWM_FREQ, None)) is not None:
-        template_ = await cg.templatable(pwmfreq, args, int)
+        template_ = await cg.templatable(pwmfreq, args, cg.uint8)
         cg.add(var.set_pwmfreq(template_))
 
     if (pwmgrad := config.get(CONF_PWM_GRAD, None)) is not None:
-        template_ = await cg.templatable(pwmgrad, args, int)
+        template_ = await cg.templatable(pwmgrad, args, cg.uint8)
         cg.add(var.set_pwmgrad(template_))
 
     if (pwmofs := config.get(CONF_PWM_OFS, None)) is not None:
-        template_ = await cg.templatable(pwmofs, args, int)
+        template_ = await cg.templatable(pwmofs, args, cg.uint8)
         cg.add(var.set_pwmofs(template_))
 
     if (pwmautograd := config.get(CONF_PWM_AUTOGRAD, None)) is not None:
-        template_ = await cg.templatable(pwmautograd, args, bool)
+        template_ = await cg.templatable(pwmautograd, args, cg.bool_)
         cg.add(var.set_pwmautograd(template_))
 
     if (pwmautoscale := config.get(CONF_PWM_AUTOSCALE, None)) is not None:
-        template_ = await cg.templatable(pwmautoscale, args, bool)
+        template_ = await cg.templatable(pwmautoscale, args, cg.bool_)
         cg.add(var.set_pwmautoscale(template_))
 
     return var
 
 
+# CONF_TO_IDS = "to"
 # @automation.register_action(
 #     "tmc2209.sync",
 #     SyncAction,

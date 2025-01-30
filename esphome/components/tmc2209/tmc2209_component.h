@@ -17,7 +17,22 @@ namespace tmc2209 {
 
 #define MRES_TO_MS(mres) (256 >> mres)  // convert MRES value (microstepping index) to human readable microstep value
 
-enum CurrentScaleMode { VREF = true, REGISTER = false };
+enum CurrentScaleMode {
+  VREF = true,
+  REGISTER = false,
+};
+
+enum StandstillMode {
+  NORMAL = 0,
+  FREEWHEELING = 1,
+  COIL_SHORT_LS = 3,
+  COIL_SHORT_HS = 4,
+};
+
+enum ShaftDirection {
+  CLOCKWISE = 0,
+  COUNTERCLOCKWISE = 1,
+};
 
 struct ISRPinTriggerStore {
   bool *pin_triggered_ptr = nullptr;
@@ -51,12 +66,14 @@ class TMC2209Component : public TMC2209API, public Component {
   void set_ottrim(uint8_t ottrim) { this->ottrim_ = ottrim; }
   void set_enable_driver_health_check(bool enable) { this->driver_health_check_is_enabled_ = enable; }
   void set_enable_stall_detection(bool enable) { this->stall_detection_is_enabled_ = enable; }
-
+  void set_config_dump_include_registers(bool include) { this->config_dump_include_registers_ = include; }
+  void set_toff_recovery(bool enable) { this->toff_recovery_ = enable; }
   void add_on_stall_callback(std::function<void()> &&callback) { this->on_stall_callback_.add(std::move(callback)); }
   void add_on_driver_status_callback(std::function<void(DriverStatusEvent)> &&callback) {
     this->on_driver_status_callback_.add(std::move(callback));
   }
 
+  // virtual void enable(bool enable, bool recover_toff = true);
   virtual void enable(bool enable);
 
   float read_vsense();
@@ -90,11 +107,13 @@ class TMC2209Component : public TMC2209API, public Component {
  protected:
   /** Setup / configuration */
   bool use_analog_current_scale_{false};
+  bool config_dump_include_registers_{true};
   optional<float> rsense_{};
   optional<bool> vsense_{};
   optional<uint8_t> ottrim_{};
   uint32_t clk_freq_;
   float clk_to_vactual_factor_{0.715};  // coefficient between clock and real steps using VACTUAL
+  bool toff_recovery_{true};
 
   bool driver_health_check_is_enabled_{false};
   bool stall_detection_is_enabled_{false};
@@ -107,10 +126,11 @@ class TMC2209Component : public TMC2209API, public Component {
   /** */
 
   /** Runtime helpers */
-  bool is_enabled_;
+  bool is_enabled_{false};
   bool check_gstat_{false};
   bool check_drv_status{false};
   bool diag_triggered_{false};
+  optional<uint8_t> toff_storage_{};
   /** */
 
   ISRPinTriggerStore diag_isr_store_;

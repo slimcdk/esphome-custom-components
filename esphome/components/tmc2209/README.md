@@ -259,6 +259,8 @@ stepper:
 > [!NOTE]
 *VREF is often a tiny potentiometer. Setting IRUN to 31 will allow VREF adjustments in the full current range allowed by the sense resistors (rsense). Setting IRUN to 16 narrows that range to ~50%. **IRUN effectively sets the upper limit for what VREF can scale to.***
 
+* `config_dump_include_registers` (*Optional*, boolean): Config dump will display current values in the drivers registers if set. Default is false.
+
 * `clock_frequency` (*Optional*, frequency): Timing reference for all functionalities of the driver. Defaults to 12MHz, which all drivers are factory calibrated to. Only set if using external clock.
 
 * All other from [Base Stepper Component][base-stepper-component]
@@ -331,7 +333,7 @@ Most events is signaling that the driver is in a given state. The majority of ev
 
 
 ### `tmc2209.configure` Action
-Example of configuring the driver. For instance on boot.
+Example of configuring the driver. For instance [`on_boot`](https://esphome.io/components/esphome.html#on-boot).
 ```yaml
 on_...:
   - tmc2209.configure:
@@ -353,9 +355,9 @@ on_...:
 
 * `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `False` allows use of StealthChop. Defaults to OTP.
 
-* `tcool_threshold` (*Optional*, int): Sets **TCOOLTHRS**
+* `tcool_threshold` (*Optional*, int, [templatable][config-templatable]): Sets **TCOOLTHRS**
 
-* `tpwm_threshold` (*Optional*, int): Sets **TPWMTHRS**
+* `tpwm_threshold` (*Optional*, int, [templatable][config-templatable]): Sets **TPWMTHRS**
 
 
 ### `tmc2209.currents` Action
@@ -363,13 +365,13 @@ Example of configuring currents and standstill mode.
 ```yaml
 on_...:
   - tmc2209.currents:
-      standstill_mode: freewheeling
-      irun: 16
-      ihold: 0
-      tpowerdown: 0
-      iholddelay: 0
-      run_current: 800mA
-      hold_current: 0mA
+      standstill_mode: REPLACEME
+      irun: REPLACEME
+      run_current: REPLACEME
+      ihold: REPLACEME
+      hold_current: REPLACEME
+      tpowerdown: REPLACEME
+      iholddelay: REPLACEME
 ```
 
 * `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
@@ -424,15 +426,15 @@ on_...:
 
 * `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
-* `seimin` (*Optional*, int): Sets **SEIMIN**
+* `seimin` (*Optional*, int, [templatable][config-templatable]): Sets **SEIMIN**
 
-* `semax` (*Optional*, int): Sets **SEMAX**
+* `semax` (*Optional*, int, [templatable][config-templatable]): Sets **SEMAX**
 
-* `semin` (*Optional*, int): Sets **SEMIN**
+* `semin` (*Optional*, int, [templatable][config-templatable]): Sets **SEMIN**
 
-* `sedn` (*Optional*, int): Sets **SEDN**
+* `sedn` (*Optional*, int, [templatable][config-templatable]): Sets **SEDN**
 
-* `seup` (*Optional*, int): Sets **SEUP**
+* `seup` (*Optional*, int, [templatable][config-templatable]): Sets **SEUP**
 
 
 
@@ -447,11 +449,11 @@ on_...:
 
 * `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
-* `tbl` (*Optional*, int): Sets CHOPCONF **TBL**
+* `tbl` (*Optional*, int, [templatable][config-templatable]): Sets CHOPCONF **TBL**
 
-* `hend` (*Optional*, int): Sets CHOPCONF **HEND**
+* `hend` (*Optional*, int, [templatable][config-templatable]): Sets CHOPCONF **HEND**
 
-* `hstrt` (*Optional*, int): Sets CHOPCONF **HSTRT**
+* `hstrt` (*Optional*, int, [templatable][config-templatable]): Sets CHOPCONF **HSTRT**
 
 
 
@@ -469,17 +471,17 @@ on_...:
 
 * `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
-* `lim` (*Optional*, int): Sets PWMCONF **PWM_LIM**
+* `lim` (*Optional*, int, [templatable][config-templatable]): Sets PWMCONF **PWM_LIM**
 
-* `reg` (*Optional*, int): Sets PWMCONF **PWM_REG**
+* `reg` (*Optional*, int, [templatable][config-templatable]): Sets PWMCONF **PWM_REG**
 
-* `freq` (*Optional*, int): Sets PWMCONF **PWM_FREQ**
+* `freq` (*Optional*, int, [templatable][config-templatable]): Sets PWMCONF **PWM_FREQ**
 
-* `ofs` (*Optional*, int): Sets PWMCONF **PWM_OFS**
+* `ofs` (*Optional*, int, [templatable][config-templatable]): Sets PWMCONF **PWM_OFS**
 
-* `autograd` (*Optional*, boolean): Sets PWMCONF **PWM_AUTOGRAD**
+* `autograd` (*Optional*, boolean, [templatable][config-templatable]): Sets PWMCONF **PWM_AUTOGRAD**
 
-* `autoscale` (*Optional*, boolean): Sets PWMCONF **PWM_AUTOSCALE**
+* `autoscale` (*Optional*, boolean, [templatable][config-templatable]): Sets PWMCONF **PWM_AUTOSCALE**
 
 
 ### `tmc2209.enable` Action
@@ -487,9 +489,13 @@ on_...:
 This uses *TOFF* (sets to 3) if `enn_pin` is not set to enable the driver. *Driver will automatically be enabled if new target is issued.*
 ```yaml
 on_...:
-  - tmc2209.enable: driver
+  - tmc2209.enable:
+      id: driver
+      restore_toff: REPLACEME
 ```
 * `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
+
+* `restore_toff` (*Optional*, boolean, [templatable][config-templatable]): Will attempt to recover TOFF value. Used when no `enn_pin` is configured.
 
 
 ### `tmc2209.disable` Action
@@ -497,11 +503,14 @@ on_...:
 This uses *TOFF* (sets to 0) if `enn_pin` is not set to disable the driver. This will also trigger `stepper.stop`.
 ```yaml
 on_...:
-  - tmc2209.disable: driver
+  - tmc2209.disable:
+      id: driver
+      restore_toff: REPLACEME
 ```
 
 * `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
+* `restore_toff` (*Optional*, boolean, [templatable][config-templatable]): Will attempt to recover TOFF value. Used when no `enn_pin` is configured.
 
 <!-- ### `tmc2209.sync` Action
 
@@ -681,6 +690,7 @@ stepper:
     max_speed: 900 steps/s
     acceleration: 1500 steps/s^2
     deceleration: 500 steps/s^2
+    config_dump_include_registers: true
     rsense: 110 mOhm
     vsense: False
     index_pin: 42
@@ -858,13 +868,13 @@ button:
 Guides to wire ESPHome supported MCU to a TMC2209 driver for either only UART control or pulse control.
 
 ### UART Control
-Wiring for [UART control](#control-the-position-using-traditional-stepping-pulses-and-direction)
+Wiring for [UART control](#control-the-position-using-serial-uart)
 
 <img src="./docs/uart-wiring.svg" alt="UART wiring" style="border: 10px solid white" width="100%" />
 
 
 ### Pulse control
-Wiring for [Pulse control](#control-the-position-using-serial-uart).
+Wiring for [Pulse control](#control-the-position-using-traditional-stepping-pulses-and-direction)
 
 <img src="./docs/sd-wiring.svg" alt="STEP/DIR wiring" style="border: 10px solid white" width="100%" />
 

@@ -11,16 +11,16 @@ namespace tmc2209 {
 
 template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Parented<TMC2209Component> {
  public:
-  TEMPLATABLE_VALUE(bool, inverse_direction)
+  TEMPLATABLE_VALUE(ShaftDirection, inverse_direction)
   TEMPLATABLE_VALUE(int, microsteps)
   TEMPLATABLE_VALUE(bool, microstep_interpolation)
   TEMPLATABLE_VALUE(bool, enable_spreadcycle)
-  TEMPLATABLE_VALUE(int, tcool_threshold)
-  TEMPLATABLE_VALUE(int, tpwm_threshold)
+  TEMPLATABLE_VALUE(uint8_t, tcool_threshold)
+  TEMPLATABLE_VALUE(uint8_t, tpwm_threshold)
 
   void play(Ts... x) override {
     if (this->inverse_direction_.has_value())
-      this->parent_->write_field(SHAFT_FIELD, this->inverse_direction_.value(x...));
+      this->parent_->write_field(SHAFT_FIELD, (uint8_t) this->inverse_direction_.value(x...));
 
     if (this->microsteps_.has_value())
       this->parent_->set_microsteps(this->microsteps_.value(x...));
@@ -41,21 +41,25 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
 
 template<typename... Ts> class ActivationAction : public Action<Ts...>, public Parented<TMC2209Component> {
   TEMPLATABLE_VALUE(bool, activate)
+  TEMPLATABLE_VALUE(bool, toff_recovery)
 
   void play(Ts... x) override {
     if (this->activate_.has_value()) {
       this->parent_->enable(this->activate_.value(x...));
+    }
+    if (this->toff_recovery_.has_value()) {
+      this->parent_->set_toff_recovery(this->toff_recovery_.value(x...));
     }
   }
 };
 
 template<typename... Ts> class CurrentsAction : public Action<Ts...>, public Parented<TMC2209Component> {
  public:
-  TEMPLATABLE_VALUE(int, standstill_mode)
+  TEMPLATABLE_VALUE(StandstillMode, standstill_mode)
   TEMPLATABLE_VALUE(uint8_t, irun)
   TEMPLATABLE_VALUE(uint8_t, ihold)
-  TEMPLATABLE_VALUE(int, iholddelay)
-  TEMPLATABLE_VALUE(int, tpowerdown)
+  TEMPLATABLE_VALUE(uint8_t, iholddelay)
+  TEMPLATABLE_VALUE(uint8_t, tpowerdown)
   TEMPLATABLE_VALUE(float, run_current)
   TEMPLATABLE_VALUE(float, hold_current)
 
@@ -64,7 +68,7 @@ template<typename... Ts> class CurrentsAction : public Action<Ts...>, public Par
       if (this->parent_->read_field(EN_SPREADCYCLE_FIELD)) {
         ESP_LOGW(TAG, "standstill modes are only possible with StealthChop enabled.");
       }
-      this->parent_->write_field(FREEWHEEL_FIELD, this->standstill_mode_.value(x...));
+      this->parent_->write_field(FREEWHEEL_FIELD, (uint8_t) this->standstill_mode_.value(x...));
     }
 
     if (this->iholddelay_.has_value())
@@ -74,30 +78,18 @@ template<typename... Ts> class CurrentsAction : public Action<Ts...>, public Par
       this->parent_->write_field(TPOWERDOWN_FIELD, this->tpowerdown_.value(x...));
 
     if (this->irun_.has_value()) {
-      // if (this->parent_->analog_scale_) {
-      //   ESP_LOGW(TAG, "this has no effect since VREF controls current scaling");
-      // }
       this->parent_->write_field(IRUN_FIELD, this->irun_.value(x...));
     }
 
     if (this->ihold_.has_value()) {
-      // if (this->parent_->analog_scale_) {
-      //   ESP_LOGW(TAG, "this has no effect since VREF controls current scaling");
-      // }
       this->parent_->write_field(IHOLD_FIELD, this->ihold_.value(x...));
     }
 
     if (this->run_current_.has_value()) {
-      // if (this->parent_->analog_scale_) {
-      //   ESP_LOGW(TAG, "this has no effect since VREF controls current scaling");
-      // }
       this->parent_->write_run_current(this->run_current_.value(x...));
     }
 
     if (this->hold_current_.has_value()) {
-      // if (this->parent_->analog_scale_) {
-      //   ESP_LOGW(TAG, "this has no effect since VREF controls current scaling");
-      // }
       this->parent_->write_hold_current(this->hold_current_.value(x...));
     }
   }
@@ -105,7 +97,7 @@ template<typename... Ts> class CurrentsAction : public Action<Ts...>, public Par
 
 template<typename... Ts> class StallGuardAction : public Action<Ts...>, public Parented<TMC2209Component> {
  public:
-  TEMPLATABLE_VALUE(int32_t, stallguard_threshold)
+  TEMPLATABLE_VALUE(uint8_t, stallguard_threshold)
 
   void play(Ts... x) override {
     if (this->stallguard_threshold_.has_value())

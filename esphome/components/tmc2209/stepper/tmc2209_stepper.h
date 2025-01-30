@@ -39,6 +39,7 @@ class TMC2209Stepper : public TMC2209Component, public Stepper {
   void on_shutdown() override;
   void stop() override;
   void enable(bool enable) override;
+  // void enable(bool enable, bool recover_toff = true) override;
   void set_target(int32_t steps) override;
   bool is_stalled() override;
 
