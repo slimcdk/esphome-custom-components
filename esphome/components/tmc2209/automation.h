@@ -12,11 +12,11 @@ namespace tmc2209 {
 template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Parented<TMC2209Component> {
  public:
   TEMPLATABLE_VALUE(ShaftDirection, inverse_direction)
-  TEMPLATABLE_VALUE(int, microsteps)
+  TEMPLATABLE_VALUE(uint16_t, microsteps)
   TEMPLATABLE_VALUE(bool, microstep_interpolation)
   TEMPLATABLE_VALUE(bool, enable_spreadcycle)
-  TEMPLATABLE_VALUE(uint8_t, tcool_threshold)
-  TEMPLATABLE_VALUE(uint8_t, tpwm_threshold)
+  TEMPLATABLE_VALUE(uint32_t, tcool_threshold)
+  TEMPLATABLE_VALUE(uint32_t, tpwm_threshold)
 
   void play(Ts... x) override {
     if (this->inverse_direction_.has_value())
@@ -97,7 +97,7 @@ template<typename... Ts> class CurrentsAction : public Action<Ts...>, public Par
 
 template<typename... Ts> class StallGuardAction : public Action<Ts...>, public Parented<TMC2209Component> {
  public:
-  TEMPLATABLE_VALUE(uint8_t, stallguard_threshold)
+  TEMPLATABLE_VALUE(int32_t, stallguard_threshold)
 
   void play(Ts... x) override {
     if (this->stallguard_threshold_.has_value())
@@ -107,7 +107,7 @@ template<typename... Ts> class StallGuardAction : public Action<Ts...>, public P
 
 template<typename... Ts> class CoolConfAction : public Action<Ts...>, public Parented<TMC2209Component> {
  public:
-  TEMPLATABLE_VALUE(uint8_t, seimin)
+  TEMPLATABLE_VALUE(bool, seimin)
   TEMPLATABLE_VALUE(uint8_t, semax)
   TEMPLATABLE_VALUE(uint8_t, semin)
   TEMPLATABLE_VALUE(uint8_t, sedn)
@@ -115,7 +115,7 @@ template<typename... Ts> class CoolConfAction : public Action<Ts...>, public Par
 
   void play(Ts... x) override {
     if (this->seimin_.has_value())
-      this->parent_->write_field(SEIMIN_FIELD, this->seimin_.value(x...));
+      this->parent_->write_field(SEIMIN_FIELD, (uint8_t) this->seimin_.value(x...));
 
     if (this->semax_.has_value())
       this->parent_->write_field(SEMAX_FIELD, this->semax_.value(x...));

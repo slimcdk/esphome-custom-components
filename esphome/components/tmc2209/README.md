@@ -495,7 +495,7 @@ on_...:
 ```
 * `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
-* `restore_toff` (*Optional*, boolean, [templatable][config-templatable]): Will attempt to recover TOFF value. Used when no `enn_pin` is configured.
+* `restore_toff` (*Optional*, boolean, [templatable][config-templatable]): Will attempt to recover TOFF value. Used when no `enn_pin` is configured. Enabled by default.
 
 
 ### `tmc2209.disable` Action

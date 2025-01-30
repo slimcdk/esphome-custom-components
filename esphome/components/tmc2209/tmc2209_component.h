@@ -17,19 +17,19 @@ namespace tmc2209 {
 
 #define MRES_TO_MS(mres) (256 >> mres)  // convert MRES value (microstepping index) to human readable microstep value
 
-enum CurrentScaleMode {
+enum CurrentScaleMode : bool {
   VREF = true,
   REGISTER = false,
 };
 
-enum StandstillMode {
+enum StandstillMode : uint8_t {
   NORMAL = 0,
   FREEWHEELING = 1,
   COIL_SHORT_LS = 3,
   COIL_SHORT_HS = 4,
 };
 
-enum ShaftDirection {
+enum ShaftDirection : uint8_t {
   CLOCKWISE = 0,
   COUNTERCLOCKWISE = 1,
 };
@@ -98,7 +98,7 @@ class TMC2209Component : public TMC2209API, public Component {
   float read_run_current() { return FROM_MILLI(this->read_run_current_mA()); };
   float read_hold_current() { return FROM_MILLI(this->read_hold_current_mA()); };
 
-  // Velocity, compensated VACTUAL by clock
+  // clock compensated velocity (VACTUAL)
   int32_t vactual_to_speed(int32_t vactual) { return std::round((float) vactual * this->clk_to_vactual_factor_); }
   int32_t speed_to_vactual(int32_t speed) { return std::round((float) speed / this->clk_to_vactual_factor_); }
   int32_t read_speed() { return this->vactual_to_speed((int32_t) this->read_field(VACTUAL_FIELD)); }
@@ -107,7 +107,7 @@ class TMC2209Component : public TMC2209API, public Component {
  protected:
   /** Setup / configuration */
   bool use_analog_current_scale_{false};
-  bool config_dump_include_registers_{true};
+  bool config_dump_include_registers_{false};
   optional<float> rsense_{};
   optional<bool> vsense_{};
   optional<uint8_t> ottrim_{};

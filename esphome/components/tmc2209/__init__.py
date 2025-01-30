@@ -262,7 +262,7 @@ async def tmc2209_configure_to_code(config, action_id, template_arg, args):
         cg.add(var.set_inverse_direction(template_))
 
     if (microsteps := config.get(CONF_MICROSTEPS, None)) is not None:
-        template_ = await cg.templatable(microsteps, args, cg.int_)
+        template_ = await cg.templatable(microsteps, args, cg.int16)
         cg.add(var.set_microsteps(template_))
 
     if (interpolation := config.get(CONF_INTERPOLATION, None)) is not None:
@@ -274,11 +274,11 @@ async def tmc2209_configure_to_code(config, action_id, template_arg, args):
         cg.add(var.set_enable_spreadcycle(template_))
 
     if (tcoolthrs := config.get(CONF_TCOOL_THRESHOLD, None)) is not None:
-        template_ = await cg.templatable(tcoolthrs, args, cg.int_)
+        template_ = await cg.templatable(tcoolthrs, args, cg.uint32)
         cg.add(var.set_tcool_threshold(template_))
 
     if (tpwmthrs := config.get(CONF_TPWM_THRESHOLD, None)) is not None:
-        template_ = await cg.templatable(tpwmthrs, args, cg.int_)
+        template_ = await cg.templatable(tpwmthrs, args, cg.uint32)
         cg.add(var.set_tpwm_threshold(template_))
 
     return var

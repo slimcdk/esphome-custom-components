@@ -238,5 +238,6 @@ namespace tmc2209 {
   if (this->config_dump_include_registers_) { \
     LOG_TMC2209_REGISTER_DUMP(this); \
   }
+
 }  // namespace tmc2209
 }  // namespace esphome
