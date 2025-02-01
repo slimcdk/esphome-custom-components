@@ -3,14 +3,8 @@
 # ADI Trinamic TMC2209 smart stepper driver
 
 <figure>
-  <img src="https://images.squarespace-cdn.com/content/v1/59b037304c0dbfb092fbe894/1611593915561-F8SSMV0DUXNDNLHQNSW1/nema17_rpi_demo.gif?format=2500w" width=100% href="https://makersportal.com/blog/raspberry-pi-stepper-motor-control-with-nema-17" />
-  <figcaption >
-    <span style="color:blue"> <a href="https://makersportal.com/blog/raspberry-pi-stepper-motor-control-with-nema-17">Raspberry Pi Stepper Motor Control with NEMA 17</a> <i>by Joshua Hrisko.</i> </span>
-  </figcaption>
+  <img src="./docs/header.gif" width=100%>
 </figure>
-
-</br>
-</br>
 
 <p align="center">
   <img src="./docs/trinamic-bob-module.jpg" alt="Trinamic BOB" width="19%" />
