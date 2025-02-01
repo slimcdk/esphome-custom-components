@@ -11,6 +11,9 @@ void TMC2209Stepper::dump_config() {
   ESP_LOGCONFIG(TAG, "TMC2209 Stepper:");
   LOG_STEPPER(this);
   LOG_TMC2209(this);
+
+  const auto fclktrim = this->read_field(FCLKTRIM_FIELD);
+  ESP_LOGD(TAG, "FCLKTRIM = %ld | 0x%lX", fclktrim, fclktrim);
 }
 
 void TMC2209Stepper::setup() {

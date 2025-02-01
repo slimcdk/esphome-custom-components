@@ -8,6 +8,7 @@ from esphome.const import (
     CONF_DIR_PIN,
     CONF_DIRECTION,
     CONF_THRESHOLD,
+    CONF_TO,
 )
 import esphome.codegen as cg
 import esphome.config_validation as cv
@@ -517,36 +518,34 @@ async def tmc2209_pwmconf_to_code(config, action_id, template_arg, args):
     return var
 
 
-# CONF_TO_IDS = "to"
-# @automation.register_action(
-#     "tmc2209.sync",
-#     SyncAction,
-#     cv.Schema(
-#         {
-#             cv.GenerateID(): cv.use_id(TMC2209Component),
-#             cv.Required(CONF_TO_IDS): cv.All(
-#                 cv.ensure_list(cv.use_id(TMC2209Component)), cv.Length(min=1)
-#             ),
-#         }
-#     ),
-# )
-# async def tmc2209_sync_to_code(config, action_id, template_arg, args):
+@automation.register_action(
+    "tmc2209.sync",
+    SyncAction,
+    cv.Schema(
+        {
+            cv.GenerateID(): cv.use_id(TMC2209Component),
+            cv.Required(CONF_TO): cv.All(
+                cv.ensure_list(cv.use_id(TMC2209Component)), cv.Length(min=1)
+            ),
+        }
+    ),
+)
+async def tmc2209_sync_to_code(config, action_id, template_arg, args):
 
-#     var = cg.new_Pvariable(action_id, template_arg)
-#     await cg.register_parented(var, config[CONF_ID])
+    var = cg.new_Pvariable(action_id, template_arg)
+    await cg.register_parented(var, config[CONF_ID])
 
-#     if config[CONF_ID] in config[CONF_TO_IDS]:
-#         _LOGGER.error("tmc2209.sync for %s is syncing to self", config[CONF_ID])
-#         # raise EsphomeError(f"tmc2209.sync for {config[CONF_ID]} is syncing to self")
+    if config[CONF_ID] in config[CONF_TO]:
+        _LOGGER.error("tmc2209.sync for %s is syncing to self", config[CONF_ID])
 
-#     if len(config[CONF_TO_IDS]) != len(set(config[CONF_TO_IDS])):
-#         _LOGGER.warning("tmc2209.sync for %s has duplicate references", config[CONF_ID])
+    if len(config[CONF_TO]) != len(set(config[CONF_TO])):
+        _LOGGER.warning("tmc2209.sync for %s has duplicate references", config[CONF_ID])
 
-#     template_ = await cg.templatable(
-#         [await cg.get_variable(id) for id in config[CONF_TO_IDS]],
-#         args,
-#         cg.std_vector.template(TMC2209Component),
-#     )
-#     cg.add(var.set_drivers(template_))
+    template_ = await cg.templatable(
+        [await cg.get_variable(id) for id in config[CONF_TO]],
+        args,
+        cg.std_vector.template(TMC2209Component),
+    )
+    cg.add(var.set_drivers(template_))
 
-#     return var
+    return var

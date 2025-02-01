@@ -183,7 +183,7 @@ template<typename... Ts> class PWMConfAction : public Action<Ts...>, public Pare
   }
 };
 
-/*template<typename... Ts> class SyncAction : public Action<Ts...>, public Parented<TMC2209Component> {
+template<typename... Ts> class SyncAction : public Action<Ts...>, public Parented<TMC2209Component> {
  public:
   TEMPLATABLE_VALUE(std::vector<TMC2209Component *>, drivers);
 
@@ -220,7 +220,7 @@ template<typename... Ts> class PWMConfAction : public Action<Ts...>, public Pare
       driver->write_field(OTTRIM_FIELD, factory_conf_ottrim);
     }
   }
-};*/
+};
 
 class OnDriverStatusTrigger : public Trigger<DriverStatusEvent> {
  public:
