@@ -3,6 +3,7 @@
 #include "tmc2209_api_registers.h"
 #include "tmc2209_api.h"
 #include "events.h"
+
 #include "tmc2209_config_dumps.h"
 
 #include "esphome/core/component.h"
