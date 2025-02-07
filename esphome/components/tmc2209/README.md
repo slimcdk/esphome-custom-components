@@ -229,6 +229,8 @@ stepper:
 
 * `dir_pin` (*Optional*, [Output Pin Schema][config-pin]): Controls direction of the motor.
 
+* `select_pin` (*Optional*, [Output Pin Schema][config-pin]): Intended for enabling dataline with analog switchs as described in [figure 4.2 section 4.4][datasheet] of the datasheet.
+
 * `rsense` (*Optional*, resistance): Motor current sense resistors. Often varies from ~75 to 1000 mOhm. The actual value for your board can be found in the documentation. Leave empty to enable internal sensing using RDSon (170 mOhm). *Don't leave empty if your board has external sense resistors!*
 
 * `vsense` (*Optional*, boolean): Reduce currents/power to ~55% if smaller (<1/4 W) RSense resistors are used. Defaults to OTP. RSense must be configued as well.

@@ -124,6 +124,7 @@ class TMC2209Component : public TMC2209API, public Component {
   InternalGPIOPin *index_pin_{nullptr};
   GPIOPin *step_pin_{nullptr};
   GPIOPin *dir_pin_{nullptr};
+  // GPIOPin *sel_pin_{nullptr};
   /** */
 
   /** Runtime helpers */

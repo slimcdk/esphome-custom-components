@@ -93,6 +93,7 @@ class TMC2209API : public Parented<TMC2209Hub> {
   TMC2209API() = default;
   TMC2209API(uint8_t address) : address_(address){};
 
+  void set_sel_pin(GPIOPin *pin) { this->sel_pin_ = pin; };
   void set_address(uint8_t address) { this->address_ = address; }
 
   const uint8_t get_address() { return this->address_; }
@@ -107,6 +108,7 @@ class TMC2209API : public Parented<TMC2209Hub> {
 
  protected:
   uint8_t address_;
+  GPIOPin *sel_pin_{nullptr};
 
  private:
   uint8_t dirty_bits_[REGISTER_COUNT / 8] = {0};
@@ -116,6 +118,10 @@ class TMC2209API : public Parented<TMC2209Hub> {
   bool get_dirty_bit_(uint8_t index);
   bool cache_(CacheOperation operation, uint8_t address, uint32_t *value);
   uint8_t crc8_(uint8_t *data, uint32_t bytes);
+
+  void enable_comm_(bool enable);
+  void write_register_(uint8_t address, int32_t value);
+  int32_t read_register_(uint8_t address);
 };
 
 }  // namespace tmc2209

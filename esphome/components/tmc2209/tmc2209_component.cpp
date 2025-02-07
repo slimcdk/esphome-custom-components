@@ -19,6 +19,10 @@ void TMC2209Component::setup() {
     this->index_pin_->setup();
   }
 
+  if (this->sel_pin_ != nullptr) {
+    this->sel_pin_->setup();
+  }
+
   if (this->step_pin_ != nullptr and this->dir_pin_ != nullptr) {
     this->step_pin_->setup();
     this->dir_pin_->setup();

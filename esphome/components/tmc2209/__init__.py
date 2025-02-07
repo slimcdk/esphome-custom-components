@@ -28,6 +28,8 @@ CONF_TMC2209_ID = "tmc2209_id"
 CONF_ENN_PIN = "enn_pin"
 CONF_DIAG_PIN = "diag_pin"
 CONF_INDEX_PIN = "index_pin"
+CONF_SELECT_PIN = "select_pin"
+
 CONF_CLOCK_FREQUENCY = "clock_frequency"
 CONF_OTTRIM = "ottrim"
 CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
@@ -116,6 +118,7 @@ TMC2209_BASE_CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
         cv.Optional(CONF_STEP_PIN): pins.gpio_output_pin_schema,
         cv.Optional(CONF_DIR_PIN): pins.gpio_output_pin_schema,
+        cv.Optional(CONF_SELECT_PIN): pins.gpio_output_pin_schema,
         cv.Optional(CONF_ADDRESS, default=0x00): cv.hex_uint8_t,
         cv.Optional(CONF_VSENSE): cv.boolean,  # default OTP
         cv.Optional(CONF_OTTRIM): cv.int_range(0, 3),  # default OTP
@@ -163,6 +166,9 @@ async def register_tmc2209_base(var, config):
 
     if (dir_pin := config.get(CONF_DIR_PIN, None)) is not None:
         cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
+
+    if (sel_pin := config.get(CONF_SELECT_PIN, None)) is not None:
+        cg.add(var.set_sel_pin(await cg.gpio_pin_expression(sel_pin)))
 
     if (rsense := config.get(CONF_RSENSE, None)) is not None:
         cg.add(var.set_rsense(rsense))
