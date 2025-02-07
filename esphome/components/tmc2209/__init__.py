@@ -22,6 +22,8 @@ CODEOWNERS = ["@slimcdk"]
 
 AUTO_LOAD = ["tmc2209_hub"]
 
+MULTI_CONF = True
+
 CONF_TMC2209 = "tmc2209"
 CONF_TMC2209_ID = "tmc2209_id"
 
@@ -195,6 +197,21 @@ async def register_tmc2209_base(var, config):
 
 def validate_tmc2209_base(config):
     return config
+
+
+CONFIG_SCHEMA = cv.All(
+    cv.Schema(
+        {
+            cv.GenerateID(CONF_ID): cv.declare_id(TMC2209Component),
+        }
+    ).extend(TMC2209_BASE_CONFIG_SCHEMA),
+    validate_tmc2209_base,
+)
+
+
+async def to_code(config):
+    var = cg.new_Pvariable(config[CONF_ID])
+    await register_tmc2209_base(var, config)
 
 
 @automation.register_action(
