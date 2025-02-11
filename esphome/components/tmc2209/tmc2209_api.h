@@ -95,7 +95,7 @@ class TMC2209API : public Parented<TMC2209Hub> {
 
   void set_address(uint8_t address) { this->address_ = address; }
 
-  const uint8_t get_address() { return this->address_; }
+  uint8_t get_address() { return this->address_; }
 
   // Write or read a register (all fields) or register field (single field within register)
   void write_register(uint8_t address, int32_t value);
