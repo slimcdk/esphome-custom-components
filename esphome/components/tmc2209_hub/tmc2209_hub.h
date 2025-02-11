@@ -11,9 +11,9 @@ namespace tmc2209_hub {
 static const char *const TAG = "tmc2209_hub";
 
 struct HubDevice {
-  std::string id;
-  uint8_t address;
-  GPIOPin *select_pin_;
+  const std::string id;
+  const uint8_t address;
+  const GPIOPin *select_pin_;
 };
 
 class TMC2209Hub : public Component, public uart::UARTDevice {
@@ -22,10 +22,8 @@ class TMC2209Hub : public Component, public uart::UARTDevice {
   void setup() override;
   void dump_config() override;
 
-  void add_device_to_hub_(std::string id, uint8_t address) { this->devices_in_hub_.push_back({id, address}); }
-
-  void add_device_to_hub_(std::string id, uint8_t address, GPIOPin *pin) {
-    this->devices_in_hub_.push_back({id, address, pin});
+  void notify_device_in_hub_(std::string id, uint8_t address, GPIOPin *sel_pin = nullptr) {
+    this->devices_in_hub_.push_back({id, address, sel_pin});
   }
 
  protected:

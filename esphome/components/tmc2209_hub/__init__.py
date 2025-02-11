@@ -52,40 +52,29 @@ TMC2209_HUB_DEVICE_SCHEMA = cv.Schema(
 )
 
 
-async def register_tmc2209_hub_device(var, config, child):
+async def register_tmc2209_hub_device(var, config):
     parent = await cg.get_variable(config[CONF_TMC2209_HUB_ID])
     await cg.register_parented(var, parent)
-
-    # make hub aware of referenced instances
-    if sel_pin in config:
-        cg.add(
-            parent.add_device_to_hub_(
-                str(config[CONF_ID]),
-                config[CONF_ADDRESS],
-                sel_pin,
-            )
-        )
-    else:
-        cg.add(parent.add_device_to_hub_(str(config[CONF_ID]), config[CONF_ADDRESS]))
+    return parent
 
 
 def final_validate(config):
 
-    full_config = fv.full_config.get()
-    steppers_in_hub = [
-        stepper
-        for stepper in full_config.get(CONF_STEPPER, [])
-        if stepper[CONF_TMC2209_HUB_ID] == config[CONF_ID]
-    ]
+    # full_config = fv.full_config.get()
+    # steppers_in_hub = [
+    #     stepper
+    #     for stepper in full_config.get(CONF_STEPPER, [])
+    #     if stepper[CONF_TMC2209_HUB_ID] == config[CONF_ID]
+    # ]
 
-    for i, stepper in enumerate(steppers_in_hub):
-        for j in range(i + 1, len(steppers_in_hub)):
-            if stepper[CONF_ADDRESS] == steppers_in_hub[j][CONF_ADDRESS]:
-                _LOGGER.error(
-                    'TMC2209 steppers "%s" and "%s" have overlapping addresses which will conflict',
-                    stepper[CONF_ID],
-                    steppers_in_hub[j][CONF_ID],
-                )
+    # for i, stepper in enumerate(steppers_in_hub):
+    #     for j in range(i + 1, len(steppers_in_hub)):
+    #         if stepper[CONF_ADDRESS] == steppers_in_hub[j][CONF_ADDRESS]:
+    #             _LOGGER.error(
+    #                 'TMC2209 steppers "%s" and "%s" have overlapping addresses which will conflict',
+    #                 stepper[CONF_ID],
+    #                 steppers_in_hub[j][CONF_ID],
+    #             )
 
     return uart.final_validate_device_schema(
         CONF_TMC2209_HUB, require_rx=True, require_tx=True

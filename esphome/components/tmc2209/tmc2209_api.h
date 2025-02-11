@@ -95,6 +95,8 @@ static const int32_t sample_register_preset[REGISTER_COUNT] = {
 };
 
 class TMC2209API : public Parented<TMC2209Hub> {
+  friend class TMC2209Hub;
+
  public:
   TMC2209API() = default;
   TMC2209API(uint8_t address) : address_(address){};
@@ -111,6 +113,8 @@ class TMC2209API : public Parented<TMC2209Hub> {
   uint32_t read_field(RegisterField field);
   uint32_t extract_field(uint32_t data, RegisterField field);
   uint32_t update_field(uint32_t data, RegisterField field, uint32_t value);
+
+  GPIOPin *get_sel_pin() { return this->sel_pin_; }
 
  protected:
   uint8_t address_;

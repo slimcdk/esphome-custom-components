@@ -143,8 +143,11 @@ TMC2209_BASE_CONFIG_SCHEMA = cv.Schema(
 
 
 async def register_tmc2209_base(var, config):
+    cg.add_build_flag("-std=c++17")
+    cg.add_build_flag("-std=gnu++17")
 
     await cg.register_component(var, config)
+    hub = await tmc2209_hub.register_tmc2209_hub_device(var, config)
 
     cg.add(var.set_address(config[CONF_ADDRESS]))
     cg.add(var.set_clk_freq(config[CONF_CLOCK_FREQUENCY]))
@@ -167,8 +170,7 @@ async def register_tmc2209_base(var, config):
         cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
 
     if (sel_pin := config.get(CONF_SELECT_PIN, None)) is not None:
-        sel_pin_expr = await cg.gpio_pin_expression(sel_pin)
-        cg.add(var.set_sel_pin(sel_pin_expr))
+        cg.add(var.set_sel_pin(await cg.gpio_pin_expression(sel_pin)))
 
     if (rsense := config.get(CONF_RSENSE, None)) is not None:
         cg.add(var.set_rsense(rsense))
@@ -193,10 +195,11 @@ async def register_tmc2209_base(var, config):
         await automation.build_automation(trigger, [], conf)
         cg.add(var.set_enable_stall_detection(True))
 
-    await tmc2209_hub.register_tmc2209_hub_device(var, config, sel_pin_expr)
-
-    cg.add_build_flag("-std=c++17")
-    cg.add_build_flag("-std=gnu++17")
+    cg.add(
+        hub.notify_device_in_hub_(
+            str(config[CONF_ID]), config[CONF_ADDRESS], var.get_sel_pin()
+        )
+    )
 
     return var
 
