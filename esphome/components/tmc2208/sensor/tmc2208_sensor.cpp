@@ -7,12 +7,6 @@ namespace tmc2208 {
 
 // static const char *const TAG = "tmc2208.sensor";
 
-void StallGuardResultSensor::dump_config() { LOG_SENSOR(" ", "TMC2208 StallGuard Result Sensor", this); }
-void StallGuardResultSensor::update() { this->publish_state(this->parent_->read_register(SG_RESULT)); }
-
-void MotorLoadSensor::dump_config() { LOG_SENSOR(" ", "TMC2208 Motor Load Sensor", this); }
-void MotorLoadSensor::update() { this->publish_state(this->parent_->get_motor_load() * 100.0f); }
-
 void ActualCurrentSensor::dump_config() { LOG_SENSOR(" ", "TMC2208 Actual Current Sensor", this); }
 void ActualCurrentSensor::update() {
   const uint8_t acs = this->parent_->read_field(CS_ACTUAL_FIELD);

@@ -41,7 +41,6 @@ class TMC2208Stepper : public TMC2208Component, public Stepper {
   void enable(bool enable) override;
   // void enable(bool enable, bool recover_toff = true) override;
   void set_target(int32_t steps) override;
-  bool is_stalled() override;
 
   void set_control_method(ControlMethod method) { this->control_method_ = method; }
 
