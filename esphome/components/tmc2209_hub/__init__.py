@@ -1,20 +1,23 @@
 import logging
 
-from esphome.const import (
-    CONF_ID,
-    CONF_ADDRESS,
-)
+from esphome.const import CONF_ID, CONF_ADDRESS
 import esphome.codegen as cg
 import esphome.config_validation as cv
 import esphome.final_validate as fv
 from esphome.components import uart
 
+# from esphome.components.tmc2209 import CONF_SELECT_PIN
+
+
+CONF_SELECT_PIN = "select_pin"
 
 _LOGGER = logging.getLogger(__name__)
 
 CODEOWNERS = ["@slimcdk"]
 
 MULTI_CONF = True
+
+AUTO_LOAD = ["tmc2209"]
 
 CONF_TMC2209_HUB = "tmc2209_hub"
 CONF_TMC2209_HUB_ID = "tmc2209_hub_id"
@@ -49,12 +52,21 @@ TMC2209_HUB_DEVICE_SCHEMA = cv.Schema(
 )
 
 
-async def register_tmc2209_hub_device(var, config):
+async def register_tmc2209_hub_device(var, config, child):
     parent = await cg.get_variable(config[CONF_TMC2209_HUB_ID])
     await cg.register_parented(var, parent)
 
     # make hub aware of referenced instances
-    cg.add(parent.add_device_to_hub_(str(config[CONF_ID]), config[CONF_ADDRESS]))
+    if sel_pin in config:
+        cg.add(
+            parent.add_device_to_hub_(
+                str(config[CONF_ID]),
+                config[CONF_ADDRESS],
+                sel_pin,
+            )
+        )
+    else:
+        cg.add(parent.add_device_to_hub_(str(config[CONF_ID]), config[CONF_ADDRESS]))
 
 
 def final_validate(config):

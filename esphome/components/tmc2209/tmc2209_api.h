@@ -3,6 +3,7 @@
 #include "tmc2209_api_registers.h"
 
 #include "esphome/core/helpers.h"
+#include "esphome/core/gpio.h"
 #include "esphome/components/tmc2209_hub/tmc2209_hub.h"
 
 namespace esphome {
@@ -12,8 +13,13 @@ using namespace esphome::tmc2209_hub;
 
 static const char *TAG = "tmc2209";
 
+#define WRITE_BIT 0x80
+#define ADDRESS_MASK 0x7F
+#define REGISTER_COUNT 128
 #define ACCESS_READ 0x01
 #define IS_READABLE(x) ((x) &ACCESS_READ)
+
+#define IC_VERSION_GEN1 0x21
 
 // Default Register values
 #define R00 ((int32_t) 0x00000040)  // GCONF

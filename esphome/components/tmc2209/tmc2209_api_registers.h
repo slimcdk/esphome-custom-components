@@ -5,17 +5,11 @@ namespace tmc2209 {
 
 // clang-format off
 
-#define WRITE_BIT     0x80
-#define ADDRESS_MASK  0x7F
-
+// Constants
 #define MAX_VELOCITY      (int32_t)  2147483647
 #define MAX_ACCELERATION  (uint32_t) 16777215uL
 
-#define IC_VERSION_GEN1 0x21
-
 // Registers
-#define REGISTER_COUNT 128
-
 #define GCONF         0x00
 #define GSTAT         0x01
 #define IFCNT         0x02
