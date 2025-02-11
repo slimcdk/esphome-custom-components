@@ -241,7 +241,7 @@ async def tmc2209_disable_to_code(config, action_id, template_arg, args):
             cv.GenerateID(): cv.use_id(TMC2209Component),
             cv.Optional(CONF_DIRECTION): cv.templatable(cv.enum(SHAFT_DIRECTIONS)),
             cv.Optional(CONF_MICROSTEPS): cv.templatable(
-                cv.one_of(256, 128, 64, 32, 16, 8, 4, 2, 1)
+                cv.one_of(256, 128, 64, 32, 16, 8, 4, 2, 1, int=True)
             ),
             cv.Optional(CONF_INTERPOLATION): cv.templatable(cv.boolean),
             cv.Optional(CONF_ENABLE_SPREADCYCLE): cv.templatable(cv.boolean),
