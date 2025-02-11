@@ -9,6 +9,7 @@ external_components:
 
 ## Components
 
+- [tmc2208](esphome/components/tmc2208/README.md) :: ADI Trinamic stepper driver.
 - [tmc2209](esphome/components/tmc2209/README.md) :: ADI Trinamic stepper driver.
 - [tmc2300](esphome/components/tmc2300/README.md) :: ADI Trinamic stepper driver.
 - [tmc5240](esphome/components/tmc5240/README.md) :: ADI Trinamic stepper driver.
