@@ -80,8 +80,6 @@ class TMC2208Component : public TMC2208API, public Component {
   float read_vsense();
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
-  float get_motor_load();
-  virtual bool is_stalled();
   void set_tpowerdown_ms(uint32_t delay_in_ms);
   uint32_t get_tpowerdown_ms();
   std::tuple<uint8_t, uint8_t> unpack_ottrim_values(uint8_t ottrim);

@@ -174,23 +174,6 @@ namespace tmc2208 {
   const int32_t tpwmthrs = this->read_register(TPWMTHRS); \
   ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B20_TO_BINARY_PATTERN, "TPWMTHRS:", tpwmthrs, B20_TO_BINARY(tpwmthrs));
 
-#define LOG_TMC2208_TCOOLTHRS_REGISTER_DUMP(this) \
-  const int32_t tcoolthrs = this->read_register(TCOOLTHRS); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B20_TO_BINARY_PATTERN, "TCOOLTHRS:", tcoolthrs, B20_TO_BINARY(tpwmthrs));
-
-#define LOG_TMC2208_SGTHRS_REGISTER_DUMP(this) \
-  const int32_t sgthrs = this->read_register(SGTHRS); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B8_TO_BINARY_PATTERN, "SGTHRS:", sgthrs, B8_TO_BINARY(sgthrs));
-
-#define LOG_TMC2208_COOLCONF_REGISTER_DUMP(this) \
-  const int32_t coolconf = this->read_register(COOLCONF); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08X | 0b" B16_TO_BINARY_PATTERN, "COOLCONF:", coolconf, B16_TO_BINARY(coolconf)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEIMIN:", this->extract_field(coolconf, SEIMIN_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEDN:", this->extract_field(coolconf, SEDN_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEMAX:", this->extract_field(coolconf, SEMAX_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEUP:", this->extract_field(coolconf, SEUP_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEMIN:", this->extract_field(coolconf, SEMIN_FIELD));
-
 #define LOG_TMC2208_REGISTER_DUMP(this) \
   ESP_LOGCONFIG(TAG, "  Register dump:"); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "GCONF:", this->read_register(GCONF)); \
@@ -205,11 +188,7 @@ namespace tmc2208 {
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TPOWERDOWN:", this->read_register(TPOWERDOWN)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TSTEP:", this->read_register(TSTEP)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TPWMTHRS:", this->read_register(TPWMTHRS)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "TCOOLTHRS:", this->read_register(TCOOLTHRS)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "VACTUAL:", this->read_register(VACTUAL)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "SGTHRS:", this->read_register(SGTHRS)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "SG_RESULT:", this->read_register(SG_RESULT)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "COOLCONF:", this->read_register(COOLCONF)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "MSCNT:", this->read_register(MSCNT)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "MSCURACT:", this->read_register(MSCURACT)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08X", "CHOPCONF:", this->read_register(CHOPCONF)); \
@@ -347,23 +326,6 @@ namespace tmc2208 {
   const int32_t tpwmthrs = this->read_register(TPWMTHRS); \
   ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B20_TO_BINARY_PATTERN, "TPWMTHRS:", tpwmthrs, B20_TO_BINARY(tpwmthrs));
 
-#define LOG_TMC2208_TCOOLTHRS_REGISTER_DUMP(this) \
-  const int32_t tcoolthrs = this->read_register(TCOOLTHRS); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B20_TO_BINARY_PATTERN, "TCOOLTHRS:", tcoolthrs, B20_TO_BINARY(tpwmthrs));
-
-#define LOG_TMC2208_SGTHRS_REGISTER_DUMP(this) \
-  const int32_t sgthrs = this->read_register(SGTHRS); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B8_TO_BINARY_PATTERN, "SGTHRS:", sgthrs, B8_TO_BINARY(sgthrs));
-
-#define LOG_TMC2208_COOLCONF_REGISTER_DUMP(this) \
-  const int32_t coolconf = this->read_register(COOLCONF); \
-  ESP_LOGCONFIG(TAG, "   %-18s 0x%08lX | 0b" B16_TO_BINARY_PATTERN, "COOLCONF:", coolconf, B16_TO_BINARY(coolconf)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEIMIN:", this->extract_field(coolconf, SEIMIN_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEDN:", this->extract_field(coolconf, SEDN_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEMAX:", this->extract_field(coolconf, SEMAX_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEUP:", this->extract_field(coolconf, SEUP_FIELD)); \
-  ESP_LOGCONFIG(TAG, "    %-18s 0x%x", "SEMIN:", this->extract_field(coolconf, SEMIN_FIELD));
-
 #define LOG_TMC2208_REGISTER_DUMP(this) \
   ESP_LOGCONFIG(TAG, "  Register dump:"); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "GCONF:", this->read_register(GCONF)); \
@@ -378,11 +340,7 @@ namespace tmc2208 {
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "TPOWERDOWN:", this->read_register(TPOWERDOWN)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "TSTEP:", this->read_register(TSTEP)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "TPWMTHRS:", this->read_register(TPWMTHRS)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "TCOOLTHRS:", this->read_register(TCOOLTHRS)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "VACTUAL:", this->read_register(VACTUAL)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "SGTHRS:", this->read_register(SGTHRS)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "SG_RESULT:", this->read_register(SG_RESULT)); \
-  ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "COOLCONF:", this->read_register(COOLCONF)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "MSCNT:", this->read_register(MSCNT)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "MSCURACT:", this->read_register(MSCURACT)); \
   ESP_LOGCONFIG(TAG, "    %-13s 0x%08lX", "CHOPCONF:", this->read_register(CHOPCONF)); \

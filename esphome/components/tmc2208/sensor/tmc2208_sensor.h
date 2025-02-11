@@ -8,16 +8,6 @@
 namespace esphome {
 namespace tmc2208 {
 
-class StallGuardResultSensor : public PollingComponent, public sensor::Sensor, public Parented<TMC2208Component> {
-  void dump_config() override;
-  void update() override;
-};
-
-class MotorLoadSensor : public PollingComponent, public sensor::Sensor, public Parented<TMC2208Component> {
-  void dump_config() override;
-  void update() override;
-};
-
 class ActualCurrentSensor : public PollingComponent, public sensor::Sensor, public Parented<TMC2208Component> {
   void dump_config() override;
   void update() override;

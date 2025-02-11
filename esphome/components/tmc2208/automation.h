@@ -31,9 +31,6 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
     if (this->enable_spreadcycle_.has_value())
       this->parent_->write_field(EN_SPREADCYCLE_FIELD, this->enable_spreadcycle_.value(x...));
 
-    if (this->tcool_threshold_.has_value())
-      this->parent_->write_register(TCOOLTHRS, this->tcool_threshold_.value(x...));
-
     if (this->tpwm_threshold_.has_value())
       this->parent_->write_field(TPWMTHRS_FIELD, this->tpwm_threshold_.value(x...));
   }
@@ -92,42 +89,6 @@ template<typename... Ts> class CurrentsAction : public Action<Ts...>, public Par
     if (this->hold_current_.has_value()) {
       this->parent_->write_hold_current(this->hold_current_.value(x...));
     }
-  }
-};
-
-template<typename... Ts> class StallGuardAction : public Action<Ts...>, public Parented<TMC2208Component> {
- public:
-  TEMPLATABLE_VALUE(int32_t, stallguard_threshold)
-
-  void play(Ts... x) override {
-    if (this->stallguard_threshold_.has_value())
-      this->parent_->write_register(SGTHRS, this->stallguard_threshold_.value(x...));
-  }
-};
-
-template<typename... Ts> class CoolConfAction : public Action<Ts...>, public Parented<TMC2208Component> {
- public:
-  TEMPLATABLE_VALUE(bool, seimin)
-  TEMPLATABLE_VALUE(uint8_t, semax)
-  TEMPLATABLE_VALUE(uint8_t, semin)
-  TEMPLATABLE_VALUE(uint8_t, sedn)
-  TEMPLATABLE_VALUE(uint8_t, seup)
-
-  void play(Ts... x) override {
-    if (this->seimin_.has_value())
-      this->parent_->write_field(SEIMIN_FIELD, (uint8_t) this->seimin_.value(x...));
-
-    if (this->semax_.has_value())
-      this->parent_->write_field(SEMAX_FIELD, this->semax_.value(x...));
-
-    if (this->semin_.has_value())
-      this->parent_->write_field(SEMIN_FIELD, this->semin_.value(x...));
-
-    if (this->sedn_.has_value())
-      this->parent_->write_field(SEDN_FIELD, this->sedn_.value(x...));
-
-    if (this->seup_.has_value())
-      this->parent_->write_field(SEUP_FIELD, this->seup_.value(x...));
   }
 };
 
@@ -195,10 +156,6 @@ template<typename... Ts> class SyncAction : public Action<Ts...>, public Parente
     const uint32_t ihold_irun = this->parent_->read_register(IHOLD_IRUN);
     const uint32_t tpowerdown = this->parent_->read_register(TPOWERDOWN);
     const uint32_t tpwmthrs = this->parent_->read_register(TPWMTHRS);
-    const uint32_t tcoolthrs = this->parent_->read_register(TCOOLTHRS);
-    const uint32_t sgthrs = this->parent_->read_register(SGTHRS);
-    const uint32_t coolconf = this->parent_->read_register(COOLCONF);
-    // const uint32_t chopconf = this->parent_->read_register(CHOPCONF);
     const uint32_t pwm_conf = this->parent_->read_register(PWM_CONF);
 
     const uint32_t factory_conf_ottrim = this->parent_->read_field(OTTRIM_FIELD);
@@ -211,10 +168,6 @@ template<typename... Ts> class SyncAction : public Action<Ts...>, public Parente
       driver->write_register(IHOLD_IRUN, ihold_irun);
       driver->write_register(TPOWERDOWN, tpowerdown);
       driver->write_register(TPWMTHRS, tpwmthrs);
-      driver->write_register(TCOOLTHRS, tcoolthrs);
-      driver->write_register(SGTHRS, sgthrs);
-      driver->write_register(COOLCONF, coolconf);
-      // driver->write_register(CHOPCONF, chopconf);
       driver->write_register(PWM_CONF, pwm_conf);
 
       driver->write_field(OTTRIM_FIELD, factory_conf_ottrim);

@@ -7,7 +7,6 @@ from esphome.const import (
     CONF_STEP_PIN,
     CONF_DIR_PIN,
     CONF_DIRECTION,
-    CONF_THRESHOLD,
     CONF_TO,
 )
 import esphome.codegen as cg
@@ -34,7 +33,6 @@ CONF_VSENSE = "vsense"  # true lowers power dissipation in sense resistors
 CONF_RSENSE = "rsense"  # sense resistors
 CONF_ANALOG_CURRENT_SCALE = "analog_current_scale"
 CONF_INCLUDE_REGISTERS = "config_dump_include_registers"
-CONF_ON_STALL = "on_stall"
 CONF_ON_DRIVER_STATUS = "on_status"
 
 
@@ -48,7 +46,6 @@ CONF_HOLD_CURRENT = "hold_current"  # translates to IHOLD
 CONF_IHOLDDELAY = "iholddelay"
 CONF_TPOWERDOWN = "tpowerdown"
 CONF_ENABLE_SPREADCYCLE = "enable_spreadcycle"
-CONF_TCOOL_THRESHOLD = "tcool_threshold"
 CONF_TPWM_THRESHOLD = "tpwm_threshold"
 CONF_STANDSTILL_MODE = "standstill_mode"
 CONF_SEIMIN = "seimin"
@@ -129,11 +126,6 @@ TMC2208_BASE_CONFIG_SCHEMA = cv.Schema(
                 cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnDriverStatusTrigger),
             }
         ),
-        cv.Optional(CONF_ON_STALL): automation.validate_automation(
-            {
-                cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(OnStallTrigger),
-            }
-        ),
         cv.Optional(CONF_INCLUDE_REGISTERS, default=False): cv.boolean,
     },
 ).extend(cv.COMPONENT_SCHEMA, tmc2208_hub.TMC2208_HUB_DEVICE_SCHEMA)
@@ -181,11 +173,6 @@ async def register_tmc2208_base(var, config):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [(DriverStatusEvent, "code")], conf)
         cg.add(var.set_enable_driver_health_check(True))
-
-    for conf in config.get(CONF_ON_STALL, []):
-        trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
-        await automation.build_automation(trigger, [], conf)
-        cg.add(var.set_enable_stall_detection(True))
 
     cg.add_build_flag("-std=c++17")
     cg.add_build_flag("-std=gnu++17")
@@ -245,9 +232,6 @@ async def tmc2208_disable_to_code(config, action_id, template_arg, args):
             ),
             cv.Optional(CONF_INTERPOLATION): cv.templatable(cv.boolean),
             cv.Optional(CONF_ENABLE_SPREADCYCLE): cv.templatable(cv.boolean),
-            cv.Optional(CONF_TCOOL_THRESHOLD): cv.templatable(
-                cv.int_range(min=0, max=2**20, max_included=False)
-            ),
             cv.Optional(CONF_TPWM_THRESHOLD): cv.templatable(
                 cv.int_range(min=0, max=2**20, max_included=False)
             ),
@@ -273,10 +257,6 @@ async def tmc2208_configure_to_code(config, action_id, template_arg, args):
     if (en_spreadcycle := config.get(CONF_ENABLE_SPREADCYCLE, None)) is not None:
         template_ = await cg.templatable(en_spreadcycle, args, cg.bool_)
         cg.add(var.set_enable_spreadcycle(template_))
-
-    if (tcoolthrs := config.get(CONF_TCOOL_THRESHOLD, None)) is not None:
-        template_ = await cg.templatable(tcoolthrs, args, cg.uint32)
-        cg.add(var.set_tcool_threshold(template_))
 
     if (tpwmthrs := config.get(CONF_TPWM_THRESHOLD, None)) is not None:
         template_ = await cg.templatable(tpwmthrs, args, cg.uint32)
@@ -342,80 +322,6 @@ async def tmc2208_currents_to_code(config, action_id, template_arg, args):
     if (tpowerdown := config.get(CONF_TPOWERDOWN, None)) is not None:
         template_ = await cg.templatable(tpowerdown, args, cg.uint8)
         cg.add(var.set_tpowerdown(template_))
-
-    return var
-
-
-@automation.register_action(
-    "tmc2208.stallguard",
-    StallGuardAction,
-    maybe_simple_id(
-        {
-            cv.GenerateID(): cv.use_id(TMC2208Component),
-            cv.Optional(CONF_THRESHOLD): cv.templatable(
-                cv.int_range(min=0, max=2**8, max_included=False)
-            ),
-        }
-    ),
-)
-async def tmc2208_stallguard_to_code(config, action_id, template_arg, args):
-    var = cg.new_Pvariable(action_id, template_arg)
-    await cg.register_parented(var, config[CONF_ID])
-
-    if (sgthrs := config.get(CONF_THRESHOLD, None)) is not None:
-        template_ = await cg.templatable(sgthrs, args, cg.uint8)
-        cg.add(var.set_stallguard_threshold(template_))
-
-    return var
-
-
-@automation.register_action(
-    "tmc2208.coolconf",
-    CoolConfAction,
-    maybe_simple_id(
-        {
-            cv.GenerateID(): cv.use_id(TMC2208Component),
-            cv.Optional(CONF_SEIMIN): cv.templatable(
-                cv.All(cv.boolean, cv.int_range(min=0, max=1))
-            ),
-            cv.Optional(CONF_SEMAX): cv.templatable(
-                cv.int_range(min=0, max=2**4, max_included=False)
-            ),
-            cv.Optional(CONF_SEMIN): cv.templatable(
-                cv.int_range(min=0, max=2**4, max_included=False)
-            ),
-            cv.Optional(CONF_SEDN): cv.templatable(
-                cv.int_range(min=0, max=2**2, max_included=False)
-            ),
-            cv.Optional(CONF_SEUP): cv.templatable(
-                cv.int_range(min=0, max=2**2, max_included=False)
-            ),
-        }
-    ),
-)
-async def tmc2208_coolconf_to_code(config, action_id, template_arg, args):
-    var = cg.new_Pvariable(action_id, template_arg)
-    await cg.register_parented(var, config[CONF_ID])
-
-    if (seimin := config.get(CONF_SEIMIN, None)) is not None:
-        template_ = await cg.templatable(seimin, args, cg.uint8)
-        cg.add(var.set_seimin(template_))
-
-    if (semax := config.get(CONF_SEMAX, None)) is not None:
-        template_ = await cg.templatable(semax, args, cg.uint8)
-        cg.add(var.set_semax(template_))
-
-    if (semin := config.get(CONF_SEMIN, None)) is not None:
-        template_ = await cg.templatable(semin, args, cg.uint8)
-        cg.add(var.set_semin(template_))
-
-    if (sedn := config.get(CONF_SEDN, None)) is not None:
-        template_ = await cg.templatable(sedn, args, cg.uint8)
-        cg.add(var.set_sedn(template_))
-
-    if (seup := config.get(CONF_SEUP, None)) is not None:
-        template_ = await cg.templatable(seup, args, cg.uint8)
-        cg.add(var.set_seup(template_))
 
     return var
 

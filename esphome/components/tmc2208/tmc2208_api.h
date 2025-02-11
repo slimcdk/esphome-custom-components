@@ -12,8 +12,13 @@ using namespace esphome::tmc2208_hub;
 
 static const char *TAG = "tmc2208";
 
+#define WRITE_BIT 0x80
+#define ADDRESS_MASK 0x7F
+#define REGISTER_COUNT 128
 #define ACCESS_READ 0x01
 #define IS_READABLE(x) ((x) &ACCESS_READ)
+
+#define IC_VERSION_GEN1 0x20
 
 // Default Register values
 #define R00 ((int32_t) 0x00000040)  // GCONF

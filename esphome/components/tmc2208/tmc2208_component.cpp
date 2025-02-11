@@ -241,16 +241,6 @@ void TMC2208Component::loop() {
   }
 }
 
-bool TMC2208Component::is_stalled() {
-  if ((bool) this->read_field(STST_FIELD)) {
-    return false;
-  }
-
-  const int32_t sgthrs = this->read_register(SGTHRS);
-  const int32_t sgresult = this->read_register(SG_RESULT);
-  return (sgthrs << 1) > sgresult;
-}
-
 uint16_t TMC2208Component::get_microsteps() { return MRES_TO_MS(this->read_field(MRES_FIELD)); }
 void TMC2208Component::set_microsteps(uint16_t ms) {
   for (uint8_t mres = 0; mres <= 8; mres++) {
@@ -260,11 +250,6 @@ void TMC2208Component::set_microsteps(uint16_t ms) {
   }
 
   ESP_LOGW(TAG, "%d is not a valid microstepping option", ms);
-}
-
-float TMC2208Component::get_motor_load() {
-  const int32_t result = this->read_register(SG_RESULT);
-  return (510.0 - (float) result) / (510.0 - (int32_t) this->read_register(SGTHRS) * 2.0);
 }
 
 float TMC2208Component::read_vsense() { return (this->read_field(VSENSE_FIELD) ? 0.180f : 0.325f); }
