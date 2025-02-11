@@ -1134,7 +1134,7 @@ stepper:
 
 
 
-[datasheet]: <./docs/TMC2208_datasheet_rev1.09.pdf> "Datasheet rev 1.09"
+[datasheet]: <./docs/TMC2202_TMC2208_TMC2224_datasheet_rev1.13.pdf> "Datasheet rev 1.09"
 
 [config-id]: <https://esphome.io/guides/configuration-types#config-id> "ESPHome ID Config Schema"
 [config-pin]: <https://esphome.io/guides/configuration-types#config-pin-schema> "ESPHome Pin Config Schema"
