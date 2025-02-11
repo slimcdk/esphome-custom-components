@@ -14,6 +14,8 @@
   <img src="./docs/grobo-module.jpg" alt="GRobotronics" width="19%" />
 </p>
 
+> Above is TMC2209 modules, but TMC2208 is nearly identical.
+
 # <!-- thin horizontal line -->
 
 </br>
@@ -27,13 +29,10 @@
     - [Control via UART](#control-the-position-using-serial-uart)
     - [Control via pulses](#control-the-position-using-traditional-stepping-pulses-and-direction)
 - [Automation](#automation)
-  - [`on_stall`](#on_stall)
   - [`on_status`](#on_status)
 - [Actions](#actions)
   - [`tmc2208.configure`](#tmc2208configure-action)
   - [`tmc2208.currents`](#tmc2208currents-action)
-  - [`tmc2208.stallguard`](#tmc2208stallguard-action)
-  - [`tmc2208.coolconf`](#tmc2208coolconf-action)
   - [`tmc2208.chopconf`](#tmc2208chopconf-action)
   - [`tmc2208.pwmconf`](#tmc2208pwmconf-action)
   - [`tmc2208.enable`](#tmc2208enable-action)
@@ -200,14 +199,9 @@ stepper:
     max_speed: 500 steps/s
     acceleration: 2500 steps/s^2
     deceleration: 2500 steps/s^2
-    address: 0x00
     rsense: REPLACEME
-    vsense: False
-    ottrim: 0
-    analog_current_scale: False
-    clock_frequency: 12MHz
-    enn_pin: REPLACEME
-    diag_pin: REPLACEME
+    # enn_pin: REPLACEME
+    # diag_pin: REPLACEME
     index_pin: REPLACEME
     # step_pin: REPLACEME
     # dir_pin: REPLACEME
@@ -262,23 +256,6 @@ stepper:
 
 ## Automation
 
-### `on_stall`
-
-Will trigger when a stall is detected. This can be used for sensorless homing. Check the [sensorless homing example](#sensorless-homing).
-```yaml
-stepper:
-  - platform: tmc2208
-    id: driver
-    ...
-    on_stall:
-        - logger.log: "Motor stalled!"
-        - stepper.stop: driver
-```
-
-> [!IMPORTANT]
-*Incorrect motor parameters and motion jerk/jolt (quick acceleration/deceleration changes) can lead to false stall events. Play around with the parameters for your specific application.*
-
-
 ### `on_status`
 An event is fired whenever a driver warning or error is detected. For instance when the driver overheats.
 ```yaml
@@ -299,7 +276,7 @@ stepper:
 
 Most events is signaling that the driver is in a given state. The majority of events also has a `CLEARED` or similar counterpart signaling that the driver is now not in the given state anymore.
 
-  * `DIAG_TRIGGERED` | `DIAG_TRIGGER_CLEARED`  DIAG output is triggered. Primarily driver errors, but also stall event.
+  * `DIAG_TRIGGERED` | `DIAG_TRIGGER_CLEARED`  DIAG output is triggered. Primarily driver errors.
   * `RESET` | `RESET_CLEARED` Driver has been reset since last power on.
   * `DRIVER_ERROR` | `DRIVER_ERROR_CLEARED` A driver error was detected.
   * `CP_UNDERVOLTAGE` | `CP_UNDERVOLTAGE_CLEARED` Undervoltage on chargepump input.
@@ -335,7 +312,6 @@ on_...:
       microsteps: REPLACME
       interpolation: REPLACEME
       enable_spreadcycle: REPLACEME
-      tcool_threshold: REPLACEME
       tpwm_threshold: REPLACEME
 ```
 
@@ -348,8 +324,6 @@ on_...:
 * `interpolation` (*Optional*, bool, [templatable][config-templatable]): The actual microstep resolution (MRES) becomes extrapolated to 256 microsteps for the smoothest motor operation.
 
 * `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `False` allows use of StealthChop. Defaults to OTP.
-
-* `tcool_threshold` (*Optional*, int, [templatable][config-templatable]): Sets **TCOOLTHRS**
 
 * `tpwm_threshold` (*Optional*, int, [templatable][config-templatable]): Sets **TPWMTHRS**
 
@@ -391,44 +365,6 @@ on_...:
 
 > [!NOTE]
 *See [section 1.7][datasheet] for visiual graphs of IRUN, TPOWERDOWN and IHOLDDELAY and IHOLD*
-
-
-
-### `tmc2208.stallguard` Action
-Example of configuring StallGuard.
-```yaml
-on_...:
-  - tmc2208.stallguard:
-      threshold: 50
-```
-
-* `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2208 component. Can be left out if only a single TMC2208 is configured.
-
-* `threshold` (*Optional*, int, [templatable][config-templatable]):  Sets **SGTHRS**. Value for the StallGuard4 threshold.
-
-
-### `tmc2208.coolconf` Action
-```yaml
-on_...:
-  - tmc2208.coolconf:
-      seimin: REPLACEME
-      semax: REPLACEME
-      semin: REPLACEME
-      sedn: REPLACEME
-      seup: REPLACEME
-```
-
-* `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2208 component. Can be left out if only a single TMC2208 is configured.
-
-* `seimin` (*Optional*, int, [templatable][config-templatable]): Sets **SEIMIN**
-
-* `semax` (*Optional*, int, [templatable][config-templatable]): Sets **SEMAX**
-
-* `semin` (*Optional*, int, [templatable][config-templatable]): Sets **SEMIN**
-
-* `sedn` (*Optional*, int, [templatable][config-templatable]): Sets **SEDN**
-
-* `seup` (*Optional*, int, [templatable][config-templatable]): Sets **SEUP**
 
 
 
@@ -530,16 +466,6 @@ Some metrics from the driver is exposed as a ready-to-use sensor component.
 ```yaml
 sensor:
   - platform: tmc2208
-    type: stallguard_result
-    name: Driver stallguard
-    update_interval: 250ms
-
-  - platform: tmc2208
-    type: motor_load
-    name: Motor load
-    update_interval: 250ms
-
-  - platform: tmc2208
     type: actual_current
     name: Actual current
     update_interval: 250ms
@@ -567,8 +493,6 @@ sensor:
 * `tmc2208_id` (*Optional*, [ID][config-id]): Manually specify the ID of the `stepper.tmc2208` you want to use this sensor.
 
 * `type` (**Required**):
-  * `stallguard_result` Stator angle shift detected by the driver.
-  * `motor_load` Percentage off stall calculated from StallGuard result and set StallGuard threshold. 100% = stalled.
     * Remeber to configure StallGuard threshold for this to work reliably.
     * The load is calculated by. 510 - SG_RESULT / 510 - SGTHRS * 2 = load coefficient.
   * `actual_current` Active current setting. Either IRUN or IHOLD value.
@@ -578,72 +502,6 @@ sensor:
   * `pwm_grad_auto` Automatically determined gradient value.
 
 * All other from [Sensor][base-sensor-component]
-
-
-### Sensorless homing
-
-Example config with logic of "homing" the motor against a mechanical hard-stop.
-
-```yaml
-esphome:
-  ...
-  on_boot:
-    - button.press: home # home right after boot
-
-globals:
-  - id: has_homed
-    type: bool
-    initial_value: "true"
-    restore_value: no
-
-stepper:
-  - platform: tmc2208
-    id: driver
-    ...
-    on_stall:
-      - logger.log: "Motor stalled!"
-      - stepper.stop: driver
-      - if:
-          condition:
-            lambda: return !id(has_homed);
-          then:
-            - stepper.report_position:
-                id: driver
-                position: 0
-            - globals.set:
-                id: has_homed
-                value: "true"
-            - logger.log: "Home position set"
-
-button:
-  - platform: template
-    name: Home
-    on_press:
-      - logger.log: "Going home!"
-      - globals.set:
-          id: has_homed
-          value: "false"
-      - stepper.set_target:
-          id: driver
-          target: -9999999
-```
-
-Example of monitoring motor load. It is possible, but not advised.
-```yaml
-sensor:
-  - platform: tmc2208
-    type: motor_load
-    internal: true
-    update_interval: 0s
-    filters:
-      - sliding_window_moving_average:
-          window_size: 10
-          send_every: 10
-    on_value_range:
-      - above: 100.0
-        then:
-          - stepper.stop: driver
-```
 
 
 ## Example config
@@ -664,8 +522,6 @@ esphome:
     - tmc2208.configure:
         microsteps: 8
         interpolation: true
-    - tmc2208.stallguard:
-        threshold: 50
     - tmc2208.currents:
         standstill_mode: freewheeling
         irun: 16
@@ -681,17 +537,13 @@ uart:
 stepper:
   - platform: tmc2208
     id: driver
-    max_speed: 900 steps/s
-    acceleration: 1500 steps/s^2
-    deceleration: 500 steps/s^2
+    max_speed: 2000 steps/s
+    acceleration: 5000 steps/s^2
+    deceleration: 5000 steps/s^2
     config_dump_include_registers: true
     rsense: 110 mOhm
-    vsense: False
     index_pin: 42
     diag_pin: 41
-    on_stall:
-      - logger.log: "Motor stalled!"
-      - stepper.stop: driver
 
 button:
   - platform: template
@@ -700,18 +552,18 @@ button:
       - stepper.stop: driver
 
   - platform: template
-    name: 1000 Steps forward
+    name: 10000 Steps forward
     on_press:
       - stepper.set_target:
           id: driver
-          target: !lambda return id(driver)->current_position +1000;
+          target: !lambda return id(driver)->current_position +10000;
 
   - platform: template
-    name: 1000 Steps backward
+    name: 10000 Steps backward
     on_press:
       - stepper.set_target:
           id: driver
-          target: !lambda return id(driver)->current_position -1000;
+          target: !lambda return id(driver)->current_position -10000;
 
 number:
   - platform: template
@@ -725,12 +577,6 @@ number:
       - stepper.set_target:
           id: driver
           target: !lambda "return x;"
-
-sensor:
-  - platform: tmc2208
-    type: motor_load
-    name: Motor load
-    update_interval: 250ms
 ```
 
 Partial output of above configuration.
@@ -738,52 +584,48 @@ Partial output of above configuration.
 ...
 [00:00:00][C][tmc2208_hub:013]: TMC2208 Hub:
 [00:00:00][C][tmc2208_hub:014]:   Drivers in hub (1):
-[00:00:00][C][tmc2208_hub:017]:     Driver with id 'driver' on address 0x00
+[00:00:00][C][tmc2208_hub:017]:     Driver with id 'driver1' on address 0x00
 [00:00:00][C][tmc2208:011]: TMC2208 Stepper:
-[00:00:00][C][tmc2208:012]:   Acceleration: 1500 steps/s^2
-[00:00:00][C][tmc2208:012]:   Deceleration: 500 steps/s^2
-[00:00:00][C][tmc2208:012]:   Max Speed: 900 steps/s
+[00:00:00][C][tmc2208:012]:   Acceleration: 5000 steps/s^2
+[00:00:00][C][tmc2208:012]:   Deceleration: 5000 steps/s^2
+[00:00:00][C][tmc2208:012]:   Max Speed: 2000 steps/s
+[00:00:00][C][tmc2208:013]:   Enable/disable driver with TOFF
 [00:00:00][C][tmc2208:013]:   DIAG Pin: GPIO41
 [00:00:00][C][tmc2208:013]:   INDEX Pin: GPIO42
 [00:00:00][C][tmc2208:013]:   Address: 0x00
-[00:00:00][C][tmc2208:013]:   Detected IC version: 0x21
+[00:00:00][C][tmc2208:013]:   Detected IC version: 0x20
 [00:00:00][C][tmc2208:013]:   Microsteps: 8
 [00:00:00][C][tmc2208:013]:   Clock frequency: 12000000 Hz (VACTUAL factor: 0.715256)
 [00:00:00][C][tmc2208:013]:   Overtemperature: prewarning = 120C | shutdown = 143C
-[00:00:00][C][tmc2208:013]:   Stall detection: DIAG interrupt raises flag
-[00:00:00][C][tmc2208:013]:   Status check: disabled
+[00:00:00][C][tmc2208:013]:   Status check: enabled
 [00:00:00][C][tmc2208:013]:   Currents:
 [00:00:00][C][tmc2208:013]:     Limits: 1767 mA
-[00:00:00][C][tmc2208:013]:     IRUN: 16 (939 mA)
+[00:00:00][C][tmc2208:013]:     IRUN: 1 (110 mA)
 [00:00:00][C][tmc2208:013]:     IHOLD: 0 (0 mA)
-[00:00:00][C][tmc2208:013]:     Additional scaling by VREF is enabled
+[00:00:00][C][tmc2208:013]:     Additional scaling by VREF is disabled
 [00:00:00][C][tmc2208:013]:     VSense: False (high heat dissipation)
 [00:00:00][C][tmc2208:013]:     RSense: 0.110 Ohm external sense resistors
 [00:00:00][C][tmc2208:013]:   Register dump:
-[00:00:00][C][tmc2208:013]:     GCONF:        0x000001E1
-[00:00:00][C][tmc2208:013]:     GSTAT:        0x00000001
-[00:00:00][C][tmc2208:013]:     IFCNT:        0x00000046
+[00:00:00][C][tmc2208:013]:     GCONF:        0x000001E0
+[00:00:00][C][tmc2208:013]:     GSTAT:        0x00000000
+[00:00:00][C][tmc2208:013]:     IFCNT:        0x00000061
 [00:00:00][C][tmc2208:013]:     SLAVECONF:    0x00000000
 [00:00:00][C][tmc2208:013]:     OTP_PROG:     0x00000000
-[00:00:00][C][tmc2208:013]:     OTP_READ:     0x00000010
-[00:00:00][C][tmc2208:013]:     IOIN:         0x2100004C
-[00:00:00][C][tmc2208:013]:     FACTORY_CONF: 0x00000010
-[00:00:00][C][tmc2208:013]:     IHOLD_IRUN:   0x00001000
+[00:00:00][C][tmc2208:013]:     OTP_READ:     0x0000000C
+[00:00:00][C][tmc2208:013]:     IOIN:         0x20000140
+[00:00:00][C][tmc2208:013]:     FACTORY_CONF: 0x0000000C
+[00:00:00][C][tmc2208:013]:     IHOLD_IRUN:   0x00000100
 [00:00:00][C][tmc2208:013]:     TPOWERDOWN:   0x00000000
 [00:00:00][C][tmc2208:013]:     TSTEP:        0x000FFFFF
 [00:00:00][C][tmc2208:013]:     TPWMTHRS:     0x00000000
-[00:00:00][C][tmc2208:013]:     TCOOLTHRS:    0x00000000
 [00:00:00][C][tmc2208:013]:     VACTUAL:      0x00000000
-[00:00:00][C][tmc2208:013]:     SGTHRS:       0x00000032
-[00:00:00][C][tmc2208:013]:     SG_RESULT:    0x00000000
-[00:00:00][C][tmc2208:013]:     COOLCONF:     0x00000000
-[00:00:00][C][tmc2208:013]:     MSCNT:        0x00000020
-[00:00:00][C][tmc2208:013]:     MSCURACT:     0x00F20030
-[00:00:00][C][tmc2208:013]:     CHOPCONF:     0x16010053
+[00:00:00][C][tmc2208:013]:     MSCNT:        0x00000230
+[00:00:00][C][tmc2208:013]:     MSCURACT:     0x011301B7
+[00:00:00][C][tmc2208:013]:     CHOPCONF:     0x15010053
 [00:00:00][C][tmc2208:013]:     DRV_STATUS:   0xC0000000
-[00:00:00][C][tmc2208:013]:     PWM_CONF:     0xC80D0E24
-[00:00:00][C][tmc2208:013]:     PWM_SCALE:    0x00050006
-[00:00:00][C][tmc2208:013]:     PWM_AUTO:     0x000E003F
+[00:00:00][C][tmc2208:013]:     PWM_CONF:     0xC81D0E24
+[00:00:00][C][tmc2208:013]:     PWM_SCALE:    0x000A0011
+[00:00:00][C][tmc2208:013]:     PWM_AUTO:     0x001A00FF
 ...
 ```
 
@@ -822,29 +664,10 @@ Example usage in lambdas
 ```yaml
 sensor:
 
-    // Read stallguard result (register) into a sensor
-  - platform: template
-    name: Stallguard result
-    lambda: return id(driver)->read_register(SG_RESULT);
-
     // Read microstep selection index into a sensor. This is a binary exponent like 0,1,2,3,... and microsteps can be calculated like 2**<exponent>
   - platform: template
     name: Microstep selection index
     lambda: return id(driver)->read_field(MRES_FIELD);
-
-
-number:
-
-    // Write value to stallguard threshold register
-  - platform: template
-    name: Stallguard threshold
-    update_interval: 1s
-    min_value: 0
-    max_value: 255
-    step: 5
-    lambda: return id(driver)->read_register(SGTHRS);
-    set_action:
-      - lambda: id(driver)->write_register(SGTHRS, x);
 
 
 button:
@@ -891,9 +714,7 @@ https://www.analog.com/en/resources/app-notes/an-002.html
 https://docs.duet3d.com/User_manual/Connecting_hardware/Motors_choosing
 
 ### Other
-https://www.analog.com/en/products/tmc2208.html \
-https://www.programming-electronics-diy.xyz/2023/12/tmc2208-stepper-driver-module-tutorial.html
-
+https://www.analog.com/en/products/tmc2208.html
 
 
 ## Troubleshooting
@@ -903,7 +724,7 @@ https://www.programming-electronics-diy.xyz/2023/12/tmc2208-stepper-driver-modul
 2. Make sure the driver is power on VM / VS (motor supply voltage). Must be between 4.75 and 29V.
 
 #### `Detected unknown IC version: 0x??`
-First generation of TMC2208s have version `0x21`. There is only a single version released as of Q3 2024. If you are seeing version `0x20` that means you have a TMC2208 which is not supported by this component.
+First generation of TMC2208s have version `0x20`. There is only a single version released as of Q3 2024. If you are seeing version `0x20` that means you have a TMC2208 which is not supported by this component.
 
 #### `Reading from UART timed out at byte 0!`
 Poor signal integrity can cause instability in the UART connection. The component doesn't retry writing/reading if a reading failed. Make sure the connection is reliable for best performance. Try lower baud rates if these only appear occasionally.
@@ -912,7 +733,7 @@ Poor signal integrity can cause instability in the UART connection. The componen
 Long wires connected to ENN might pick up interference causing the driver to make a sizzling noise if left floating.
 
 #### `undefined reference to vtable`
-Source code for components aren't fully loading when adding additional components on ESP-IDF framework with an existing compiled binary. For instance the `motor_load` sensor. Solution is to do a clean build.
+Source code for components aren't fully loading when adding additional components on ESP-IDF framework with an existing compiled binary. Solution is to do a clean build.
 
 #### `Component tmc2208 took a long time for an operation ...`
 A lot is happening over serial and low baud rates might cause this warning. Make sure to use the highest baud rate possible. Preferably 500k, which is the highest supported baud rate without external clock.
