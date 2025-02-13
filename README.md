@@ -9,8 +9,12 @@ external_components:
 
 ## Components
 
+- [tmc2202](esphome/components/tmc22xx/README.md) :: ADI Trinamic stepper driver.
 - [tmc2208](esphome/components/tmc2208/README.md) :: ADI Trinamic stepper driver.
 - [tmc2209](esphome/components/tmc2209/README.md) :: ADI Trinamic stepper driver.
+- [tmc2224](esphome/components/tmc22xx/README.md) :: ADI Trinamic stepper driver.
+- [tmc2225](esphome/components/tmc22xx/README.md) :: ADI Trinamic stepper driver.
+- [tmc2226](esphome/components/tmc22xx/README.md) :: ADI Trinamic stepper driver.
 - [tmc2300](esphome/components/tmc2300/README.md) :: ADI Trinamic stepper driver.
 - [tmc5240](esphome/components/tmc5240/README.md) :: ADI Trinamic stepper driver.
 - [as5x47](esphome/components/as5x47/README.md) :: quadrature encoder with SPI.

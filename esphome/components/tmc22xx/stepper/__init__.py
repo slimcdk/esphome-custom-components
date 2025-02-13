@@ -82,11 +82,11 @@ CONFIG_SCHEMA = cv.All(
             ),
             VARIANT_TMC2225: TMC22XX_BASE_CONFIG_SCHEMA.extend(
                 cv.Schema({cv.GenerateID(): cv.declare_id(TMC2225Stepper)}),
-                TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA,
                 stepper.STEPPER_SCHEMA,
             ),
             VARIANT_TMC2226: TMC22XX_BASE_CONFIG_SCHEMA.extend(
                 cv.Schema({cv.GenerateID(): cv.declare_id(TMC2226Stepper)}),
+                TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA,
                 stepper.STEPPER_SCHEMA,
             ),
         },
