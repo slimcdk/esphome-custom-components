@@ -66,10 +66,8 @@ class TMC2208Component : public TMC2208API, public Component {
   void set_vsense(bool vsense) { this->vsense_ = vsense; }
   void set_ottrim(uint8_t ottrim) { this->ottrim_ = ottrim; }
   void set_enable_driver_health_check(bool enable) { this->driver_health_check_is_enabled_ = enable; }
-  void set_enable_stall_detection(bool enable) { this->stall_detection_is_enabled_ = enable; }
   void set_config_dump_include_registers(bool include) { this->config_dump_include_registers_ = include; }
   void set_toff_recovery(bool enable) { this->toff_recovery_ = enable; }
-  void add_on_stall_callback(std::function<void()> &&callback) { this->on_stall_callback_.add(std::move(callback)); }
   void add_on_driver_status_callback(std::function<void(DriverStatusEvent)> &&callback) {
     this->on_driver_status_callback_.add(std::move(callback));
   }
@@ -115,7 +113,6 @@ class TMC2208Component : public TMC2208API, public Component {
   bool toff_recovery_{true};
 
   bool driver_health_check_is_enabled_{false};
-  bool stall_detection_is_enabled_{false};
 
   InternalGPIOPin *enn_pin_{nullptr};
   InternalGPIOPin *diag_pin_{nullptr};
@@ -135,10 +132,8 @@ class TMC2208Component : public TMC2208API, public Component {
   ISRPinTriggerStore diag_isr_store_;
   HighFrequencyLoopRequester high_freq_;
 
-  CallbackManager<void()> on_stall_callback_;
   CallbackManager<void(const DriverStatusEvent &event)> on_driver_status_callback_;
 
-  EventHandler stall_handler_;
   EventHandler reset_handler_;
   EventHandler drv_err_handler_;
   EventHandler diag_handler_;   // Event on DIAG

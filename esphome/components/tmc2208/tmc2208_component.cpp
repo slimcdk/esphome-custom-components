@@ -65,12 +65,6 @@ void TMC2208Component::setup() {
         // TODO: Handle Power-on reset ??
         const int32_t gstat = this->read_register(GSTAT);
         this->check_gstat_ = (bool) gstat;
-
-        // this->stall_handler_.check(gstat == 0b000);
-        if (gstat == 0b000) {
-          this->on_stall_callback_.call();
-        }
-
         this->reset_handler_.check((bool) this->extract_field(gstat, RESET_FIELD));
         this->drv_err_handler_.check((bool) this->extract_field(gstat, DRV_ERR_FIELD));
         this->uvcp_handler_.check((bool) this->extract_field(gstat, UV_CP_FIELD));
@@ -88,8 +82,6 @@ void TMC2208Component::setup() {
         this->on_driver_status_callback_.call(DIAG_TRIGGER_CLEARED);
       }  // fall
   );
-
-  this->stall_handler_.set_on_rise_callback([this]() { this->on_stall_callback_.call(); });
 
   this->reset_handler_.set_callbacks(  // gstat reset
       [this]() {                       // rise
@@ -227,7 +219,7 @@ void TMC2208Component::setup() {
 }
 
 void TMC2208Component::loop() {
-  if (this->driver_health_check_is_enabled_ or this->stall_detection_is_enabled_) {
+  if (this->driver_health_check_is_enabled_) {
     if (this->diag_pin_ != nullptr) {
       this->diag_handler_.check(this->diag_triggered_);
       if (this->diag_triggered_) {

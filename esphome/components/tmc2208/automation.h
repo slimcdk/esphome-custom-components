@@ -182,12 +182,5 @@ class OnDriverStatusTrigger : public Trigger<DriverStatusEvent> {
   }
 };
 
-class OnStallTrigger : public Trigger<> {
- public:
-  explicit OnStallTrigger(TMC2208Component *parent) {
-    parent->add_on_stall_callback([this]() { this->trigger(); });
-  }
-};
-
 }  // namespace tmc2208
 }  // namespace esphome

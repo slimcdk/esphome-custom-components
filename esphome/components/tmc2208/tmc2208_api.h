@@ -20,13 +20,6 @@ static const char *TAG = "tmc2208";
 
 #define IC_VERSION_GEN1 0x20
 
-// Default Register values
-#define R00 ((int32_t) 0x00000040)  // GCONF
-#define R10 ((int32_t) 0x00071703)  // IHOLD_IRUN
-#define R11 ((int32_t) 0x00000014)  // TPOWERDOWN
-#define R6C ((int32_t) 0x10000053)  // CHOPCONF
-#define R70 ((int32_t) 0xC10D0024)  // PWMCONF
-
 #define ____ 0x00
 
 struct RegisterField {
@@ -79,18 +72,6 @@ static const uint8_t register_access_[REGISTER_COUNT] = {
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____,  // 0x50 - 0x5F
     ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, 0x01, 0x01, 0x03, ____, ____, 0x01,  // 0x60 - 0x6F
     0x03, 0x01, 0x01, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____   // 0x70 - 0x7F
-};
-
-static const int32_t sample_register_preset[REGISTER_COUNT] = {
-    //  0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
-    R00, 0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0,  // 0x00 - 0x0F
-    R10, R11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0,  // 0x10 - 0x1F
-    0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0,  // 0x20 - 0x2F
-    0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0,  // 0x30 - 0x3F
-    0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0,  // 0x40 - 0x4F
-    0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0,  // 0x50 - 0x5F
-    0,   0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, R6C, 0, 0, 0,  // 0x60 - 0x6F
-    R70, 0,   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0   // 0x70 - 0x7F
 };
 
 class TMC2208API : public Parented<TMC2208Hub> {
