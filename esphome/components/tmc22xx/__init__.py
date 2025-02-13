@@ -127,6 +127,16 @@ SHAFT_DIRECTIONS = {
     "ccw": ShaftDirection.COUNTERCLOCKWISE,
 }
 
+
+def _on_stall_invalid(variant):
+    def handler(value):
+        raise cv.Invalid(
+            f"[{CONF_ON_STALL}]: {variant} does not support stall detection"
+        )
+
+    return handler
+
+
 DEVICE_SCHEMA = cv.Schema({cv.GenerateID(CONF_TMC22XX_ID): cv.use_id(TMC22XXComponent)})
 
 TMC22XX_BASE_CONFIG_SCHEMA = tmc22xx_hub.TMC22XX_HUB_DEVICE_SCHEMA.extend(
@@ -165,6 +175,7 @@ TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA = cv.Schema(
         ),
     },
 )
+
 
 TMC22XX_CONFIG_SCHEMA = cv.typed_schema(
     {
