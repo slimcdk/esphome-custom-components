@@ -5,21 +5,6 @@ namespace tmc22xx {
 
 // clang-format off
 
-#define MAX_VELOCITY      (int32_t)  2147483647
-#define MAX_ACCELERATION  (uint32_t) 16777215uL
-
-#define WRITE_BIT     0x80
-#define ADDRESS_MASK  0x7F
-
-#define TMC2202_IC_VERSION 0x20
-#define TMC2208_IC_VERSION 0x20
-#define TMC2209_IC_VERSION 0x21
-#define TMC2224_IC_VERSION 0x20
-#define TMC2225_IC_VERSION 0x20
-#define TMC2226_IC_VERSION 0x21
-
-#define REGISTER_COUNT 128
-
 // Registers
 #define GCONF         0x00
 #define GSTAT         0x01

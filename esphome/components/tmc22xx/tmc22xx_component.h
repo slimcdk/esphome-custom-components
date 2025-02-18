@@ -156,6 +156,7 @@ class TMC22XXComponent : public TMC22XXAPI, public Component {
   void write_speed(int32_t speed) { this->write_field(VACTUAL_FIELD, this->speed_to_vactual(speed)); }
 };
 
+/*
 class TMC2202Component : public TMC22XXComponent {
  public:
   TMC2202Component() = default;
@@ -191,5 +192,7 @@ class TMC2226Component : public TMC22XXComponent {
   TMC2226Component() = default;
   TMC2226Component(uint8_t address) : TMC22XXComponent(address){};
 };
+*/
+
 }  // namespace tmc22xx
 }  // namespace esphome

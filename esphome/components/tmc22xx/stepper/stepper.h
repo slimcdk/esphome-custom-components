@@ -60,6 +60,7 @@ class TMC22XXStepper : public TMC22XXComponent, public Stepper {
   /* */
 };
 
+/*
 class TMC2202Stepper : public TMC22XXStepper {
  public:
   TMC2202Stepper() = default;
@@ -95,6 +96,7 @@ class TMC2226Stepper : public TMC22XXStepper {
   TMC2226Stepper() = default;
   TMC2226Stepper(uint8_t address) : TMC22XXStepper(address){};
 };
+*/
 
 }  // namespace tmc22xx
 }  // namespace esphome

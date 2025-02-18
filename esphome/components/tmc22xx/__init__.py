@@ -80,12 +80,12 @@ TMC22XXAPI = tmc22xx_ns.class_(
     "TMC22XXAPI", cg.Parented.template(tmc22xx_hub.TMC22XXHub)
 )
 TMC22XXComponent = tmc22xx_ns.class_("TMC22XXComponent", TMC22XXAPI, cg.Component)
-TMC2202Component = tmc22xx_ns.class_("TMC2202Component", TMC22XXComponent)
-TMC2208Component = tmc22xx_ns.class_("TMC2208Component", TMC22XXComponent)
-TMC2209Component = tmc22xx_ns.class_("TMC2209Component", TMC22XXComponent)
-TMC2226Component = tmc22xx_ns.class_("TMC2226Component", TMC22XXComponent)
-TMC2224Component = tmc22xx_ns.class_("TMC2224Component", TMC22XXComponent)
-TMC2225Component = tmc22xx_ns.class_("TMC2225Component", TMC22XXComponent)
+# TMC2202Component = tmc22xx_ns.class_("TMC2202Component", TMC22XXComponent)
+# TMC2208Component = tmc22xx_ns.class_("TMC2208Component", TMC22XXComponent)
+# TMC2209Component = tmc22xx_ns.class_("TMC2209Component", TMC22XXComponent)
+# TMC2226Component = tmc22xx_ns.class_("TMC2226Component", TMC22XXComponent)
+# TMC2224Component = tmc22xx_ns.class_("TMC2224Component", TMC22XXComponent)
+# TMC2225Component = tmc22xx_ns.class_("TMC2225Component", TMC22XXComponent)
 
 DriverStatusEvent = tmc22xx_ns.enum("DriverStatusEvent")
 
@@ -237,12 +237,12 @@ def _build_typed_schema(tmc2202, tmc2208, tmc2209, tmc2224, tmc2225, tmc2226, **
 
 
 TMC22XX_CONFIG_SCHEMA = _build_typed_schema(
-    tmc2202=TMC2202Component,
-    tmc2208=TMC2208Component,
-    tmc2209=TMC2209Component,
-    tmc2224=TMC2224Component,
-    tmc2225=TMC2225Component,
-    tmc2226=TMC2226Component,
+    tmc2202=TMC22XXComponent,  # TMC2202Component,
+    tmc2208=TMC22XXComponent,  # TMC2208Component,
+    tmc2209=TMC22XXComponent,  # TMC2209Component,
+    tmc2224=TMC22XXComponent,  # TMC2224Component,
+    tmc2225=TMC22XXComponent,  # TMC2225Component,
+    tmc2226=TMC22XXComponent,  # TMC2226Component,
 )
 
 

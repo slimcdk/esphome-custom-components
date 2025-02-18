@@ -10,17 +10,63 @@ namespace tmc22xx {
 
 static const char *TAG = "tmc22xx";
 
-#define ACCESS_READ 0x01
-#define IS_READABLE(x) ((x) &ACCESS_READ)
+// clang-format off
 
-// Default Register values
-#define R00 ((int32_t) 0x00000040)  // GCONF
-#define R10 ((int32_t) 0x00071703)  // IHOLD_IRUN
-#define R11 ((int32_t) 0x00000014)  // TPOWERDOWN
-#define R6C ((int32_t) 0x10000053)  // CHOPCONF
-#define R70 ((int32_t) 0xC10D0024)  // PWMCONF
+#define WRITE_BIT           0x80
+#define ADDRESS_MASK        0x7F
 
+#define ACCESS_NONE         0x00
+#define ACCESS_READ         0x01
+#define ACCESS_WRITE        0x02
+#define ACCESS_DIRTY        0x08  // Register has been written since reset -> shadow register is valid for restore
+
+// Special Register bits
+#define ACCESS_RW_SPECIAL   0x10  // Read and write are independent - different values and/or different functions
+#define ACCESS_FLAGS        0x20  // Register has read or write to clear flags.
+#define ACCESS_HW_PRESET    0x40  // Register has hardware presets (e.g. Factory calibrations) - do not write a default value. 0x80 is currently unused
+
+// Permission combinations
+#define ACCESS_RW           (ACCESS_READ  | ACCESS_WRITE)        // 0x03 - Read and write
+#define ACCESS_RW_SEPARATE  (ACCESS_RW    | ACCESS_RW_SPECIAL)   // 0x13 - Read and write, with separate values/functions
+#define ACCESS_R_FLAGS      (ACCESS_READ  | ACCESS_FLAGS)        // 0x21 - Read, has flags (read to clear)
+#define ACCESS_RW_FLAGS     (ACCESS_RW    | ACCESS_FLAGS)        // 0x23 - Read and write, has flags (read or write to clear)
+#define ACCESS_W_PRESET     (ACCESS_WRITE | ACCESS_HW_PRESET)    // 0x42 - Write, has hardware preset - skipped in reset routine
+#define ACCESS_RW_PRESET    (ACCESS_RW    | ACCESS_HW_PRESET)    // 0x43 - Read and write, has hardware presets - skipped in reset routine
+
+// Helper macros
+#define IS_READABLE(x)      ((x) & ACCESS_READ)
+#define IS_WRITABLE(x)      ((x) & ACCESS_WRITE)
+#define IS_DIRTY(x)         ((x) & ACCESS_DIRTY)
+#define IS_PRESET(x)        ((x) & ACCESS_HW_PRESET)
+#define IS_RESETTABLE(x)    (((x) & (ACCESS_W_PRESET)) == ACCESS_WRITE) // Write bit set, Hardware preset bit not set
+#define IS_RESTORABLE(x)    (((x) & ACCESS_WRITE) && (!(x & ACCESS_HW_PRESET) || (x & ACCESS_DIRTY))) // Write bit set, if it's a hardware preset register, it needs to be dirty
+
+#define REGISTER_COUNT 128
+
+#define TMC2202_IC_VERSION 0x20
+#define TMC2208_IC_VERSION 0x20
+#define TMC2209_IC_VERSION 0x21
+#define TMC2224_IC_VERSION 0x20
+#define TMC2225_IC_VERSION 0x20
+#define TMC2226_IC_VERSION 0x21
+
+// Helper define:
+// Most register permission arrays are initialized with 128 values.
+// In those fields its quite hard to have an easy overview of available
+// registers. For that, ____ is defined to 0, since 4 underscores are
+// very easy to distinguish from the 2-digit hexadecimal values.
+// This way, the used registers (permission != ACCESS_NONE) are easily spotted
+// amongst unused (permission == ACCESS_NONE) registers.
 #define ____ 0x00
+
+// Helper define:
+// Default reset values are not used if the corresponding register has a
+// hardware preset. Since this is not directly visible in the default
+// register reset values array, N_A is used as an indicator for a preset
+// value, where any value will be ignored anyways (N_A: not available).
+#define N_A 0
+
+// clang-format on
 
 struct RegisterField {
   uint32_t mask;
