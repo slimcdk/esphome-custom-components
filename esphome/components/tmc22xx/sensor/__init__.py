@@ -4,12 +4,27 @@ from esphome.const import (
     UNIT_PERCENT,
     UNIT_MILLIAMP,
     ICON_PERCENT,
+    CONF_TYPE,
 )
 import esphome.codegen as cg
 import esphome.config_validation as cv
+import esphome.final_validate as fv
+from esphome.core.entity_helpers import inherit_property_from
 from esphome.components import sensor
 
-from .. import tmc22xx_ns, TMC22XXComponent, DEVICE_SCHEMA, CONF_TMC22XX_ID
+from .. import (
+    tmc22xx_ns,
+    TMC22XXComponent,
+    DEVICE_SCHEMA,
+    CONF_TMC22XX_ID,
+    CONF_VARIANT,
+    VARIANT_TMC2202,
+    VARIANT_TMC2208,
+    VARIANT_TMC2209,
+    VARIANT_TMC2224,
+    VARIANT_TMC2225,
+    VARIANT_TMC2226,
+)
 
 CODEOWNERS = ["@slimcdk"]
 
@@ -39,6 +54,19 @@ TYPE_PWM_SCALE_SUM = "pwm_scale_sum"
 TYPE_PWM_SCALE_AUTO = "pwm_scale_auto"
 TYPE_PWM_OFS_AUTO = "pwm_ofs_auto"
 TYPE_PWM_GRAD_AUTO = "pwm_grad_auto"
+
+
+def _validate_type(config):
+
+    _type = config.get(CONF_TYPE)
+    _vari = config.get(CONF_VARIANT)
+
+    if _type is TYPE_MOTOR_LOAD or TYPE_STALLGUARD_RESULT:
+        if _vari not in [VARIANT_TMC2209, VARIANT_TMC2226]:
+            raise cv.Invalid(f" {_vari} does not have `{_type}` sensor!")
+
+    return config
+
 
 CONFIG_SCHEMA = cv.typed_schema(
     {
@@ -87,6 +115,11 @@ CONFIG_SCHEMA = cv.typed_schema(
             entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
         ).extend(DEVICE_SCHEMA, cv.polling_component_schema("30s")),
     }
+)
+
+FINAL_VALIDATE_SCHEMA = cv.All(
+    inherit_property_from(CONF_VARIANT, CONF_TMC22XX_ID),
+    _validate_type,
 )
 
 
