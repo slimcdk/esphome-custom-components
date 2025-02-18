@@ -1,8 +1,8 @@
 #pragma once
-#include "esphome/components/tmc22xx/driver_registers.h"
-#include "esphome/components/tmc22xx/driver_api.h"
-#include "esphome/components/tmc22xx/component.h"
-#include "esphome/components/tmc22xx/events.h"
+#include "esphome/components/tmc22xx/tmc22xx_registers.h"
+#include "esphome/components/tmc22xx/tmc22xx_api.h"
+#include "esphome/components/tmc22xx/tmc22xx_component.h"
+#include "esphome/components/tmc22xx/tmc22xx_events.h"
 
 #include "esphome/core/helpers.h"
 #include "esphome/core/component.h"

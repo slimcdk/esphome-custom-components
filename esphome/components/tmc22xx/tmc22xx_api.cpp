@@ -1,11 +1,11 @@
-#include "driver_registers.h"
-#include "driver_api.h"
+#include "tmc22xx_registers.h"
+#include "tmc22xx_api.h"
 #include "esphome/core/helpers.h"
 
 namespace esphome {
 namespace tmc22xx {
 
-uint8_t DriverAPI::crc8_(uint8_t *data, uint32_t bytes) {
+uint8_t TMC22XXAPI::crc8_(uint8_t *data, uint32_t bytes) {
   uint8_t result = 0;
   uint8_t *table;
 
@@ -23,7 +23,7 @@ uint8_t DriverAPI::crc8_(uint8_t *data, uint32_t bytes) {
   return result;
 }
 
-void DriverAPI::set_dirty_bit_(uint8_t index, bool value) {
+void TMC22XXAPI::set_dirty_bit_(uint8_t index, bool value) {
   if (index >= REGISTER_COUNT)
     return;
 
@@ -33,7 +33,7 @@ void DriverAPI::set_dirty_bit_(uint8_t index, bool value) {
   *tmp = (((*tmp) & (~(mask))) | (((value) << (shift)) & (mask)));
 }
 
-bool DriverAPI::get_dirty_bit_(uint8_t index) {
+bool TMC22XXAPI::get_dirty_bit_(uint8_t index) {
   if (index >= REGISTER_COUNT)
     return false;
 
@@ -42,7 +42,7 @@ bool DriverAPI::get_dirty_bit_(uint8_t index) {
   return ((*tmp) >> shift) & 1;
 }
 
-bool DriverAPI::cache_(CacheOperation operation, uint8_t address, uint32_t *value) {
+bool TMC22XXAPI::cache_(CacheOperation operation, uint8_t address, uint32_t *value) {
   if (operation == CACHE_READ) {
     if (IS_READABLE(register_access_[address]))
       return false;
@@ -65,7 +65,7 @@ bool DriverAPI::cache_(CacheOperation operation, uint8_t address, uint32_t *valu
   return false;
 }
 
-void DriverAPI::write_register(uint8_t address, int32_t value) {
+void TMC22XXAPI::write_register(uint8_t address, int32_t value) {
   ESP_LOGVV(TAG, "writing address 0x%x with value 0x%x (%d)", address, value, value);
 
   std::array<uint8_t, 8> buffer = {0};
@@ -87,7 +87,7 @@ void DriverAPI::write_register(uint8_t address, int32_t value) {
   this->cache_(CACHE_WRITE, address, (uint32_t *) &value);
 }
 
-int32_t DriverAPI::read_register(uint8_t address) {
+int32_t TMC22XXAPI::read_register(uint8_t address) {
   ESP_LOGVV(TAG, "reading address 0x%x", address);
   uint32_t value;
 
@@ -128,17 +128,17 @@ int32_t DriverAPI::read_register(uint8_t address) {
   return encode_uint32(buffer.at(3), buffer.at(4), buffer.at(5), buffer.at(6));
 }
 
-uint32_t DriverAPI::update_field(uint32_t data, RegisterField field, uint32_t value) {
+uint32_t TMC22XXAPI::update_field(uint32_t data, RegisterField field, uint32_t value) {
   return (data & (~field.mask)) | ((value << field.shift) & field.mask);
 }
 
-void DriverAPI::write_field(RegisterField field, uint32_t value) {
+void TMC22XXAPI::write_field(RegisterField field, uint32_t value) {
   uint32_t reg_value = this->read_register(field.address);
   reg_value = this->update_field(reg_value, field, value);
   this->write_register(field.address, reg_value);
 }
 
-uint32_t DriverAPI::extract_field(uint32_t data, RegisterField field) {
+uint32_t TMC22XXAPI::extract_field(uint32_t data, RegisterField field) {
   uint32_t value = (data & field.mask) >> field.shift;
 
   if (field.is_signed) {
@@ -150,7 +150,7 @@ uint32_t DriverAPI::extract_field(uint32_t data, RegisterField field) {
   return value;
 }
 
-uint32_t DriverAPI::read_field(RegisterField field) {
+uint32_t TMC22XXAPI::read_field(RegisterField field) {
   uint32_t value = this->read_register(field.address);
   return this->extract_field(value, field);
 }

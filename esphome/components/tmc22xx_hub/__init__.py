@@ -1,9 +1,6 @@
 import logging
 
-from esphome.const import (
-    CONF_ID,
-    CONF_ADDRESS,
-)
+from esphome.const import CONF_ID
 import esphome.codegen as cg
 import esphome.config_validation as cv
 import esphome.final_validate as fv
@@ -16,13 +13,13 @@ CODEOWNERS = ["@slimcdk"]
 
 MULTI_CONF = True
 
-CONF_TMC22XX_HUB = "tmc22xx"
-CONF_TMC22XX_HUB_ID = "tmc22xx_id"
+CONF_TMC22XX_HUB = "tmc22xx_hub"
+CONF_TMC22XX_HUB_ID = "tmc22xx_hub_id"
 
 CONF_STEPPER = "stepper"
 
-tmc22xx_ns = cg.esphome_ns.namespace("tmc22xx")
-TMC22XXHub = tmc22xx_ns.class_("TMC22XXHub", cg.Component, uart.UARTDevice)
+tmc22xx_hub = cg.esphome_ns.namespace("tmc22xx_hub")
+TMC22XXHub = tmc22xx_hub.class_("TMC22XXHub", cg.Component, uart.UARTDevice)
 
 
 CONFIG_SCHEMA = cv.All(

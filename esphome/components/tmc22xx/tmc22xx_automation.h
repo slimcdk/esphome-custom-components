@@ -1,7 +1,7 @@
 #pragma once
-#include "driver_registers.h"
-#include "component.h"
-#include "events.h"
+#include "tmc22xx_registers.h"
+#include "tmc22xx_component.h"
+#include "tmc22xx_events.h"
 #include "esphome/core/automation.h"
 
 #include <vector>

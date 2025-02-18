@@ -1,14 +1,12 @@
 #pragma once
 
-#include "driver_registers.h"
+#include "tmc22xx_registers.h"
 
 #include "esphome/core/helpers.h"
 #include "esphome/components/tmc22xx_hub/tmc22xx_hub.h"
 
 namespace esphome {
 namespace tmc22xx {
-
-using namespace esphome::tmc22xx_hub;
 
 static const char *TAG = "tmc22xx";
 
@@ -76,7 +74,7 @@ static const uint8_t register_access_[REGISTER_COUNT] = {
     0x03, 0x01, 0x01, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____, ____   // 0x70 - 0x7F
 };
 
-class DriverAPI : public Parented<TMC22XXHub> {
+class TMC22XXAPI : public Parented<tmc22xx_hub::TMC22XXHub> {
  private:
   uint8_t dirty_bits_[REGISTER_COUNT / 8] = {0};
   int32_t shadow_register_[REGISTER_COUNT];
@@ -90,8 +88,8 @@ class DriverAPI : public Parented<TMC22XXHub> {
   uint8_t address_;
 
  public:
-  DriverAPI() = default;
-  DriverAPI(uint8_t address) : address_(address){};
+  TMC22XXAPI() = default;
+  TMC22XXAPI(uint8_t address) : address_(address){};
 
   void set_address(uint8_t address) { this->address_ = address; }
 

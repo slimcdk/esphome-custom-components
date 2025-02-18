@@ -1,5 +1,5 @@
-#include "driver_registers.h"
-#include "component.h"
+#include "tmc22xx_registers.h"
+#include "tmc22xx_component.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
 

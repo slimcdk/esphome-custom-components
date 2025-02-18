@@ -1,5 +1,5 @@
 #pragma once
-#include "driver_registers.h"
+#include "tmc22xx_registers.h"
 #include "esphome/core/helpers.h"
 
 namespace esphome {

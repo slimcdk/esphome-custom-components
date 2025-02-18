@@ -1,7 +1,7 @@
 #pragma once
-#include "driver_registers.h"
-#include "driver_api.h"
-#include "events.h"
+#include "tmc22xx_registers.h"
+#include "tmc22xx_api.h"
+#include "tmc22xx_events.h"
 
 namespace esphome {
 namespace tmc22xx {

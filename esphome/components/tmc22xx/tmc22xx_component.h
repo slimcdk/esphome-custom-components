@@ -1,10 +1,9 @@
 #pragma once
 
-#include "driver_registers.h"
-#include "driver_api.h"
-#include "events.h"
-
-#include "config_dumps.h"
+#include "tmc22xx_registers.h"
+#include "tmc22xx_api.h"
+#include "tmc22xx_events.h"
+#include "tmc22xx_config_dumps.h"
 
 #include "esphome/core/component.h"
 #include "esphome/core/optional.h"
@@ -40,7 +39,7 @@ struct ISRPinTriggerStore {
   static void IRAM_ATTR HOT pin_isr(ISRPinTriggerStore *arg) { (*(arg->pin_triggered_ptr)) = true; }
 };
 
-class TMC22XXComponent : public DriverAPI, public Component {
+class TMC22XXComponent : public TMC22XXAPI, public Component {
  protected:
   /** Setup / configuration */
   bool use_analog_current_scale_{false};
@@ -95,7 +94,7 @@ class TMC22XXComponent : public DriverAPI, public Component {
 
  public:
   TMC22XXComponent() = default;
-  TMC22XXComponent(uint8_t address) : DriverAPI(address){};
+  TMC22XXComponent(uint8_t address) : TMC22XXAPI(address){};
 
   float get_setup_priority() const override { return setup_priority::HARDWARE; }
   void setup() override;

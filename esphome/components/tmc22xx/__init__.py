@@ -76,8 +76,10 @@ CONF_RESTORE_TOFF = "restore_toff"
 
 
 tmc22xx_ns = cg.esphome_ns.namespace("tmc22xx")
-DriverAPI = tmc22xx_ns.class_("DriverAPI", cg.Parented.template(tmc22xx_hub.TMC22XXHub))
-TMC22XXComponent = tmc22xx_ns.class_("TMC22XXComponent", DriverAPI, cg.Component)
+TMC22XXAPI = tmc22xx_ns.class_(
+    "TMC22XXAPI", cg.Parented.template(tmc22xx_hub.TMC22XXHub)
+)
+TMC22XXComponent = tmc22xx_ns.class_("TMC22XXComponent", TMC22XXAPI, cg.Component)
 TMC2202Component = tmc22xx_ns.class_("TMC2202Component", TMC22XXComponent)
 TMC2208Component = tmc22xx_ns.class_("TMC2208Component", TMC22XXComponent)
 TMC2209Component = tmc22xx_ns.class_("TMC2209Component", TMC22XXComponent)
@@ -177,34 +179,77 @@ TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA = cv.Schema(
 )
 
 
-TMC22XX_CONFIG_SCHEMA = cv.typed_schema(
-    {
-        VARIANT_TMC2202: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-            cv.Schema({cv.GenerateID(): cv.declare_id(TMC2202Component)}),
-        ),
-        VARIANT_TMC2208: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-            cv.Schema({cv.GenerateID(): cv.declare_id(TMC2208Component)}),
-        ),
-        VARIANT_TMC2209: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-            cv.Schema({cv.GenerateID(): cv.declare_id(TMC2209Component)}),
-            TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA,
-        ),
-        VARIANT_TMC2224: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-            cv.Schema({cv.GenerateID(): cv.declare_id(TMC2224Component)}),
-        ),
-        VARIANT_TMC2225: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-            cv.Schema({cv.GenerateID(): cv.declare_id(TMC2225Component)}),
-        ),
-        VARIANT_TMC2226: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-            cv.Schema({cv.GenerateID(): cv.declare_id(TMC2226Component)}),
-            TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA,
-        ),
-    },
-    key=CONF_VARIANT,
+def _build_typed_schema(tmc2202, tmc2208, tmc2209, tmc2224, tmc2225, tmc2226, **kwargs):
+
+    extend = kwargs.pop("extend", cv.Schema({}))
+
+    return cv.typed_schema(
+        {
+            VARIANT_TMC2202: TMC22XX_BASE_CONFIG_SCHEMA.extend(
+                cv.Schema(
+                    {
+                        cv.GenerateID(): cv.declare_id(tmc2202),
+                        cv.Optional(CONF_ON_STALL): _on_stall_invalid(VARIANT_TMC2202),
+                    }
+                ),
+                extend,
+            ),
+            VARIANT_TMC2208: TMC22XX_BASE_CONFIG_SCHEMA.extend(
+                cv.Schema(
+                    {
+                        cv.GenerateID(): cv.declare_id(tmc2208),
+                        cv.Optional(CONF_ON_STALL): _on_stall_invalid(VARIANT_TMC2208),
+                    }
+                ),
+                extend,
+            ),
+            VARIANT_TMC2209: TMC22XX_BASE_CONFIG_SCHEMA.extend(
+                cv.Schema({cv.GenerateID(): cv.declare_id(tmc2209)}),
+                TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA,
+                extend,
+            ),
+            VARIANT_TMC2224: TMC22XX_BASE_CONFIG_SCHEMA.extend(
+                cv.Schema(
+                    {
+                        cv.GenerateID(): cv.declare_id(tmc2224),
+                        cv.Optional(CONF_ON_STALL): _on_stall_invalid(VARIANT_TMC2224),
+                    }
+                ),
+                extend,
+            ),
+            VARIANT_TMC2225: TMC22XX_BASE_CONFIG_SCHEMA.extend(
+                cv.Schema(
+                    {
+                        cv.GenerateID(): cv.declare_id(tmc2225),
+                        cv.Optional(CONF_ON_STALL): _on_stall_invalid(VARIANT_TMC2225),
+                    }
+                ),
+                extend,
+            ),
+            VARIANT_TMC2226: TMC22XX_BASE_CONFIG_SCHEMA.extend(
+                cv.Schema({cv.GenerateID(): cv.declare_id(tmc2226)}),
+                TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA,
+                extend,
+            ),
+        },
+        key=CONF_VARIANT,
+    )
+
+
+TMC22XX_CONFIG_SCHEMA = _build_typed_schema(
+    tmc2202=TMC2202Component,
+    tmc2208=TMC2208Component,
+    tmc2209=TMC2209Component,
+    tmc2224=TMC2224Component,
+    tmc2225=TMC2225Component,
+    tmc2226=TMC2226Component,
 )
 
 
 async def register_tmc22xx_base(var, config):
+
+    cg.add_build_flag("-std=c++17")
+    cg.add_build_flag("-std=gnu++17")
 
     await cg.register_component(var, config)
     hub = await tmc22xx_hub.register_tmc22xx_hub_device(var, config)
@@ -216,31 +261,25 @@ async def register_tmc22xx_base(var, config):
 
     if (enn_pin := config.get(CONF_ENN_PIN, None)) is not None:
         cg.add(var.set_enn_pin(await cg.gpio_pin_expression(enn_pin)))
-
     if (diag_pin := config.get(CONF_DIAG_PIN, None)) is not None:
         cg.add(var.set_diag_pin(await cg.gpio_pin_expression(diag_pin)))
-
     if (index_pin := config.get(CONF_INDEX_PIN, None)) is not None:
         cg.add(var.set_index_pin(await cg.gpio_pin_expression(index_pin)))
-
     if (step_pin := config.get(CONF_STEP_PIN, None)) is not None:
         cg.add(var.set_step_pin(await cg.gpio_pin_expression(step_pin)))
-
     if (dir_pin := config.get(CONF_DIR_PIN, None)) is not None:
         cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
 
+    if (ottrim := config.get(CONF_OTTRIM, None)) is not None:
+        cg.add(var.set_ottrim(ottrim))
     if (rsense := config.get(CONF_RSENSE, None)) is not None:
         cg.add(var.set_rsense(rsense))
-
     if (vsense := config.get(CONF_VSENSE, None)) is not None:
         cg.add(var.set_vsense(vsense))
         if CONF_RSENSE not in config and vsense is False:
             _LOGGER.warning(
                 "High heat dissipation (`vsense: False`) when using RDSon / internal current sensing",
             )
-
-    if (ottrim := config.get(CONF_OTTRIM, None)) is not None:
-        cg.add(var.set_ottrim(ottrim))
 
     for conf in config.get(CONF_ON_DRIVER_STATUS, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
@@ -251,9 +290,6 @@ async def register_tmc22xx_base(var, config):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)
         cg.add(var.set_enable_stall_detection(True))
-
-    cg.add_build_flag("-std=c++17")
-    cg.add_build_flag("-std=gnu++17")
 
     return var
 

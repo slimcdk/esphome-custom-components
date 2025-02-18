@@ -1,6 +1,7 @@
 #pragma once
-#include "esphome/components/tmc22xx/driver_registers.h"
-#include "esphome/components/tmc22xx/component.h"
+#include "esphome/components/tmc22xx/tmc22xx_registers.h"
+#include "esphome/components/tmc22xx/tmc22xx_component.h"
+
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/core/component.h"
 #include "esphome/core/helpers.h"

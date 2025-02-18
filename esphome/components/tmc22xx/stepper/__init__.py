@@ -28,6 +28,7 @@ from .. import (
     TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA,
     TMC22XX_CONFIG_SCHEMA,
     _on_stall_invalid,
+    _build_typed_schema,
 )
 
 CODEOWNERS = ["@slimcdk"]
@@ -63,56 +64,14 @@ def validate_control_method_(config):
 
 
 CONFIG_SCHEMA = cv.All(
-    cv.typed_schema(
-        {
-            VARIANT_TMC2202: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-                cv.Schema(
-                    {
-                        cv.GenerateID(): cv.declare_id(TMC2202Stepper),
-                        cv.Optional(CONF_ON_STALL): _on_stall_invalid(VARIANT_TMC2202),
-                    }
-                ),
-                stepper.STEPPER_SCHEMA,
-            ),
-            VARIANT_TMC2208: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-                cv.Schema(
-                    {
-                        cv.GenerateID(): cv.declare_id(TMC2208Stepper),
-                        cv.Optional(CONF_ON_STALL): _on_stall_invalid(VARIANT_TMC2208),
-                    }
-                ),
-                stepper.STEPPER_SCHEMA,
-            ),
-            VARIANT_TMC2209: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-                cv.Schema({cv.GenerateID(): cv.declare_id(TMC2209Stepper)}),
-                TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA,
-                stepper.STEPPER_SCHEMA,
-            ),
-            VARIANT_TMC2224: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-                cv.Schema(
-                    {
-                        cv.GenerateID(): cv.declare_id(TMC2224Stepper),
-                        cv.Optional(CONF_ON_STALL): _on_stall_invalid(VARIANT_TMC2224),
-                    }
-                ),
-                stepper.STEPPER_SCHEMA,
-            ),
-            VARIANT_TMC2225: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-                cv.Schema(
-                    {
-                        cv.GenerateID(): cv.declare_id(TMC2225Stepper),
-                        cv.Optional(CONF_ON_STALL): _on_stall_invalid(VARIANT_TMC2225),
-                    }
-                ),
-                stepper.STEPPER_SCHEMA,
-            ),
-            VARIANT_TMC2226: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-                cv.Schema({cv.GenerateID(): cv.declare_id(TMC2226Stepper)}),
-                TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA,
-                stepper.STEPPER_SCHEMA,
-            ),
-        },
-        key=CONF_VARIANT,
+    _build_typed_schema(
+        tmc2202=TMC2202Stepper,
+        tmc2208=TMC2208Stepper,
+        tmc2209=TMC2209Stepper,
+        tmc2224=TMC2224Stepper,
+        tmc2225=TMC2225Stepper,
+        tmc2226=TMC2226Stepper,
+        extend=stepper.STEPPER_SCHEMA,
     ),
     cv.has_none_or_all_keys(CONF_STEP_PIN, CONF_DIR_PIN),
     validate_control_method_,
