@@ -13,12 +13,9 @@ from esphome.const import (
 )
 import esphome.codegen as cg
 import esphome.config_validation as cv
-import esphome.final_validate as fv
 from esphome.components import tmc22xx_hub
 from esphome import automation, pins
 from esphome.automation import maybe_simple_id
-from esphome.core.entity_helpers import inherit_property_from
-import esphome.final_validate as fv
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -85,12 +82,7 @@ TMC22XXAPI = tmc22xx_ns.class_(
     "TMC22XXAPI", cg.Parented.template(tmc22xx_hub.TMC22XXHub)
 )
 TMC22XXComponent = tmc22xx_ns.class_("TMC22XXComponent", TMC22XXAPI, cg.Component)
-# TMC2202Component = tmc22xx_ns.class_("TMC2202Component", TMC22XXComponent)
-# TMC2208Component = tmc22xx_ns.class_("TMC2208Component", TMC22XXComponent)
-# TMC2209Component = tmc22xx_ns.class_("TMC2209Component", TMC22XXComponent)
-# TMC2226Component = tmc22xx_ns.class_("TMC2226Component", TMC22XXComponent)
-# TMC2224Component = tmc22xx_ns.class_("TMC2224Component", TMC22XXComponent)
-# TMC2225Component = tmc22xx_ns.class_("TMC2225Component", TMC22XXComponent)
+
 
 DriverStatusEvent = tmc22xx_ns.enum("DriverStatusEvent")
 
@@ -185,7 +177,7 @@ TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA = cv.Schema(
 )
 
 
-def _build_typed_schema(tmc2202, tmc2208, tmc2209, tmc2224, tmc2225, tmc2226, **kwargs):
+def _build_typed_schema(component, **kwargs):
 
     extend = kwargs.pop("extend", cv.Schema({}))
 
@@ -194,62 +186,58 @@ def _build_typed_schema(tmc2202, tmc2208, tmc2209, tmc2224, tmc2225, tmc2226, **
             VARIANT_TMC2202: TMC22XX_BASE_CONFIG_SCHEMA.extend(
                 cv.Schema(
                     {
-                        cv.GenerateID(): cv.declare_id(tmc2202),
+                        cv.GenerateID(): cv.declare_id(component),
                         cv.Optional(CONF_ON_STALL): _on_stall_invalid(VARIANT_TMC2202),
                     }
                 ),
+                cv.COMPONENT_SCHEMA,
                 extend,
             ),
             VARIANT_TMC2208: TMC22XX_BASE_CONFIG_SCHEMA.extend(
                 cv.Schema(
                     {
-                        cv.GenerateID(): cv.declare_id(tmc2208),
+                        cv.GenerateID(): cv.declare_id(component),
                         cv.Optional(CONF_ON_STALL): _on_stall_invalid(VARIANT_TMC2208),
                     }
                 ),
+                cv.COMPONENT_SCHEMA,
                 extend,
             ),
             VARIANT_TMC2209: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-                cv.Schema({cv.GenerateID(): cv.declare_id(tmc2209)}),
+                cv.Schema({cv.GenerateID(): cv.declare_id(component)}),
                 TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA,
+                cv.COMPONENT_SCHEMA,
                 extend,
             ),
             VARIANT_TMC2224: TMC22XX_BASE_CONFIG_SCHEMA.extend(
                 cv.Schema(
                     {
-                        cv.GenerateID(): cv.declare_id(tmc2224),
+                        cv.GenerateID(): cv.declare_id(component),
                         cv.Optional(CONF_ON_STALL): _on_stall_invalid(VARIANT_TMC2224),
                     }
                 ),
+                cv.COMPONENT_SCHEMA,
                 extend,
             ),
             VARIANT_TMC2225: TMC22XX_BASE_CONFIG_SCHEMA.extend(
                 cv.Schema(
                     {
-                        cv.GenerateID(): cv.declare_id(tmc2225),
+                        cv.GenerateID(): cv.declare_id(component),
                         cv.Optional(CONF_ON_STALL): _on_stall_invalid(VARIANT_TMC2225),
                     }
                 ),
+                cv.COMPONENT_SCHEMA,
                 extend,
             ),
             VARIANT_TMC2226: TMC22XX_BASE_CONFIG_SCHEMA.extend(
-                cv.Schema({cv.GenerateID(): cv.declare_id(tmc2226)}),
+                cv.Schema({cv.GenerateID(): cv.declare_id(component)}),
                 TMC22XX_STALL_TRIGGER_CONFIG_SCHEMA,
+                cv.COMPONENT_SCHEMA,
                 extend,
             ),
         },
         key=CONF_VARIANT,
     )
-
-
-TMC22XX_CONFIG_SCHEMA = _build_typed_schema(
-    tmc2202=TMC22XXComponent,  # TMC2202Component,
-    tmc2208=TMC22XXComponent,  # TMC2208Component,
-    tmc2209=TMC22XXComponent,  # TMC2209Component,
-    tmc2224=TMC22XXComponent,  # TMC2224Component,
-    tmc2225=TMC22XXComponent,  # TMC2225Component,
-    tmc2226=TMC22XXComponent,  # TMC2226Component,
-)
 
 
 async def register_tmc22xx_base(var, config):
@@ -302,6 +290,23 @@ async def register_tmc22xx_base(var, config):
     return var
 
 
+# CONFIG_SCHEMA = cv.All(
+#     _build_typed_schema(
+#         tmc2202=TMC22XXComponent,
+#         tmc2208=TMC22XXComponent,
+#         tmc2209=TMC22XXComponent,
+#         tmc2224=TMC22XXComponent,
+#         tmc2225=TMC22XXComponent,
+#         tmc2226=TMC22XXComponent,
+#     )
+# )
+
+
+# async def to_code(config):
+#     var = cg.new_Pvariable(config[CONF_ID])
+#     await register_tmc22xx_base(var, config)
+
+
 ACTION_ACTIVATE_SCHEMA = maybe_simple_id(
     {
         cv.GenerateID(): cv.use_id(TMC22XXComponent),
@@ -310,6 +315,7 @@ ACTION_ACTIVATE_SCHEMA = maybe_simple_id(
 )
 
 
+@automation.register_action("tmc22xx.enable", ActivationAction, ACTION_ACTIVATE_SCHEMA)
 @automation.register_action("tmc2202.enable", ActivationAction, ACTION_ACTIVATE_SCHEMA)
 @automation.register_action("tmc2208.enable", ActivationAction, ACTION_ACTIVATE_SCHEMA)
 @automation.register_action("tmc2209.enable", ActivationAction, ACTION_ACTIVATE_SCHEMA)
@@ -324,6 +330,7 @@ async def tmc22xx_enable_to_code(config, action_id, template_arg, args):
     return var
 
 
+@automation.register_action("tmc22xx.disable", ActivationAction, ACTION_ACTIVATE_SCHEMA)
 @automation.register_action("tmc2202.disable", ActivationAction, ACTION_ACTIVATE_SCHEMA)
 @automation.register_action("tmc2208.disable", ActivationAction, ACTION_ACTIVATE_SCHEMA)
 @automation.register_action("tmc2209.disable", ActivationAction, ACTION_ACTIVATE_SCHEMA)
@@ -357,6 +364,7 @@ ACTION_CONFIG_SCHEMA = maybe_simple_id(
 )
 
 
+@automation.register_action("tmc22xx.configure", ConfigureAction, ACTION_CONFIG_SCHEMA)
 @automation.register_action("tmc2202.configure", ConfigureAction, ACTION_CONFIG_SCHEMA)
 @automation.register_action("tmc2208.configure", ConfigureAction, ACTION_CONFIG_SCHEMA)
 @automation.register_action("tmc2209.configure", ConfigureAction, ACTION_CONFIG_SCHEMA)
@@ -418,6 +426,7 @@ ACTION_CURRENT_SCHEMA = maybe_simple_id(
 )
 
 
+@automation.register_action("tmc22xx.currents", CurrentsAction, ACTION_CURRENT_SCHEMA)
 @automation.register_action("tmc2202.currents", CurrentsAction, ACTION_CURRENT_SCHEMA)
 @automation.register_action("tmc2208.currents", CurrentsAction, ACTION_CURRENT_SCHEMA)
 @automation.register_action("tmc2209.currents", CurrentsAction, ACTION_CURRENT_SCHEMA)
@@ -469,6 +478,7 @@ ACTION_SG_SCHEMA = maybe_simple_id(
 )
 
 
+@automation.register_action("tmc22xx.stallguard", StallGuardAction, ACTION_SG_SCHEMA)
 @automation.register_action("tmc2209.stallguard", StallGuardAction, ACTION_SG_SCHEMA)
 @automation.register_action("tmc2226.stallguard", StallGuardAction, ACTION_SG_SCHEMA)
 async def tmc22xx_stallguard_to_code(config, action_id, template_arg, args):
@@ -504,6 +514,7 @@ ACTION_COOLCONF_SCHEMA = maybe_simple_id(
 )
 
 
+@automation.register_action("tmc22xx.coolconf", CoolConfAction, ACTION_COOLCONF_SCHEMA)
 @automation.register_action("tmc2202.coolconf", CoolConfAction, ACTION_COOLCONF_SCHEMA)
 @automation.register_action("tmc2208.coolconf", CoolConfAction, ACTION_COOLCONF_SCHEMA)
 @automation.register_action("tmc2209.coolconf", CoolConfAction, ACTION_COOLCONF_SCHEMA)
@@ -553,6 +564,7 @@ ACTION_COOLCONF_SCHEMA = maybe_simple_id(
 )
 
 
+@automation.register_action("tmc22xx.chopconf", ChopConfAction, ACTION_COOLCONF_SCHEMA)
 @automation.register_action("tmc2202.chopconf", ChopConfAction, ACTION_COOLCONF_SCHEMA)
 @automation.register_action("tmc2208.chopconf", ChopConfAction, ACTION_COOLCONF_SCHEMA)
 @automation.register_action("tmc2209.chopconf", ChopConfAction, ACTION_COOLCONF_SCHEMA)
@@ -602,6 +614,7 @@ ACTION_PWMCONF_SCHEMA = maybe_simple_id(
 )
 
 
+@automation.register_action("tmc22xx.pwmconf", PWMConfAction, ACTION_PWMCONF_SCHEMA)
 @automation.register_action("tmc2202.pwmconf", PWMConfAction, ACTION_PWMCONF_SCHEMA)
 @automation.register_action("tmc2208.pwmconf", PWMConfAction, ACTION_PWMCONF_SCHEMA)
 @automation.register_action("tmc2209.pwmconf", PWMConfAction, ACTION_PWMCONF_SCHEMA)
@@ -653,6 +666,7 @@ ACTION_SYNC_SCHEMA = cv.Schema(
 )
 
 
+@automation.register_action("tmc22xx.sync", SyncAction, ACTION_SYNC_SCHEMA)
 @automation.register_action("tmc2202.sync", SyncAction, ACTION_SYNC_SCHEMA)
 @automation.register_action("tmc2208.sync", SyncAction, ACTION_SYNC_SCHEMA)
 @automation.register_action("tmc2209.sync", SyncAction, ACTION_SYNC_SCHEMA)

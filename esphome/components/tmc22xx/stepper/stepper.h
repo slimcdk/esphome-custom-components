@@ -41,7 +41,6 @@ class TMC22XXStepper : public TMC22XXComponent, public Stepper {
   void enable(bool enable) override;
   // void enable(bool enable, bool recover_toff = true) override;
   void set_target(int32_t steps) override;
-  bool is_stalled() override;
 
   void set_control_method(ControlMethod method) { this->control_method_ = method; }
 
@@ -59,44 +58,6 @@ class TMC22XXStepper : public TMC22XXComponent, public Stepper {
   Direction direction_;
   /* */
 };
-
-/*
-class TMC2202Stepper : public TMC22XXStepper {
- public:
-  TMC2202Stepper() = default;
-  TMC2202Stepper(uint8_t address) : TMC22XXStepper(address){};
-};
-
-class TMC2208Stepper : public TMC22XXStepper {
- public:
-  TMC2208Stepper() = default;
-  TMC2208Stepper(uint8_t address) : TMC22XXStepper(address){};
-};
-
-class TMC2209Stepper : public TMC22XXStepper {
- public:
-  TMC2209Stepper() = default;
-  TMC2209Stepper(uint8_t address) : TMC22XXStepper(address){};
-};
-
-class TMC2224Stepper : public TMC22XXStepper {
- public:
-  TMC2224Stepper() = default;
-  TMC2224Stepper(uint8_t address) : TMC22XXStepper(address){};
-};
-
-class TMC2225Stepper : public TMC22XXStepper {
- public:
-  TMC2225Stepper() = default;
-  TMC2225Stepper(uint8_t address) : TMC22XXStepper(address){};
-};
-
-class TMC2226Stepper : public TMC22XXStepper {
- public:
-  TMC2226Stepper() = default;
-  TMC2226Stepper(uint8_t address) : TMC22XXStepper(address){};
-};
-*/
 
 }  // namespace tmc22xx
 }  // namespace esphome

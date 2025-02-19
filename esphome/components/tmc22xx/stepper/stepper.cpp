@@ -103,15 +103,5 @@ void TMC22XXStepper::enable(bool enable) {
   TMC22XXComponent::enable(enable);
 }
 
-bool TMC22XXStepper::is_stalled() {
-  if (this->current_direction == Direction::STANDSTILL) {
-    return false;
-  }
-
-  const int32_t sgthrs = this->read_register(SGTHRS);
-  const int32_t sgresult = this->read_register(SG_RESULT);
-  return (sgthrs << 1) > sgresult;
-}
-
 }  // namespace tmc22xx
 }  // namespace esphome

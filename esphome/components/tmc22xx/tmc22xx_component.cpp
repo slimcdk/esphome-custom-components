@@ -8,7 +8,13 @@ namespace tmc22xx {
 
 void TMC22XXComponent::setup() {
   ESP_LOGCONFIG(TAG, "Setting up TMC22XX Component...");
+  this->_io_setup();
+  this->_driver_setup();
+  this->_handlers_setup();
+  ESP_LOGCONFIG(TAG, "TMC22XX Component setup done.");
+}
 
+void TMC22XXComponent::_io_setup() {
   this->high_freq_.start();
 
   if (this->enn_pin_ != nullptr) {
@@ -22,6 +28,10 @@ void TMC22XXComponent::setup() {
   if (this->step_pin_ != nullptr and this->dir_pin_ != nullptr) {
     this->step_pin_->setup();
     this->dir_pin_->setup();
+
+    this->index_pin_->attach_interrupt(ISRPinTriggerStore::pin_isr, &this->index_isr_store_,
+                                       gpio::INTERRUPT_RISING_EDGE);
+    this->index_isr_store_.pin_triggered_ptr = &this->index_triggered_;
   }
 
   if (this->diag_pin_ != nullptr) {
@@ -29,7 +39,9 @@ void TMC22XXComponent::setup() {
     this->diag_pin_->attach_interrupt(ISRPinTriggerStore::pin_isr, &this->diag_isr_store_, gpio::INTERRUPT_RISING_EDGE);
     this->diag_isr_store_.pin_triggered_ptr = &this->diag_triggered_;
   }
+}
 
+void TMC22XXComponent::_driver_setup() {
   if (!this->read_field(VERSION_FIELD)) {
     this->status_set_error("Failed to communicate with driver");
     this->mark_failed();
@@ -58,17 +70,19 @@ void TMC22XXComponent::setup() {
       this->toff_storage_ = toff_;
     }
   }
+}
 
+void TMC22XXComponent::_handlers_setup() {
   this->diag_handler_.set_callbacks(  // DIAG
       [this]() {
         ESP_LOGV(TAG, "Executing DIAG rise event");
         // TODO: Handle Power-on reset ??
         const int32_t gstat = this->read_register(GSTAT);
-        this->check_gstat_ = (bool) gstat;
+        // this->check_gstat_ = (bool) gstat;
 
-        // this->stall_handler_.check(gstat == 0b000);
-        if (gstat == 0b000) {
-          this->on_stall_callback_.call();
+        if (this->stall_detection_is_enabled_) {
+          // issue must be stall if GSTAT doesn't hold any other errors
+          this->stall_handler_.check(gstat == 0b000);
         }
 
         this->reset_handler_.check((bool) this->extract_field(gstat, RESET_FIELD));
@@ -80,7 +94,7 @@ void TMC22XXComponent::setup() {
       [this]() {
         ESP_LOGV(TAG, "Executing DIAG fall event");
         const int32_t gstat = this->read_register(GSTAT);
-        this->check_gstat_ = (bool) gstat;
+        // this->check_gstat_ = (bool) gstat;
         this->reset_handler_.check((bool) this->extract_field(gstat, RESET_FIELD));
         this->drv_err_handler_.check((bool) this->extract_field(gstat, DRV_ERR_FIELD));
         this->uvcp_handler_.check((bool) this->extract_field(gstat, UV_CP_FIELD));
@@ -88,8 +102,6 @@ void TMC22XXComponent::setup() {
         this->on_driver_status_callback_.call(DIAG_TRIGGER_CLEARED);
       }  // fall
   );
-
-  this->stall_handler_.set_on_rise_callback([this]() { this->on_stall_callback_.call(); });
 
   this->reset_handler_.set_callbacks(  // gstat reset
       [this]() {                       // rise
@@ -223,7 +235,12 @@ void TMC22XXComponent::setup() {
         this->on_driver_status_callback_.call(GROUND_SHORT_B_CLEARED);
       });
 
-  ESP_LOGCONFIG(TAG, "TMC22XX Component setup done.");
+  if (this->stall_detection_is_enabled_) {
+    this->stall_handler_.set_on_rise_callback([this]() {
+      this->on_stall_callback_.call();
+      this->on_driver_status_callback_.call(STALLED);
+    });
+  }
 }
 
 void TMC22XXComponent::loop() {
@@ -241,16 +258,6 @@ void TMC22XXComponent::loop() {
   }
 }
 
-bool TMC22XXComponent::is_stalled() {
-  if ((bool) this->read_field(STST_FIELD)) {
-    return false;
-  }
-
-  const int32_t sgthrs = this->read_register(SGTHRS);
-  const int32_t sgresult = this->read_register(SG_RESULT);
-  return (sgthrs << 1) > sgresult;
-}
-
 uint16_t TMC22XXComponent::get_microsteps() { return MRES_TO_MS(this->read_field(MRES_FIELD)); }
 void TMC22XXComponent::set_microsteps(uint16_t ms) {
   for (uint8_t mres = 0; mres <= 8; mres++) {
@@ -260,11 +267,6 @@ void TMC22XXComponent::set_microsteps(uint16_t ms) {
   }
 
   ESP_LOGW(TAG, "%d is not a valid microstepping option", ms);
-}
-
-float TMC22XXComponent::get_motor_load() {
-  const int32_t result = this->read_register(SG_RESULT);
-  return (510.0 - (float) result) / (510.0 - (int32_t) this->read_register(SGTHRS) * 2.0);
 }
 
 float TMC22XXComponent::read_vsense() { return (this->read_field(VSENSE_FIELD) ? 0.180f : 0.325f); }
@@ -359,6 +361,11 @@ void TMC22XXComponent::enable(bool enable) {
   }
 
   this->is_enabled_ = enable;
+}
+
+float TMC22XXComponent::get_motor_load() {
+  const int32_t result = this->read_register(SG_RESULT);
+  return (510.0 - (float) result) / (510.0 - (int32_t) this->read_register(SGTHRS) * 2.0);
 }
 
 }  // namespace tmc22xx

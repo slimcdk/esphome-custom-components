@@ -17,6 +17,15 @@ namespace tmc22xx {
 
 #define MRES_TO_MS(mres) (256 >> mres)  // convert MRES value (microstepping index) to human readable microstep value
 
+enum DriverVariant {
+  TMC2202,
+  TMC2208,
+  TMC2209,
+  TMC2224,
+  TMC2225,
+  TMC2226,
+};
+
 enum CurrentScaleMode : bool {
   VREF = true,
   REGISTER = false,
@@ -65,10 +74,12 @@ class TMC22XXComponent : public TMC22XXAPI, public Component {
   bool check_gstat_{false};
   bool check_drv_status{false};
   bool diag_triggered_{false};
+  bool index_triggered_{false};
   optional<uint8_t> toff_storage_{};
   /** */
 
   ISRPinTriggerStore diag_isr_store_;
+  ISRPinTriggerStore index_isr_store_;
   HighFrequencyLoopRequester high_freq_;
 
   CallbackManager<void()> on_stall_callback_;
@@ -91,6 +102,10 @@ class TMC22XXComponent : public TMC22XXAPI, public Component {
   EventHandler s2gb_handler_;   // short to ground indicator phase B
   EventHandler s2ga_handler_;   // short to ground indicator phase A
   EventHandler uvcp_handler_;   // Charge pump undervoltage
+
+  void _io_setup();
+  void _driver_setup();
+  void _handlers_setup();
 
  public:
   TMC22XXComponent() = default;
@@ -116,9 +131,10 @@ class TMC22XXComponent : public TMC22XXAPI, public Component {
   void set_analog_current_scale(bool enable) { this->use_analog_current_scale_ = enable; }
   void set_vsense(bool vsense) { this->vsense_ = vsense; }
   void set_ottrim(uint8_t ottrim) { this->ottrim_ = ottrim; }
-  void set_enable_driver_health_check(bool enable) { this->driver_health_check_is_enabled_ = enable; }
   void set_enable_stall_detection(bool enable) { this->stall_detection_is_enabled_ = enable; }
+  void set_enable_driver_health_check(bool enable) { this->driver_health_check_is_enabled_ = enable; }
   void set_toff_recovery(bool enable) { this->toff_recovery_ = enable; }
+
   void add_on_stall_callback(std::function<void()> &&callback) { this->on_stall_callback_.add(std::move(callback)); }
   void add_on_driver_status_callback(std::function<void(DriverStatusEvent)> &&callback) {
     this->on_driver_status_callback_.add(std::move(callback));
@@ -130,8 +146,6 @@ class TMC22XXComponent : public TMC22XXAPI, public Component {
   float read_vsense();
   void set_microsteps(uint16_t ms);
   uint16_t get_microsteps();
-  float get_motor_load();
-  virtual bool is_stalled();
   void set_tpowerdown_ms(uint32_t delay_in_ms);
   uint32_t get_tpowerdown_ms();
   std::tuple<uint8_t, uint8_t> unpack_ottrim_values(uint8_t ottrim);
@@ -148,6 +162,7 @@ class TMC22XXComponent : public TMC22XXAPI, public Component {
   void write_hold_current(float A) { this->write_hold_current_mA(TO_MILLI(A)); };
   float read_run_current() { return FROM_MILLI(this->read_run_current_mA()); };
   float read_hold_current() { return FROM_MILLI(this->read_hold_current_mA()); };
+  float get_motor_load();
 
   // clock compensated velocity (VACTUAL)
   int32_t vactual_to_speed(int32_t vactual) { return std::round((float) vactual * this->clk_to_vactual_factor_); }
@@ -155,44 +170,6 @@ class TMC22XXComponent : public TMC22XXAPI, public Component {
   int32_t read_speed() { return this->vactual_to_speed((int32_t) this->read_field(VACTUAL_FIELD)); }
   void write_speed(int32_t speed) { this->write_field(VACTUAL_FIELD, this->speed_to_vactual(speed)); }
 };
-
-/*
-class TMC2202Component : public TMC22XXComponent {
- public:
-  TMC2202Component() = default;
-  TMC2202Component(uint8_t address) : TMC22XXComponent(address){};
-};
-
-class TMC2208Component : public TMC22XXComponent {
- public:
-  TMC2208Component() = default;
-  TMC2208Component(uint8_t address) : TMC22XXComponent(address){};
-};
-
-class TMC2209Component : public TMC22XXComponent {
- public:
-  TMC2209Component() = default;
-  TMC2209Component(uint8_t address) : TMC22XXComponent(address){};
-};
-
-class TMC2224Component : public TMC22XXComponent {
- public:
-  TMC2224Component() = default;
-  TMC2224Component(uint8_t address) : TMC22XXComponent(address){};
-};
-
-class TMC2225Component : public TMC22XXComponent {
- public:
-  TMC2225Component() = default;
-  TMC2225Component(uint8_t address) : TMC22XXComponent(address){};
-};
-
-class TMC2226Component : public TMC22XXComponent {
- public:
-  TMC2226Component() = default;
-  TMC2226Component(uint8_t address) : TMC22XXComponent(address){};
-};
-*/
 
 }  // namespace tmc22xx
 }  // namespace esphome

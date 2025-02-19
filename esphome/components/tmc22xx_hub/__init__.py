@@ -6,7 +6,6 @@ import esphome.config as c
 import esphome.config_validation as cv
 import esphome.final_validate as fv
 from esphome.components import uart
-from esphome.core.entity_helpers import inherit_property_from
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,9 +35,8 @@ CONFIG_SCHEMA = cv.All(
 )
 
 
-def _final_validate(config):
-
-    # find all tmc22xx components with reference to this hub
+def _validate_addresses(config):
+    """Validate conflicting addresses of all child drivers for this hub"""
     hub_id = config.get(CONF_ID)
     fc = fv.full_config.get()
     components = list(fc.get(CONF_STEPPER, [])) + list(fc.get(CONF_TMC22XX, []))
@@ -49,18 +47,21 @@ def _final_validate(config):
             using_select_pin = CONF_SELECT_PIN in c1 and CONF_SELECT_PIN in c2
             has_same_addr = c1.get(CONF_ADDRESS) == c2.get(CONF_ADDRESS)
             if not using_select_pin and has_same_addr:
-                _LOGGER.error(
+                _LOGGER.warning(
                     "TMC22XX `%s` and `%s` have conflicting addresses",
                     c1.get(CONF_ID),
                     c2.get(CONF_ID),
                 )
 
-    return uart.final_validate_device_schema(
+    return config
+
+
+FINAL_VALIDATE_SCHEMA = cv.All(
+    uart.final_validate_device_schema(
         CONF_TMC22XX_HUB, require_rx=True, require_tx=True
-    )(config)
-
-
-FINAL_VALIDATE_SCHEMA = _final_validate
+    ),
+    _validate_addresses,
+)
 
 
 async def to_code(config):
