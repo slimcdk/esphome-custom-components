@@ -13,9 +13,13 @@ from esphome.const import (
 )
 import esphome.codegen as cg
 import esphome.config_validation as cv
+import esphome.final_validate as fv
 from esphome.components import tmc22xx_hub
 from esphome import automation, pins
 from esphome.automation import maybe_simple_id
+from esphome.core.entity_helpers import inherit_property_from
+import esphome.final_validate as fv
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,6 +40,7 @@ VARIANT_TMC2226 = "tmc2226"
 CONF_ENN_PIN = "enn_pin"
 CONF_DIAG_PIN = "diag_pin"
 CONF_INDEX_PIN = "index_pin"
+CONF_SELECT_PIN = "select_pin"
 CONF_CLOCK_FREQUENCY = "clock_frequency"
 CONF_OTTRIM = "ottrim"
 CONF_VSENSE = "vsense"
@@ -153,6 +158,7 @@ TMC22XX_BASE_CONFIG_SCHEMA = tmc22xx_hub.TMC22XX_HUB_DEVICE_SCHEMA.extend(
             cv.Optional(CONF_INDEX_PIN): pins.internal_gpio_input_pin_schema,
             cv.Optional(CONF_STEP_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_DIR_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_SELECT_PIN): pins.gpio_output_pin_schema,
             cv.Optional(CONF_CLOCK_FREQUENCY, default=12_000_000): cv.All(
                 cv.positive_int, cv.frequency
             ),
@@ -269,6 +275,8 @@ async def register_tmc22xx_base(var, config):
         cg.add(var.set_step_pin(await cg.gpio_pin_expression(step_pin)))
     if (dir_pin := config.get(CONF_DIR_PIN, None)) is not None:
         cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
+    # if (sel_pin := config.get(CONF_SELECT_PIN, None)) is not None:
+    #     cg.add(var.set_sel_pin(await cg.gpio_pin_expression(sel_pin)))
 
     if (ottrim := config.get(CONF_OTTRIM, None)) is not None:
         cg.add(var.set_ottrim(ottrim))
