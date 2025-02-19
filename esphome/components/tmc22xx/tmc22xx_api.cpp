@@ -65,7 +65,7 @@ bool TMC22XXAPI::cache_(CacheOperation operation, uint8_t address, uint32_t *val
   return false;
 }
 
-void TMC22XXAPI::write_register(uint8_t address, int32_t value) {
+void TMC22XXAPI::write_register_(uint8_t address, int32_t value) {
   ESP_LOGVV(TAG, "writing address 0x%x with value 0x%x (%d)", address, value, value);
 
   std::array<uint8_t, 8> buffer = {0};
@@ -81,13 +81,13 @@ void TMC22XXAPI::write_register(uint8_t address, int32_t value) {
 
   // TODO: maybe do something with IFCNT for write verification
   this->parent_->write_array(buffer.data(), 8);
-  this->parent_->read_array(buffer.data(), 8);  // transmitting on one-wire fills up receiver
+  this->parent_->read_array(buffer.data(), 8);  // clear receive buffer as transmitting on one-wire fills it up
   this->parent_->flush();
 
   this->cache_(CACHE_WRITE, address, (uint32_t *) &value);
 }
 
-int32_t TMC22XXAPI::read_register(uint8_t address) {
+int32_t TMC22XXAPI::read_register_(uint8_t address) {
   ESP_LOGVV(TAG, "reading address 0x%x", address);
   uint32_t value;
 
@@ -132,10 +132,34 @@ uint32_t TMC22XXAPI::update_field(uint32_t data, RegisterField field, uint32_t v
   return (data & (~field.mask)) | ((value << field.shift) & field.mask);
 }
 
+void TMC22XXAPI::enable_comm_(bool enable) {
+  if (this->sel_pin_ != nullptr) {
+    // if (enable == true) {
+    //   delayMicroseconds(50);
+    // }
+    this->sel_pin_->digital_write(enable);
+  }
+}
+
+int32_t TMC22XXAPI::read_register(uint8_t address) {
+  this->enable_comm_(true);
+  int32_t reg_value = this->read_register_(address_);
+  this->enable_comm_(false);
+  return reg_value;
+}
+
+void TMC22XXAPI::write_register(uint8_t address, int32_t value) {
+  this->enable_comm_(true);
+  this->write_register_(address, value);
+  this->enable_comm_(false);
+}
+
 void TMC22XXAPI::write_field(RegisterField field, uint32_t value) {
-  uint32_t reg_value = this->read_register(field.address);
+  this->enable_comm_(true);
+  uint32_t reg_value = this->read_register_(field.address);
   reg_value = this->update_field(reg_value, field, value);
-  this->write_register(field.address, reg_value);
+  this->write_register_(field.address, reg_value);
+  this->enable_comm_(false);
 }
 
 uint32_t TMC22XXAPI::extract_field(uint32_t data, RegisterField field) {
@@ -151,8 +175,11 @@ uint32_t TMC22XXAPI::extract_field(uint32_t data, RegisterField field) {
 }
 
 uint32_t TMC22XXAPI::read_field(RegisterField field) {
-  uint32_t value = this->read_register(field.address);
-  return this->extract_field(value, field);
+  this->enable_comm_(true);
+  uint32_t reg_value = this->read_register_(field.address);
+  uint32_t field_value = this->extract_field(reg_value, field);
+  this->enable_comm_(false);
+  return field_value;
 }
 
 }  // namespace tmc22xx

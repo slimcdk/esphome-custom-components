@@ -18,14 +18,12 @@ MULTI_CONF = True
 CONF_TMC22XX_HUB = "tmc22xx_hub"
 CONF_TMC22XX_HUB_ID = "tmc22xx_hub_id"
 
-
 CONF_STEPPER = "stepper"
 CONF_TMC22XX = "tmc22xx"
 CONF_SELECT_PIN = "select_pin"
 
 tmc22xx_hub = cg.esphome_ns.namespace("tmc22xx_hub")
 TMC22XXHub = tmc22xx_hub.class_("TMC22XXHub", cg.Component, uart.UARTDevice)
-
 
 CONFIG_SCHEMA = cv.All(
     cv.Schema(

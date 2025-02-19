@@ -130,16 +130,22 @@ class TMC22XXAPI : public Parented<tmc22xx_hub::TMC22XXHub> {
   bool cache_(CacheOperation operation, uint8_t address, uint32_t *value);
   uint8_t crc8_(uint8_t *data, uint32_t bytes);
 
+  void enable_comm_(bool enable);
+  void write_register_(uint8_t address, int32_t value);
+  int32_t read_register_(uint8_t address);
+
  protected:
   uint8_t address_;
+  GPIOPin *sel_pin_{nullptr};
 
  public:
   TMC22XXAPI() = default;
   TMC22XXAPI(uint8_t address) : address_(address){};
 
   void set_address(uint8_t address) { this->address_ = address; }
-
+  void set_sel_pin(GPIOPin *pin) { this->sel_pin_ = pin; };
   uint8_t get_address() { return this->address_; }
+  GPIOPin *get_sel_pin() { return this->sel_pin_; }
 
   // Write or read a register (all fields) or register field (single field within register)
   void write_register(uint8_t address, int32_t value);

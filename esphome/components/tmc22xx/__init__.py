@@ -275,8 +275,8 @@ async def register_tmc22xx_base(var, config):
         cg.add(var.set_step_pin(await cg.gpio_pin_expression(step_pin)))
     if (dir_pin := config.get(CONF_DIR_PIN, None)) is not None:
         cg.add(var.set_dir_pin(await cg.gpio_pin_expression(dir_pin)))
-    # if (sel_pin := config.get(CONF_SELECT_PIN, None)) is not None:
-    #     cg.add(var.set_sel_pin(await cg.gpio_pin_expression(sel_pin)))
+    if (sel_pin := config.get(CONF_SELECT_PIN, None)) is not None:
+        cg.add(var.set_sel_pin(await cg.gpio_pin_expression(sel_pin)))
 
     if (ottrim := config.get(CONF_OTTRIM, None)) is not None:
         cg.add(var.set_ottrim(ottrim))
