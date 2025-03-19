@@ -205,15 +205,6 @@ namespace tmc2208 {
   ESP_LOGCONFIG(TAG, "  Clock frequency: %d Hz (VACTUAL factor: %f)", this->clk_freq_, this->clk_to_vactual_factor_); \
   const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(OTTRIM_FIELD)); \
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot); \
-  if (this->stall_detection_is_enabled_) { \
-    if (this->diag_pin_ != nullptr) { \
-      ESP_LOGCONFIG(TAG, "  Stall detection: DIAG interrupt raises flag"); \
-    } else { \
-      ESP_LOGCONFIG(TAG, "  Stall detection: poll driver for status"); \
-    } \
-  } else { \
-    ESP_LOGCONFIG(TAG, "  Stall detection: disabled"); \
-  } \
   ESP_LOGCONFIG(TAG, "  Status check: %s", (this->driver_health_check_is_enabled_ ? "enabled" : "disabled")); \
   LOG_TMC2208_CURRENTS(this); \
   if (this->config_dump_include_registers_) { \
@@ -357,15 +348,6 @@ namespace tmc2208 {
   ESP_LOGCONFIG(TAG, "  Clock frequency: %ld Hz (VACTUAL factor: %f)", this->clk_freq_, this->clk_to_vactual_factor_); \
   const auto [otpw, ot] = this->unpack_ottrim_values(this->read_field(OTTRIM_FIELD)); \
   ESP_LOGCONFIG(TAG, "  Overtemperature: prewarning = %dC | shutdown = %dC", otpw, ot); \
-  if (this->stall_detection_is_enabled_) { \
-    if (this->diag_pin_ != nullptr) { \
-      ESP_LOGCONFIG(TAG, "  Stall detection: DIAG interrupt raises flag"); \
-    } else { \
-      ESP_LOGCONFIG(TAG, "  Stall detection: poll driver for status"); \
-    } \
-  } else { \
-    ESP_LOGCONFIG(TAG, "  Stall detection: disabled"); \
-  } \
   ESP_LOGCONFIG(TAG, "  Status check: %s", (this->driver_health_check_is_enabled_ ? "enabled" : "disabled")); \
   LOG_TMC2208_CURRENTS(this); \
   if (this->config_dump_include_registers_) { \
