@@ -50,5 +50,10 @@ Direction Stepper::should_step_(time_t now = micros()) {
   return this->current_direction;
 }
 
+int32_t Stepper::should_step_() {
+  uint32_t now = micros();
+  return (int32_t) this->should_step_(now);
+}
+
 }  // namespace stepper
 }  // namespace esphome

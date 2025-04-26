@@ -45,6 +45,7 @@ class Stepper {
  protected:
   void calculate_speed_(time_t now);
   Direction should_step_(time_t now);
+  int32_t should_step_();
 
   float acceleration_{1e6f};
   float deceleration_{1e6f};
