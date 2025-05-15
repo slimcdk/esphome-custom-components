@@ -3,6 +3,7 @@ import logging
 from esphome.const import (
     CONF_ID,
     CONF_ADDRESS,
+    CONF_PLATFORM
 )
 import esphome.codegen as cg
 import esphome.config_validation as cv
@@ -16,6 +17,7 @@ CODEOWNERS = ["@slimcdk"]
 
 MULTI_CONF = True
 
+CONF_TMC2208 = "tmc2208"
 CONF_TMC2208_HUB = "tmc2208_hub"
 CONF_TMC2208_HUB_ID = "tmc2208_hub_id"
 
@@ -63,8 +65,12 @@ def final_validate(config):
     steppers_in_hub = [
         stepper
         for stepper in full_config.get(CONF_STEPPER, [])
-        if stepper[CONF_TMC2208_HUB_ID] == config[CONF_ID]
+        if stepper[CONF_PLATFORM] == CONF_TMC2208
+        and CONF_TMC2208_HUB_ID in stepper
+        and stepper[CONF_TMC2208_HUB_ID] == config[CONF_ID]
     ]
+
+
 
     for i, stepper in enumerate(steppers_in_hub):
         for j in range(i + 1, len(steppers_in_hub)):
