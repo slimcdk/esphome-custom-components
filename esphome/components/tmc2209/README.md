@@ -341,7 +341,7 @@ on_...:
 
 * `id` (**Required**, [ID][config-id]): Reference to the stepper tmc2209 component. Can be left out if only a single TMC2209 is configured.
 
-* `direction` (*Optional*, string, [templatable][config-templatable]): Effectively inverse the rotational direction. Options are `clockwise` or `counterclockwise` and their abbreviations `cw` or `cww`.
+* `direction` (*Optional*, string, [templatable][config-templatable]): Effectively inverse the rotational direction. Options are `clockwise` or `counterclockwise` and their abbreviations `cw` or `ccw`.
 
 * `microsteps` (*Optional*, int, [templatable][config-templatable]): Microstepping. Possible values are `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`.
 
