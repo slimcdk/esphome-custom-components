@@ -31,7 +31,7 @@ void TMC2208Component::setup() {
   }
 
   if (!this->read_field(VERSION_FIELD)) {
-    this->status_set_error("Failed to communicate with driver");
+    this->status_set_error(LOG_STR("Failed to communicate with driver"));
     this->mark_failed();
   }
 
