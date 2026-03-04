@@ -618,6 +618,7 @@ stepper:
 button:
   - platform: template
     name: Home
+    id: home
     on_press:
       - logger.log: "Going home!"
       - globals.set:
