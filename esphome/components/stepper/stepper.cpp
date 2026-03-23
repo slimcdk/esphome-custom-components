@@ -7,9 +7,9 @@ namespace stepper {
 
 static const char *const TAG = "stepper";
 
-void Stepper::calculate_speed_(time_t now = micros()) {
-  // delta t since last calculation in seconds
-  float dt = (now - this->last_calculation_) * 1e-6f;
+void Stepper::calculate_speed_(uint32_t now = micros()) {
+  // delta t since last calculation in seconds (uint32_t subtraction handles micros() rollover)
+  float dt = (uint32_t)(now - this->last_calculation_) * 1e-6f;
   this->last_calculation_ = now;
   if (this->has_reached_target()) {
     this->current_speed_ = 0.0f;
@@ -29,14 +29,13 @@ void Stepper::calculate_speed_(time_t now = micros()) {
   }
   this->current_speed_ = clamp(this->current_speed_, 0.0f, this->max_speed_);
 }
-Direction Stepper::should_step_(time_t now = micros()) {
+Direction Stepper::should_step_(uint32_t now = micros()) {
   this->calculate_speed_(now);
   if (this->current_speed_ == 0.0f) {
     this->current_direction = Direction::STANDSTILL;
     return this->current_direction;
   }
 
-  // assumes this method is called in a constant interval
   uint32_t dt = now - this->last_step_;
   if (dt >= (1 / this->current_speed_) * 1e6f) {
     const Direction dir_ = (this->target_position > this->current_position ? Direction::FORWARD : Direction::BACKWARD);
