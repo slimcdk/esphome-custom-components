@@ -210,8 +210,10 @@ def validate_tmc2209_base(config):
 async def tmc2209_enable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     await cg.register_parented(var, config[CONF_ID])
-    cg.add(var.set_activate(True))
-    cg.add(var.set_toff_recovery(config[CONF_RESTORE_TOFF]))
+    template_ = await cg.templatable(True, args, cg.bool_)
+    cg.add(var.set_activate(template_))
+    template_ = await cg.templatable(config[CONF_RESTORE_TOFF], args, cg.bool_)
+    cg.add(var.set_toff_recovery(template_))
     return var
 
 
@@ -228,8 +230,10 @@ async def tmc2209_enable_to_code(config, action_id, template_arg, args):
 async def tmc2209_disable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     await cg.register_parented(var, config[CONF_ID])
-    cg.add(var.set_activate(False))
-    cg.add(var.set_toff_recovery(config[CONF_RESTORE_TOFF]))
+    template_ = await cg.templatable(False, args, cg.bool_)
+    cg.add(var.set_activate(template_))
+    template_ = await cg.templatable(config[CONF_RESTORE_TOFF], args, cg.bool_)
+    cg.add(var.set_toff_recovery(template_))
     return var
 
 
@@ -263,7 +267,7 @@ async def tmc2209_configure_to_code(config, action_id, template_arg, args):
         cg.add(var.set_inverse_direction(template_))
 
     if (microsteps := config.get(CONF_MICROSTEPS, None)) is not None:
-        template_ = await cg.templatable(microsteps, args, cg.int16)
+        template_ = await cg.templatable(microsteps, args, cg.uint16)
         cg.add(var.set_microsteps(template_))
 
     if (interpolation := config.get(CONF_INTERPOLATION, None)) is not None:
