@@ -210,10 +210,10 @@ def validate_tmc2209_base(config):
 async def tmc2209_enable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     await cg.register_parented(var, config[CONF_ID])
-    template_ = await cg.templatable(True, args, cg.bool_)
-    cg.add(var.set_activate(template_))
-    template_ = await cg.templatable(config[CONF_RESTORE_TOFF], args, cg.bool_)
-    cg.add(var.set_toff_recovery(template_))
+    activate_ = await cg.templatable(True, args, cg.bool_)
+    cg.add(var.set_activate(activate_))
+    toff_recovery_ = await cg.templatable(config[CONF_RESTORE_TOFF], args, cg.bool_)
+    cg.add(var.set_toff_recovery(toff_recovery_))
     return var
 
 
@@ -230,10 +230,10 @@ async def tmc2209_enable_to_code(config, action_id, template_arg, args):
 async def tmc2209_disable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     await cg.register_parented(var, config[CONF_ID])
-    template_ = await cg.templatable(False, args, cg.bool_)
-    cg.add(var.set_activate(template_))
-    template_ = await cg.templatable(config[CONF_RESTORE_TOFF], args, cg.bool_)
-    cg.add(var.set_toff_recovery(template_))
+    activate_ = await cg.templatable(False, args, cg.bool_)
+    cg.add(var.set_activate(activate_))
+    toff_recovery_ = await cg.templatable(config[CONF_RESTORE_TOFF], args, cg.bool_)
+    cg.add(var.set_toff_recovery(toff_recovery_))
     return var
 
 
