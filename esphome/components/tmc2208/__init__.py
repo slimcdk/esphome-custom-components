@@ -188,12 +188,15 @@ def validate_tmc2208_base(config):
             cv.Optional(CONF_RESTORE_TOFF, default=True): cv.boolean,
         }
     ),
+    synchronous=True,
 )
 async def tmc2208_enable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     await cg.register_parented(var, config[CONF_ID])
-    cg.add(var.set_activate(True))
-    cg.add(var.set_toff_recovery(config[CONF_RESTORE_TOFF]))
+    activate_ = await cg.templatable(True, args, cg.bool_)
+    cg.add(var.set_activate(activate_))
+    toff_recovery_ = await cg.templatable(config[CONF_RESTORE_TOFF], args, cg.bool_)
+    cg.add(var.set_toff_recovery(toff_recovery_))
     return var
 
 
@@ -206,12 +209,15 @@ async def tmc2208_enable_to_code(config, action_id, template_arg, args):
             cv.Optional(CONF_RESTORE_TOFF, default=True): cv.boolean,
         }
     ),
+    synchronous=True,
 )
 async def tmc2208_disable_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
     await cg.register_parented(var, config[CONF_ID])
-    cg.add(var.set_activate(False))
-    cg.add(var.set_toff_recovery(config[CONF_RESTORE_TOFF]))
+    activate_ = await cg.templatable(False, args, cg.bool_)
+    cg.add(var.set_activate(activate_))
+    toff_recovery_ = await cg.templatable(config[CONF_RESTORE_TOFF], args, cg.bool_)
+    cg.add(var.set_toff_recovery(toff_recovery_))
     return var
 
 
@@ -232,6 +238,7 @@ async def tmc2208_disable_to_code(config, action_id, template_arg, args):
             ),
         }
     ),
+    synchronous=True,
 )
 async def tmc2208_configure_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
@@ -242,7 +249,8 @@ async def tmc2208_configure_to_code(config, action_id, template_arg, args):
         cg.add(var.set_inverse_direction(template_))
 
     if (microsteps := config.get(CONF_MICROSTEPS, None)) is not None:
-        template_ = await cg.templatable(microsteps, args, cg.int16)
+        # C++ field is TEMPLATABLE_VALUE(uint16_t, microsteps)
+        template_ = await cg.templatable(microsteps, args, cg.uint16)
         cg.add(var.set_microsteps(template_))
 
     if (interpolation := config.get(CONF_INTERPOLATION, None)) is not None:
@@ -285,6 +293,7 @@ async def tmc2208_configure_to_code(config, action_id, template_arg, args):
             cv.Optional(CONF_TPOWERDOWN): cv.templatable(cv.int_range(0, 255)),
         }
     ),
+    synchronous=True,
 )
 async def tmc2208_currents_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
@@ -338,6 +347,7 @@ async def tmc2208_currents_to_code(config, action_id, template_arg, args):
             ),
         }
     ),
+    synchronous=True,
 )
 async def tmc2208_chopconf_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
@@ -383,6 +393,7 @@ async def tmc2208_chopconf_to_code(config, action_id, template_arg, args):
             cv.Optional(CONF_PWM_AUTOSCALE): cv.templatable(cv.boolean),
         }
     ),
+    synchronous=True,
 )
 async def tmc2208_pwmconf_to_code(config, action_id, template_arg, args):
     var = cg.new_Pvariable(action_id, template_arg)
@@ -430,6 +441,7 @@ async def tmc2208_pwmconf_to_code(config, action_id, template_arg, args):
             ),
         }
     ),
+    synchronous=True,
 )
 async def tmc2208_sync_to_code(config, action_id, template_arg, args):
 
