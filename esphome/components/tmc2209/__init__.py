@@ -15,6 +15,7 @@ import esphome.config_validation as cv
 from esphome.components import tmc2209_hub
 from esphome import automation, pins
 from esphome.automation import maybe_simple_id
+from esphome.core import CORE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -354,6 +355,35 @@ async def tmc2209_currents_to_code(config, action_id, template_arg, args):
     return var
 
 
+def _tcool_threshold_configured_for(driver_id) -> bool:
+    """Scan the full validated config for a tmc2209.configure action that
+    sets tcool_threshold on the same driver as this stallguard action.
+
+    The TMC2209 only drives DIAG from StallGuard when the motor is faster
+    than the gating speed defined by TCOOLTHRS — so SGTHRS alone does
+    nothing if TCOOLTHRS stays 0. See issue #45.
+    """
+    target = str(driver_id)
+
+    def walk(node) -> bool:
+        if isinstance(node, list):
+            return any(walk(x) for x in node)
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if (
+                    k == "tmc2209.configure"
+                    and isinstance(v, dict)
+                    and CONF_TCOOL_THRESHOLD in v
+                    and str(v.get(CONF_ID)) == target
+                ):
+                    return True
+                if walk(v):
+                    return True
+        return False
+
+    return walk(CORE.config or {})
+
+
 @automation.register_action(
     "tmc2209.stallguard",
     StallGuardAction,
@@ -375,6 +405,17 @@ async def tmc2209_stallguard_to_code(config, action_id, template_arg, args):
         # C++ field is TEMPLATABLE_VALUE(int32_t, stallguard_threshold)
         template_ = await cg.templatable(sgthrs, args, cg.int32)
         cg.add(var.set_stallguard_threshold(template_))
+
+    if not _tcool_threshold_configured_for(config[CONF_ID]):
+        _LOGGER.warning(
+            "tmc2209.stallguard on '%s' sets SGTHRS but no tmc2209.configure "
+            "for the same driver sets `tcool_threshold`. The TMC2209 keeps "
+            "StallGuard gated OFF unless the motor's TSTEP is below TCOOLTHRS, "
+            "so DIAG will never rise from a stall. Add e.g. "
+            "`tmc2209.configure: { tcool_threshold: 400 }` to your on_boot. "
+            "(See issue #45.)",
+            config[CONF_ID],
+        )
 
     return var
 
