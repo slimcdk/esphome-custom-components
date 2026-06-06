@@ -1,0 +1,76 @@
+// Dev container for working on the custom components in this repo.
+// Base = the official ESPHome image (see Dockerfile), so the `esphome` CLI
+// matches exactly what users of github://slimcdk/esphome-custom-components
+// run. Bump/track ESPHome by editing the FROM tag in .devcontainer/Dockerfile.
+{
+  "name": "ESPHome Custom Components",
+  "build": { "dockerfile": "Dockerfile" },
+
+  // Idle instead of running the esphome dashboard, so VS Code can attach.
+  "overrideCommand": true,
+
+  // `esphome dashboard .` -> http://localhost:6052
+  "forwardPorts": [6052],
+  "portsAttributes": {
+    "6052": { "label": "ESPHome Dashboard", "onAutoForward": "notify" }
+  },
+
+  "mounts": [
+    // Map host SSH keys + config so git over SSH works (the repo uses
+    // git@github.com:... remotes). Container runs as root -> /root/.ssh.
+    "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind",
+
+    // Claude Code: global config + auth, plus the CLI itself bind-mounted
+    // from the host's native install (rather than installed in the image)
+    // so the container runs the host's exact version. The host launcher is
+    // a symlink to the versioned binary; Docker resolves it, mounting the
+    // binary onto /usr/local/bin (already on PATH).
+    "source=${localEnv:HOME}/.claude,target=/root/.claude,type=bind",
+    "source=${localEnv:HOME}/.claude.json,target=/root/.claude.json,type=bind",
+    "source=${localEnv:HOME}/.local/share/claude,target=/root/.local/share/claude,type=bind",
+    "source=${localEnv:HOME}/.local/bin/claude,target=/usr/local/bin/claude,type=bind",
+
+    // Gemini CLI: global config + auth, plus the host npm-global tree that
+    // holds the CLI. `gemini` is found via the PATH entry in remoteEnv below.
+    "source=${localEnv:HOME}/.gemini,target=/root/.gemini,type=bind",
+    "source=${localEnv:HOME}/.npm-global,target=/root/.npm-global,type=bind"
+  ],
+
+  // The container runs as root (the ESPHome base image has no non-root user).
+  // The Claude Code VS Code extension spawns `claude --dangerously-skip-permissions`,
+  // which Claude Code refuses under root unless it's told it's in a sandbox.
+  "containerEnv": {
+    "IS_SANDBOX": "1"
+  },
+
+  // Put the host's npm-global bin (bind-mounted above) on PATH so the
+  // `gemini` CLI resolves in terminals and for the VS Code extension host.
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:/root/.npm-global/bin"
+  },
+
+  "runArgs": [
+    // USB serial access for flashing, without full --privileged:
+    //   188 = USB-serial adapters (ttyUSB*)
+    //   166 = USB CDC ACM (ttyACM*, e.g. native-USB ESP32-S2/S3/C3)
+    // Binding /dev so devices that are (re)plugged after start are visible.
+    "--device-cgroup-rule=c 188:* rmw",
+    "--device-cgroup-rule=c 166:* rmw",
+    "-v", "/dev:/dev"
+  ],
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esphome.esphome-vscode",
+        "redhat.vscode-yaml",
+        "anthropic.claude-code",
+        "google.gemini-cli-vscode-ide-companion",
+        "google.geminicodeassist"
+      ],
+      "settings": {
+        "files.associations": { "*.yaml": "yaml" }
+      }
+    }
+  }
+}

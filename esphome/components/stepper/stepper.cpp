@@ -2,14 +2,13 @@
 #include "esphome/core/log.h"
 #include "esphome/core/hal.h"
 
-namespace esphome {
-namespace stepper {
+namespace esphome::stepper {
 
 static const char *const TAG = "stepper";
 
-void Stepper::calculate_speed_(time_t now = micros()) {
-  // delta t since last calculation in seconds
-  float dt = (now - this->last_calculation_) * 1e-6f;
+void Stepper::calculate_speed_(uint32_t now) {
+  // delta t since last calculation in seconds (uint32_t subtraction handles micros() rollover)
+  float dt = (uint32_t)(now - this->last_calculation_) * 1e-6f;
   this->last_calculation_ = now;
   if (this->has_reached_target()) {
     this->current_speed_ = 0.0f;
@@ -29,7 +28,7 @@ void Stepper::calculate_speed_(time_t now = micros()) {
   }
   this->current_speed_ = clamp(this->current_speed_, 0.0f, this->max_speed_);
 }
-Direction Stepper::should_step_(time_t now = micros()) {
+Direction Stepper::should_step_(uint32_t now) {
   this->calculate_speed_(now);
   if (this->current_speed_ == 0.0f) {
     this->current_direction = Direction::STANDSTILL;
@@ -55,5 +54,4 @@ int32_t Stepper::should_step_() {
   return (int32_t) this->should_step_(now);
 }
 
-}  // namespace stepper
-}  // namespace esphome
+}  // namespace esphome::stepper
