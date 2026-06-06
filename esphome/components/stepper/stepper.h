@@ -2,15 +2,15 @@
 
 #include "esphome/core/component.h"
 #include "esphome/core/automation.h"
-#include "esphome/components/stepper/stepper.h"
 
-namespace esphome {
-namespace stepper {
+namespace esphome::stepper {
 
 #define LOG_STEPPER(this) \
-  ESP_LOGCONFIG(TAG, "  Acceleration: %.0f steps/s^2", this->acceleration_); \
-  ESP_LOGCONFIG(TAG, "  Deceleration: %.0f steps/s^2", this->deceleration_); \
-  ESP_LOGCONFIG(TAG, "  Max Speed: %.0f steps/s", this->max_speed_);
+  ESP_LOGCONFIG(TAG, \
+                "  Acceleration: %.0f steps/s^2\n" \
+                "  Deceleration: %.0f steps/s^2\n" \
+                "  Max Speed: %.0f steps/s", \
+                this->acceleration_, this->deceleration_, this->max_speed_);
 
 enum Direction : int8_t {
   FORWARD = 1,
@@ -135,5 +135,4 @@ template<typename... Ts> class StopAction : public Action<Ts...> {
   Stepper *parent_;
 };
 
-}  // namespace stepper
-}  // namespace esphome
+}  // namespace esphome::stepper

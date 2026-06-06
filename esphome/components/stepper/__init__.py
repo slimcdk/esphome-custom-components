@@ -1,16 +1,16 @@
+from esphome import automation
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome import automation
 from esphome.const import (
     CONF_ACCELERATION,
     CONF_DECELERATION,
     CONF_ID,
     CONF_MAX_SPEED,
     CONF_POSITION,
-    CONF_TARGET,
     CONF_SPEED,
+    CONF_TARGET,
 )
-from esphome.core import CORE, coroutine_with_priority
+from esphome.core import CORE, CoroPriority, coroutine_with_priority
 
 IS_PLATFORM_COMPONENT = True
 
@@ -28,8 +28,7 @@ StopAction = stepper_ns.class_("StopAction", automation.Action)
 def validate_acceleration(value):
     value = cv.string(value)
     for suffix in ("steps/s^2", "steps/s*s", "steps/s/s", "steps/ss", "steps/(s*s)"):
-        if value.endswith(suffix):
-            value = value[: -len(suffix)]
+        value = value.removesuffix(suffix)
 
     if value == "inf":
         return 1e6
@@ -37,8 +36,9 @@ def validate_acceleration(value):
     try:
         value = float(value)
     except ValueError:
-        # pylint: disable=raise-missing-from
-        raise cv.Invalid(f"Expected acceleration as floating point number, got {value}")
+        raise cv.Invalid(
+            f"Expected acceleration as floating point number, got {value}"
+        ) from None
 
     if value <= 0:
         raise cv.Invalid("Acceleration must be larger than 0 steps/s^2!")
@@ -48,9 +48,8 @@ def validate_acceleration(value):
 
 def validate_speed(value):
     value = cv.string(value)
-    for suffix in ("steps/s", "steps/s"):
-        if value.endswith(suffix):
-            value = value[: -len(suffix)]
+    for suffix in ("steps/s",):
+        value = value.removesuffix(suffix)
 
     if value == "inf":
         return 1e6
@@ -58,8 +57,9 @@ def validate_speed(value):
     try:
         value = float(value)
     except ValueError:
-        # pylint: disable=raise-missing-from
-        raise cv.Invalid(f"Expected speed as floating point number, got {value}")
+        raise cv.Invalid(
+            f"Expected speed as floating point number, got {value}"
+        ) from None
 
     if value <= 0:
         raise cv.Invalid("Speed must be larger than 0 steps/s!")
@@ -94,7 +94,7 @@ async def register_stepper(var, config):
 @automation.register_action(
     "stepper.set_target",
     SetTargetAction,
-    automation.maybe_simple_id(
+    cv.Schema(
         {
             cv.Required(CONF_ID): cv.use_id(Stepper),
             cv.Required(CONF_TARGET): cv.templatable(cv.int_),
@@ -113,7 +113,7 @@ async def stepper_set_target_to_code(config, action_id, template_arg, args):
 @automation.register_action(
     "stepper.report_position",
     ReportPositionAction,
-    automation.maybe_simple_id(
+    cv.Schema(
         {
             cv.Required(CONF_ID): cv.use_id(Stepper),
             cv.Required(CONF_POSITION): cv.templatable(cv.int_),
@@ -132,7 +132,7 @@ async def stepper_report_position_to_code(config, action_id, template_arg, args)
 @automation.register_action(
     "stepper.set_speed",
     SetSpeedAction,
-    automation.maybe_simple_id(
+    cv.Schema(
         {
             cv.Required(CONF_ID): cv.use_id(Stepper),
             cv.Required(CONF_SPEED): cv.templatable(validate_speed),
@@ -151,7 +151,7 @@ async def stepper_set_speed_to_code(config, action_id, template_arg, args):
 @automation.register_action(
     "stepper.set_acceleration",
     SetAccelerationAction,
-    automation.maybe_simple_id(
+    cv.Schema(
         {
             cv.Required(CONF_ID): cv.use_id(Stepper),
             cv.Required(CONF_ACCELERATION): cv.templatable(validate_acceleration),
@@ -170,7 +170,7 @@ async def stepper_set_acceleration_to_code(config, action_id, template_arg, args
 @automation.register_action(
     "stepper.set_deceleration",
     SetDecelerationAction,
-    automation.maybe_simple_id(
+    cv.Schema(
         {
             cv.Required(CONF_ID): cv.use_id(Stepper),
             cv.Required(CONF_DECELERATION): cv.templatable(validate_acceleration),
@@ -198,6 +198,6 @@ async def stepper_stop_to_code(config, action_id, template_arg, args):
     return var
 
 
-@coroutine_with_priority(100.0)
+@coroutine_with_priority(CoroPriority.CORE)
 async def to_code(config):
     cg.add_global(stepper_ns.using)
