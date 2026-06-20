@@ -43,31 +43,32 @@ bool TMC2209API::get_dirty_bit_(uint8_t index) {
 }
 
 bool TMC2209API::cache_(CacheOperation operation, uint8_t address, uint32_t *value) {
-  if (operation == CACHE_READ) {
-    if (IS_READABLE(register_access_[address]))
-      return false;
+  switch (operation) {
+    case CACHE_READ:
+      if (IS_READABLE(register_access_[address]))
+        return false;
 
-    // Grab the value from the cache
-    *value = this->shadow_register_[address];
-    return true;
-  } else if (operation == CACHE_WRITE || operation == CACHE_FILL_DEFAULT) {
-    // Fill the cache
+      [[fallthrough]];
+    case CACHE_READ_UNCONDITIONAL:
+      // Grab the value from the cache
+      *value = this->shadow_register_[address];
+      return true;
 
-    // Write to the shadow register.
-    this->shadow_register_[address] = *value;
-    // For write operations, mark the register dirty
-    if (operation == CACHE_WRITE) {
+    case CACHE_WRITE:
+      // Mark the register dirty since we're about to write to it.
       this->set_dirty_bit_(address, true);
-    }
+      [[fallthrough]];
+    case CACHE_FILL_DEFAULT:
+      // Write to the shadow register.
+      this->shadow_register_[address] = *value;
+      return true;
 
-    return true;
+    default:
+      return false;
   }
-  return false;
 }
 
 void TMC2209API::write_register(uint8_t address, int32_t value) {
-  ESP_LOGVV(TAG, "writing address 0x%x with value 0x%x (%d)", address, value, value);
-
   std::array<uint8_t, 8> buffer = {0};
 
   buffer.at(0) = 0x05;
@@ -85,14 +86,16 @@ void TMC2209API::write_register(uint8_t address, int32_t value) {
   this->parent_->flush();
 
   this->cache_(CACHE_WRITE, address, (uint32_t *) &value);
+
+  ESP_LOGVV(TAG, "reg[0x%02x] W 0x%08x (%d)", address, value, value);
 }
 
-int32_t TMC2209API::read_register(uint8_t address) {
-  ESP_LOGVV(TAG, "reading address 0x%x", address);
+int32_t TMC2209API::read_register(uint8_t address, bool read_cache_only) {
   uint32_t value;
 
   // Read from cache for registers with write-only access
-  if (this->cache_(CACHE_READ, address, &value))
+  CacheOperation op = read_cache_only ? CACHE_READ_UNCONDITIONAL : CACHE_READ;
+  if (this->cache_(op, address, &value))
     return value;
 
   address = address & ADDRESS_MASK;
@@ -125,15 +128,17 @@ int32_t TMC2209API::read_register(uint8_t address) {
   if (buffer.at(7) != this->crc8_(buffer.data(), 7))
     return 0;
 
-  return encode_uint32(buffer.at(3), buffer.at(4), buffer.at(5), buffer.at(6));
+  uint32_t rv = encode_uint32(buffer.at(3), buffer.at(4), buffer.at(5), buffer.at(6));
+  ESP_LOGVV(TAG, "reg[0x%02x] R 0x%08x (%d)", address, rv, rv);
+  return rv;
 }
 
 uint32_t TMC2209API::update_field(uint32_t data, RegisterField field, uint32_t value) {
   return (data & (~field.mask)) | ((value << field.shift) & field.mask);
 }
 
-void TMC2209API::write_field(RegisterField field, uint32_t value) {
-  uint32_t reg_value = this->read_register(field.address);
+void TMC2209API::write_field(RegisterField field, uint32_t value, bool read_cache_only) {
+  uint32_t reg_value = this->read_register(field.address, read_cache_only);
   reg_value = this->update_field(reg_value, field, value);
   this->write_register(field.address, reg_value);
 }
@@ -150,8 +155,8 @@ uint32_t TMC2209API::extract_field(uint32_t data, RegisterField field) {
   return value;
 }
 
-uint32_t TMC2209API::read_field(RegisterField field) {
-  uint32_t value = this->read_register(field.address);
+uint32_t TMC2209API::read_field(RegisterField field, bool read_cache_only) {
+  uint32_t value = this->read_register(field.address, read_cache_only);
   return this->extract_field(value, field);
 }
 
