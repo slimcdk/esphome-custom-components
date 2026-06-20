@@ -26,7 +26,7 @@ void TMC2209Stepper::setup() {
     this->write_field(DEDGE_FIELD, true);
   }
 
-  if (this->control_method_ == ControlMethod::SERIAL_CONTROL) {
+  if (this->control_method_ == ControlMethod::SERIAL_CONTROL && this->index_pin_ != nullptr) {
     /* Configure INDEX for pulse feedback from the driver */
     // Check mux from figure 15.1 from datasheet rev1.09
     this->write_field(DEDGE_FIELD, false);
@@ -46,6 +46,21 @@ void TMC2209Stepper::on_shutdown() { this->stop(); }
 
 void TMC2209Stepper::loop() {
   TMC2209Component::loop();
+
+  if (this->control_method_ == ControlMethod::SERIAL_CONTROL && this->index_pin_ == nullptr) {
+    uint8_t mres = this->read_field(MRES_FIELD, /* read_cache_only= */ true);
+    uint16_t mscnt = this->read_register(MSCNT) >> mres;
+    int32_t step_diff = ((int32_t)mscnt) - ((int32_t)this->last_mscnt_);
+    if (step_diff * this->current_direction < 0) {
+      ESP_LOGVV(TAG, "wrapped around, current direction = %d", this->current_direction);
+      // Wrapped around. Add/subtract 1024 (the range of MSCNT), scaled down
+      // by the microstep resolution, to calculate the actual difference.
+      step_diff += ((1024 >> mres) * this->current_direction);
+    }
+    ESP_LOGVV(TAG, "MSCNT %hu -> %hu, calc delta = %d", this->last_mscnt_, mscnt, step_diff);
+    this->current_position += step_diff;
+    this->last_mscnt_ = mscnt;
+  }
 
   // Compute speed and direction
   const time_t now = micros();

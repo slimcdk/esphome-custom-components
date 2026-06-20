@@ -52,6 +52,7 @@ class TMC2209Stepper : public TMC2209Component, public Stepper {
   /** Serial control */
   IndexPulseStore ips_;  // index pulse store
   int32_t vactual_ = 0;
+  uint16_t last_mscnt_ = 0;
   /* */
 
   /** Pulses control */
