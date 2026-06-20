@@ -39,6 +39,9 @@ enum CacheOperation {
   // from write-only registers that have a value inside them on reset. When using this
   // operation, a restore will *not* rewrite that filled register!
   CACHE_FILL_DEFAULT,
+  // Special operation: read from the cache even if the register is readable.
+  // This can save a read transaction for values we know haven't changed.
+  CACHE_READ_UNCONDITIONAL,
 };
 
 static const uint8_t tmc_crc_table_poly7_reflected[256] = {
@@ -99,9 +102,9 @@ class TMC2209API : public Parented<TMC2209Hub> {
 
   // Write or read a register (all fields) or register field (single field within register)
   void write_register(uint8_t address, int32_t value);
-  int32_t read_register(uint8_t address);
-  void write_field(RegisterField field, uint32_t value);
-  uint32_t read_field(RegisterField field);
+  int32_t read_register(uint8_t address, bool read_cache_only = false);
+  void write_field(RegisterField field, uint32_t value, bool read_cache_only = false);
+  uint32_t read_field(RegisterField field, bool read_cache_only = false);
   uint32_t extract_field(uint32_t data, RegisterField field);
   uint32_t update_field(uint32_t data, RegisterField field, uint32_t value);
 
