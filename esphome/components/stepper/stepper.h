@@ -43,16 +43,20 @@ class Stepper {
   Direction current_direction{Direction::STANDSTILL};
 
  protected:
-  void calculate_speed_(time_t now);
-  Direction should_step_(time_t now);
+  void calculate_speed_(uint32_t now);
+  Direction should_step_(uint32_t now);
   int32_t should_step_();
 
   float acceleration_{1e6f};
   float deceleration_{1e6f};
   float current_speed_{0.0f};
   float max_speed_{1e6f};
-  time_t last_calculation_{0};
-  time_t last_step_{0};
+  // uint32_t (not time_t) so timing deltas of micros() are wrap-safe: micros()
+  // overflows every ~71.6 min, and unsigned subtraction wraps correctly whereas
+  // a signed/wider time_t delta goes negative across the wrap. Mirrors upstream
+  // esphome/components/stepper.
+  uint32_t last_calculation_{0};
+  uint32_t last_step_{0};
 };
 
 template<typename... Ts> class SetTargetAction : public Action<Ts...> {
