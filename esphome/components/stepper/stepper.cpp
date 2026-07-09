@@ -7,7 +7,7 @@ namespace stepper {
 
 static const char *const TAG = "stepper";
 
-void Stepper::calculate_speed_(time_t now = micros()) {
+void Stepper::calculate_speed_(uint32_t now = micros()) {
   // delta t since last calculation in seconds
   float dt = (now - this->last_calculation_) * 1e-6f;
   this->last_calculation_ = now;
@@ -29,7 +29,7 @@ void Stepper::calculate_speed_(time_t now = micros()) {
   }
   this->current_speed_ = clamp(this->current_speed_, 0.0f, this->max_speed_);
 }
-Direction Stepper::should_step_(time_t now = micros()) {
+Direction Stepper::should_step_(uint32_t now = micros()) {
   this->calculate_speed_(now);
   if (this->current_speed_ == 0.0f) {
     this->current_direction = Direction::STANDSTILL;
