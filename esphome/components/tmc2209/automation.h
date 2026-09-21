@@ -14,6 +14,7 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
   TEMPLATABLE_VALUE(ShaftDirection, inverse_direction)
   TEMPLATABLE_VALUE(uint16_t, microsteps)
   TEMPLATABLE_VALUE(bool, microstep_interpolation)
+  TEMPLATABLE_VALUE(uint16_t, index_divider)
   TEMPLATABLE_VALUE(bool, enable_spreadcycle)
   TEMPLATABLE_VALUE(uint32_t, tcool_threshold)
   TEMPLATABLE_VALUE(uint32_t, tpwm_threshold)
@@ -27,6 +28,9 @@ template<typename... Ts> class ConfigureAction : public Action<Ts...>, public Pa
 
     if (this->microstep_interpolation_.has_value())
       this->parent_->write_field(INTPOL_FIELD, this->microstep_interpolation_.value(x...));
+
+    if (this->index_divider_.has_value())
+      this->parent_->set_index_divider(this->index_divider_.value(x...));
 
     if (this->enable_spreadcycle_.has_value())
       this->parent_->write_field(EN_SPREADCYCLE_FIELD, this->enable_spreadcycle_.value(x...));

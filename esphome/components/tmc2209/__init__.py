@@ -41,6 +41,7 @@ CONF_ON_DRIVER_STATUS = "on_status"
 # used in actions
 CONF_MICROSTEPS = "microsteps"  # CHOPCONF.mres
 CONF_INTERPOLATION = "interpolation"  # CHOPCONF.intpol
+CONF_INDEX_DIVIDER = "index_divider"  # INDEX edges per ESPHome step (SERIAL_CONTROL)
 CONF_IRUN = "irun"
 CONF_RUN_CURRENT = "run_current"  # translates to IRUN
 CONF_IHOLD = "ihold"
@@ -244,6 +245,7 @@ async def tmc2209_disable_to_code(config, action_id, template_arg, args):
                 cv.one_of(256, 128, 64, 32, 16, 8, 4, 2, 1, int=True)
             ),
             cv.Optional(CONF_INTERPOLATION): cv.templatable(cv.boolean),
+            cv.Optional(CONF_INDEX_DIVIDER): cv.templatable(cv.int_range(min=1, max=256)),
             cv.Optional(CONF_ENABLE_SPREADCYCLE): cv.templatable(cv.boolean),
             cv.Optional(CONF_TCOOL_THRESHOLD): cv.templatable(
                 cv.int_range(min=0, max=2**20, max_included=False)
@@ -269,6 +271,10 @@ async def tmc2209_configure_to_code(config, action_id, template_arg, args):
     if (interpolation := config.get(CONF_INTERPOLATION, None)) is not None:
         template_ = await cg.templatable(interpolation, args, cg.bool_)
         cg.add(var.set_microstep_interpolation(template_))
+
+    if (index_divider := config.get(CONF_INDEX_DIVIDER, None)) is not None:
+        template_ = await cg.templatable(index_divider, args, cg.uint16)
+        cg.add(var.set_index_divider(template_))
 
     if (en_spreadcycle := config.get(CONF_ENABLE_SPREADCYCLE, None)) is not None:
         template_ = await cg.templatable(en_spreadcycle, args, cg.bool_)
