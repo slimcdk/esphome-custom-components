@@ -6,6 +6,7 @@ from esphome.components import stepper
 from .. import (
     CONF_TMC2209_ID,
     CONF_INDEX_PIN,
+    CONF_INDEX_DIVIDER,
     CONF_DIR_PIN,
     CONF_STEP_PIN,
     tmc2209_ns,
@@ -45,6 +46,7 @@ CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(CONF_ID): cv.declare_id(TMC2209Stepper),
+            cv.Optional(CONF_INDEX_DIVIDER, default=1): cv.int_range(min=1, max=256),
         }
     ).extend(TMC2209_BASE_CONFIG_SCHEMA, stepper.STEPPER_SCHEMA),
     cv.has_none_or_all_keys(CONF_STEP_PIN, CONF_DIR_PIN),
@@ -58,6 +60,8 @@ async def to_code(config):
 
     await register_tmc2209_base(var, config)
     await stepper.register_stepper(var, config)
+
+    cg.add(var.set_index_divider(config[CONF_INDEX_DIVIDER]))
 
     has_index_pin = CONF_INDEX_PIN in config
     has_stepdir_pins = CONF_STEP_PIN in config and CONF_DIR_PIN in config

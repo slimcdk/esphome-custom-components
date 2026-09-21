@@ -209,6 +209,7 @@ stepper:
     enn_pin: REPLACEME
     diag_pin: REPLACEME
     index_pin: REPLACEME
+    index_divider: 1
     # step_pin: REPLACEME
     # dir_pin: REPLACEME
 ```
@@ -224,6 +225,8 @@ stepper:
 * `diag_pin` (*Optional*, [Input Pin Schema][config-pin]): Error signaling from the driver.
 
 * `index_pin` (*Optional*, [Input Pin Schema][config-pin]): Serves as stepping feedback from the internal step pulse generator (not serving any purpose if `step_pin` and `dir_pin` is configured).
+
+* `index_divider` (*Optional*, int): Number of INDEX edges per ESPHome step for `SERIAL_CONTROL` position feedback. Default is `1` (microsteps=1 behaviour). With higher microsteps and/or interpolation the driver emits multiple INDEX edges per MRES step (e.g. microsteps=8 with interpolation to 256 needs `32`), without it `current_position` overcounts and the axis hunts/drifts. Calibrate by commanding a known number of steps and adjusting so reported position matches.
 
 * `step_pin` (*Optional*, [Output Pin Schema][config-pin]): Provides stepping pulses to the driver.
 
@@ -334,6 +337,7 @@ on_...:
       direction: REPLACEME
       microsteps: REPLACME
       interpolation: REPLACEME
+      index_divider: REPLACEME
       enable_spreadcycle: REPLACEME
       tcool_threshold: REPLACEME
       tpwm_threshold: REPLACEME
@@ -346,6 +350,8 @@ on_...:
 * `microsteps` (*Optional*, int, [templatable][config-templatable]): Microstepping. Possible values are `1`, `2`, `4`, `8`, `16`, `32`, `64`, `128`, `256`.
 
 * `interpolation` (*Optional*, bool, [templatable][config-templatable]): The actual microstep resolution (MRES) becomes extrapolated to 256 microsteps for the smoothest motor operation.
+
+* `index_divider` (*Optional*, int, [templatable][config-templatable]): See `index_divider` in stepper configuration. Set together with `microsteps`/`interpolation` when using `SERIAL_CONTROL`.
 
 * `enable_spreadcycle` (*Optional*, bool, [templatable][config-templatable]): `True` completely disables StealthChop and only uses SpreadCycle, `False` allows use of StealthChop. Defaults to OTP.
 

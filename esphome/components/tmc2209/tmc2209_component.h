@@ -74,8 +74,11 @@ class TMC2209Component : public TMC2209API, public Component {
     this->on_driver_status_callback_.add(std::move(callback));
   }
 
-  // virtual void enable(bool enable, bool recover_toff = true);
   virtual void enable(bool enable);
+
+  // INDEX edge divider for SERIAL_CONTROL position feedback. Base is no-op,
+  // TMC2209Stepper overrides to divide INDEX_STEP edges into ESPHome steps.
+  virtual void set_index_divider(uint16_t divider) { (void) divider; }
 
   float read_vsense();
   void set_microsteps(uint16_t ms);
